@@ -4,82 +4,349 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 240 5.9% 10%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 240 10% 3.9%;
     --radius: 0.5rem;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --font-display: "Inter", system-ui, sans-serif;
+
+    /* x.ai-inspired: pure black, monochrome */
+    --background: oklch(0 0 0);
+    --foreground: oklch(0.98 0 0);
+    --card: oklch(0.06 0 0);
+    --card-foreground: oklch(0.98 0 0);
+    --popover: oklch(0.06 0 0);
+    --popover-foreground: oklch(0.98 0 0);
+    --primary: oklch(0.98 0 0);
+    --primary-foreground: oklch(0 0 0);
+    --primary-glow: oklch(0.85 0 0);
+    --secondary: oklch(0.12 0 0);
+    --secondary-foreground: oklch(0.98 0 0);
+    --muted: oklch(0.12 0 0);
+    --muted-foreground: oklch(0.6 0 0);
+    --accent: oklch(0.14 0 0);
+    --accent-foreground: oklch(0.98 0 0);
+    --destructive: oklch(0.6 0.22 25);
+    --destructive-foreground: oklch(0.98 0 0);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 10%);
+    --ring: oklch(0.98 0 0);
+    --chart-1: oklch(0.62 0.22 264);
+    --chart-2: oklch(0.55 0.24 300);
+    --chart-3: oklch(0.7 0.17 162);
+    --chart-4: oklch(0.77 0.19 70);
+    --chart-5: oklch(0.65 0.25 16);
+    --sidebar: oklch(0.04 0 0);
+    --sidebar-foreground: oklch(0.9 0 0);
+    --sidebar-primary: oklch(0.98 0 0);
+    --sidebar-primary-foreground: oklch(0 0 0);
+    --sidebar-accent: oklch(0.12 0 0);
+    --sidebar-accent-foreground: oklch(0.98 0 0);
+    --sidebar-border: oklch(1 0 0 / 8%);
+    --sidebar-ring: oklch(0.98 0 0);
   }
 
-  .dark {
-    --background: 240 10% 10%;
-    --foreground: 240 5% 95%;
-    --card: 240 9% 12%;
-    --card-foreground: 240 5% 95%;
-    --popover: 240 8% 11%;
-    --popover-foreground: 240 5% 95%;
-    --primary: 240 33% 80%;
-    --primary-foreground: 240 10% 10%;
-    --secondary: 240 5% 25%;
-    --secondary-foreground: 240 5% 95%;
-    --muted: 240 5% 15%;
-    --muted-foreground: 240 5% 65%;
-    --accent: 202 70% 50%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 63% 31%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 5% 20%;
-    --input: 240 5% 20%;
-    --ring: 202 70% 50%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
-    --sidebar-background: 240 10% 10%;
-    --sidebar-foreground: 240 5% 95%;
-    --sidebar-primary: 240 33% 80%;
-    --sidebar-primary-foreground: 240 10% 10%;
-    --sidebar-accent: 240 5% 15%;
-    --sidebar-accent-foreground: 240 5% 95%;
-    --sidebar-border: 240 5% 20%;
-    --sidebar-ring: 202 70% 50%;
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: "Inter", system-ui, -apple-system, sans-serif;
+    font-feature-settings: "ss01", "cv11";
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, h4 {
+    letter-spacing: -0.04em;
   }
 }
 
-@layer base {
-  * {
-    @apply border-border;
+@layer utilities {
+  .glass {
+    background: oklch(1 0 0 / 5%);
+    backdrop-filter: blur(12px);
+    border: 1px solid oklch(1 0 0 / 8%);
   }
-  body {
-    @apply bg-background text-foreground;
+
+  .gradient-text {
+    background: linear-gradient(180deg, oklch(0.98 0 0), oklch(0.55 0 0));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
+
+  .gradient-btn {
+    background: oklch(0.98 0 0);
+    color: oklch(0 0 0);
+  }
+
+  .glow {
+    box-shadow: 0 0 80px -20px oklch(1 0 0 / 25%);
+  }
+
+  .grid-bg {
+    background-image:
+      linear-gradient(oklch(1 0 0 / 4%) 1px, transparent 1px),
+      linear-gradient(90deg, oklch(1 0 0 / 4%) 1px, transparent 1px);
+    background-size: 80px 80px;
+    mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
+  }
+
+  .noise {
+    background-image: radial-gradient(oklch(1 0 0 / 6%) 1px, transparent 1px);
+    background-size: 4px 4px;
+  }
+
+  /* Grok-style aurora */
+  .aurora-blob {
+    position: absolute;
+    border-radius: 9999px;
+    filter: blur(80px);
+    opacity: 0.55;
+    mix-blend-mode: screen;
+    will-change: transform;
+  }
+  .aurora-blob-1 {
+    top: -10%;
+    left: 10%;
+    width: 55vw;
+    height: 55vw;
+    background: conic-gradient(from 90deg at 50% 50%, oklch(0.55 0.22 264), oklch(0.45 0.25 300), oklch(0.55 0.22 264));
+    animation: aurora-drift-1 22s ease-in-out infinite alternate;
+  }
+  .aurora-blob-2 {
+    top: 20%;
+    right: -5%;
+    width: 45vw;
+    height: 45vw;
+    background: conic-gradient(from 0deg at 50% 50%, oklch(0.5 0.22 200), oklch(0.55 0.24 280), oklch(0.5 0.22 200));
+    animation: aurora-drift-2 28s ease-in-out infinite alternate;
+  }
+  .aurora-blob-3 {
+    bottom: -15%;
+    left: 25%;
+    width: 50vw;
+    height: 50vw;
+    background: conic-gradient(from 180deg at 50% 50%, oklch(0.45 0.2 320), oklch(0.5 0.22 220), oklch(0.45 0.2 320));
+    animation: aurora-drift-3 26s ease-in-out infinite alternate;
+  }
+
+  @keyframes aurora-drift-1 {
+    0%   { transform: translate(0, 0) rotate(0deg) scale(1); }
+    100% { transform: translate(8vw, 6vh) rotate(120deg) scale(1.15); }
+  }
+  @keyframes aurora-drift-2 {
+    0%   { transform: translate(0, 0) rotate(0deg) scale(1.1); }
+    100% { transform: translate(-10vw, 8vh) rotate(-90deg) scale(1); }
+  }
+  @keyframes aurora-drift-3 {
+    0%   { transform: translate(0, 0) rotate(0deg) scale(1); }
+    100% { transform: translate(6vw, -8vh) rotate(140deg) scale(1.2); }
+  }
+
+  /* Grok-style hero wordmark — animated glow + light sweep through letters */
+  .hero-wordmark {
+    background: linear-gradient(
+      180deg,
+      oklch(0.98 0 0) 0%,
+      oklch(0.85 0 0) 45%,
+      oklch(0.35 0 0) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    position: relative;
+    z-index: 1;
+    animation: hero-wordmark-glow 6s ease-in-out infinite alternate;
+    will-change: filter, text-shadow;
+  }
+
+  /* Static, cheap wordmark for mobile / reduced-motion */
+  .hero-wordmark-static {
+    background: linear-gradient(
+      180deg,
+      oklch(0.98 0 0) 0%,
+      oklch(0.7 0 0) 60%,
+      oklch(0.4 0 0) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    position: relative;
+    z-index: 1;
+  }
+
+  @keyframes hero-wordmark-glow {
+    0% {
+      text-shadow: 0 0 60px oklch(0.6 0.18 264 / 0.3);
+      filter: drop-shadow(0 0 30px oklch(0.55 0.22 264 / 0.25));
+    }
+    100% {
+      text-shadow: 0 0 120px oklch(0.75 0.22 280 / 0.55);
+      filter: drop-shadow(0 0 60px oklch(0.7 0.25 290 / 0.5));
+    }
+  }
+
+  /* Wide ambient beam */
+  .hero-beam {
+    position: absolute;
+    top: 50%;
+    left: -10%;
+    width: 120%;
+    height: 80vh;
+    transform: translateY(-50%);
+    background: radial-gradient(
+      ellipse 55% 45% at 80% 50%,
+      oklch(0.95 0.08 250 / 0.55) 0%,
+      oklch(0.7 0.22 270 / 0.4) 25%,
+      transparent 70%
+    );
+    filter: blur(70px);
+    mix-blend-mode: screen;
+    pointer-events: none;
+    z-index: 0;
+    animation: hero-beam-sweep 14s ease-in-out infinite alternate;
+    will-change: transform, opacity;
+  }
+
+  /* Bright horizontal core beam */
+  .hero-beam-core {
+    position: absolute;
+    top: 50%;
+    left: 20%;
+    width: 80%;
+    height: 35vh;
+    transform: translateY(-50%);
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      oklch(1 0 0 / 0.55) 55%,
+      oklch(0.85 0.18 270 / 0.7) 75%,
+      oklch(0.7 0.22 290 / 0.5) 90%,
+      transparent 100%
+    );
+    filter: blur(45px);
+    mix-blend-mode: screen;
+    pointer-events: none;
+    z-index: 0;
+    animation: hero-beam-core 10s ease-in-out infinite alternate;
+    will-change: transform, opacity;
+  }
+
+  /* Sharp light streak — high-contrast Grok-style highlight */
+  .hero-beam-streak {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 100%;
+    height: 4vh;
+    transform: translateY(-50%);
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      transparent 35%,
+      oklch(1 0 0 / 0.9) 65%,
+      oklch(0.95 0.1 270 / 0.8) 78%,
+      transparent 95%
+    );
+    filter: blur(8px);
+    mix-blend-mode: screen;
+    pointer-events: none;
+    z-index: 2;
+    animation: hero-streak 9s ease-in-out infinite alternate;
+    will-change: transform, opacity;
+  }
+
+  @keyframes hero-beam-sweep {
+    0%   { transform: translate(-10%, -50%) scale(1) rotate(-2deg); opacity: 0.65; }
+    100% { transform: translate(8%, -50%) scale(1.12) rotate(2deg); opacity: 1; }
+  }
+  @keyframes hero-beam-core {
+    0%   { transform: translate(-12%, -50%); opacity: 0.55; }
+    100% { transform: translate(10%, -50%); opacity: 1; }
+  }
+  @keyframes hero-streak {
+    0%   { transform: translate(-15%, -50%) scaleX(0.8); opacity: 0.5; }
+    50%  { opacity: 1; }
+    100% { transform: translate(12%, -50%) scaleX(1.1); opacity: 0.7; }
+  }
+}
+
+/* Accessibility & low-power: kill heavy animations + blurs */
+@media (prefers-reduced-motion: reduce) {
+  .aurora-blob,
+  .hero-beam,
+  .hero-beam-core,
+  .hero-beam-streak,
+  .hero-wordmark {
+    animation: none !important;
+  }
+  .aurora-blob {
+    filter: blur(40px);
+    opacity: 0.3;
+  }
+  .hero-wordmark {
+    filter: none;
+    text-shadow: none;
+  }
+}
+
+/* Mobile: skip expensive blur filters even if JS guard misses */
+@media (max-width: 640px) {
+  .hero-beam,
+  .hero-beam-core,
+  .hero-beam-streak {
+    display: none;
+  }
+  .hero-wordmark {
+    animation: none;
+    filter: none;
+    text-shadow: none;
+  }
+}
+
+/* ============================================================
+   Theme variants — toggled via .theme-neon / .theme-monochrome
+   on <html>. Neon = default colorful Grok-style.
+   Monochrome = pure black & white, no purple/blue tints.
+   ============================================================ */
+.theme-monochrome .aurora-blob-1,
+.theme-monochrome .aurora-blob-2,
+.theme-monochrome .aurora-blob-3 {
+  background: radial-gradient(circle at 50% 50%, oklch(0.7 0 0), oklch(0.25 0 0));
+  opacity: 0.25;
+}
+.theme-monochrome .hero-beam {
+  background: radial-gradient(
+    ellipse 55% 45% at 80% 50%,
+    oklch(1 0 0 / 0.45) 0%,
+    oklch(0.7 0 0 / 0.3) 25%,
+    transparent 70%
+  );
+}
+.theme-monochrome .hero-beam-core {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    oklch(1 0 0 / 0.55) 55%,
+    oklch(0.85 0 0 / 0.7) 75%,
+    oklch(0.6 0 0 / 0.4) 90%,
+    transparent 100%
+  );
+}
+.theme-monochrome .hero-beam-streak {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    transparent 35%,
+    oklch(1 0 0 / 0.9) 65%,
+    oklch(0.85 0 0 / 0.75) 78%,
+    transparent 95%
+  );
+}
+.theme-monochrome .hero-wordmark {
+  animation: none;
+  text-shadow: 0 0 60px oklch(1 0 0 / 0.2);
+  filter: drop-shadow(0 0 30px oklch(1 0 0 / 0.15));
 }
