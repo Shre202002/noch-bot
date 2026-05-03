@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 /**
  * @fileOverview A global scale feature section for NOCTA.
  * Showcases the platform's reach using an interactive 3D globe.
- * Optimized for a "half-globe" aesthetic with a 55/45 layout split.
+ * Optimized for a "half-globe" aesthetic with a 60/40 layout split.
  */
 
 interface Featured_05Props {
@@ -22,8 +22,8 @@ export default function Featured_05({ onJoinClick }: Featured_05Props) {
       <div className="mx-auto max-w-[1200px] px-6">
         <div className="flex flex-col lg:flex-row lg:items-center gap-12 lg:gap-0">
 
-          {/* TEXT — 55% on desktop */}
-          <div className="z-10 w-full lg:w-[55%] lg:pr-12 text-left">
+          {/* TEXT — 60% on desktop */}
+          <div className="z-10 w-full lg:w-[60%] lg:pr-20 text-left">
             <p className="text-[11px] uppercase tracking-[0.2em] text-white/40 mb-6">
               Scale Globally
             </p>
@@ -42,9 +42,9 @@ export default function Featured_05({ onJoinClick }: Featured_05Props) {
             </Button>
           </div>
 
-          {/* GLOBE — 45% on desktop, overflows right ~20% */}
-          <div className="relative hidden lg:block lg:w-[45%] h-[600px] flex-shrink-0">
-            <Globe className="absolute top-1/2 -translate-y-1/2 -right-[20%] w-[700px] h-[700px]" />
+          {/* GLOBE — 40% desktop column, globe overflows right by ~35% */}
+          <div className="relative hidden lg:block lg:w-[40%] h-[600px] flex-shrink-0 overflow-visible">
+            <Globe className="absolute top-1/2 -translate-y-1/2 -right-[35%] w-[750px] h-[750px]" />
           </div>
 
           {/* GLOBE — mobile, centered and clipped */}
@@ -55,8 +55,8 @@ export default function Featured_05({ onJoinClick }: Featured_05Props) {
         </div>
       </div>
 
-      {/* Right edge fade — makes globe crop feel intentional */}
-      <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-[#0d1117] to-transparent z-10 pointer-events-none hidden lg:block" />
+      {/* Right edge fade — makes globe crop feel intentional and smooth */}
+      <div className="absolute right-0 top-0 bottom-0 w-48 bg-gradient-to-l from-[#0d1117] to-transparent z-10 pointer-events-none hidden lg:block" />
 
       {/* Background grid */}
       <div className="absolute inset-0 -z-10 opacity-[0.03] grid-bg" />
