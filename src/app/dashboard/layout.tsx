@@ -1,23 +1,37 @@
-import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/AppSidebar";
+import { NoctaDashboard } from "@/components/ui/dashboard-with-collapsible-sidebar";
+import { getUserIdFromCookie } from "@/lib/auth";
+import { findAccountById } from "@/lib/storage";
+import { redirect } from "next/navigation";
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const userId = await getUserIdFromCookie();
+  
+  if (!userId) {
+    redirect("/");
+  }
+
+  const user = await findAccountById(userId);
+  
+  if (!user) {
+    redirect("/");
+  }
+
+  // We omit password hashes for security
+  const safeUser = {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    plan: user.plan,
+    avatar: user.avatar
+  };
+
   return (
-    <SidebarProvider>
-      <AppSidebar />
-      <SidebarInset>
-        <header className="p-4 flex items-center gap-4 border-b">
-          <SidebarTrigger />
-          <h1 className="text-xl font-semibold tracking-tight">Dashboard</h1>
-        </header>
-        <main className="p-4">
-           {children}
-        </main>
-      </SidebarInset>
-    </SidebarProvider>
+    <NoctaDashboard user={safeUser}>
+      {children}
+    </NoctaDashboard>
   );
 }
