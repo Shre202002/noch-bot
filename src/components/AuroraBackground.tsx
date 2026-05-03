@@ -1,37 +1,45 @@
-"use client";
+'use client';
 
-import { useReducedMotion } from "@/hooks/use-reduced-motion";
+interface AuroraProps {
+  reduced?: boolean;
+}
 
-/**
- * Grok-style animated aurora background.
- * Disables drift animations & heavy blur when prefers-reduced-motion
- * is set or the device looks low-power. Falls back to a static gradient.
- */
-export function AuroraBackground() {
-  const reduced = useReducedMotion();
+export function AuroraBackground({ reduced }: AuroraProps) {
+  if (reduced) {
+    return (
+      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden bg-[#080b10]">
+        <div className="absolute inset-0 opacity-60 bg-[radial-gradient(ellipse_at_70%_40%,rgba(99,82,244,0.15),transparent_70%)]" />
+        <div className="absolute inset-0 grid-bg" />
+      </div>
+    );
+  }
 
   return (
-    <div
-      className="pointer-events-none absolute inset-0 -z-10 overflow-hidden bg-background"
-      aria-hidden="true"
-    >
+    <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden bg-[#080b10]">
       {/* Base radial vignette */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,oklch(0_0_0)_75%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,#080b10_80%)]" />
 
-      {reduced ? (
-        // Lightweight static fallback — no blur filter, no animation
-        <div className="absolute inset-0 opacity-60 bg-[radial-gradient(ellipse_60%_50%_at_70%_40%,oklch(0.45_0.22_270/0.55),transparent_70%),radial-gradient(ellipse_50%_40%_at_30%_60%,oklch(0.4_0.2_220/0.45),transparent_70%)]" />
-      ) : (
-        <>
-          <div className="aurora-blob aurora-blob-1" />
-          <div className="aurora-blob aurora-blob-2" />
-          <div className="aurora-blob aurora-blob-3" />
-          <div className="absolute inset-0 opacity-[0.15] mix-blend-overlay noise" />
-        </>
-      )}
+      {/* Animated Blobs */}
+      <div 
+        className="aurora-blob absolute top-[-10%] left-[-5%] w-[600px] h-[500px] rounded-full bg-[radial-gradient(ellipse,rgba(99,82,244,0.35),transparent_70%)] filter blur-[90px] animate-drift" 
+      />
+      <div 
+        className="aurora-blob absolute top-[10%] right-[-5%] w-[500px] h-[400px] rounded-full bg-[radial-gradient(ellipse,rgba(139,92,246,0.25),transparent_70%)] filter blur-[90px] animate-drift"
+        style={{ animationDelay: '-4s' }}
+      />
+      <div 
+        className="aurora-blob absolute bottom-[10%] left-[5%] w-[400px] h-[350px] rounded-full bg-[radial-gradient(ellipse,rgba(59,130,246,0.18),transparent_70%)] filter blur-[90px] animate-drift"
+        style={{ animationDelay: '-8s' }}
+      />
 
-      {/* Bottom fade into black */}
-      <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-b from-transparent to-background" />
+      {/* Grid Overlay */}
+      <div className="absolute inset-0 grid-bg opacity-100" />
+      
+      {/* Noise Overlay */}
+      <div className="absolute inset-0 opacity-[0.03] mix-blend-overlay bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
+
+      {/* Bottom fade */}
+      <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-b from-transparent to-[#080b10]" />
     </div>
   );
 }

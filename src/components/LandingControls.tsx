@@ -1,20 +1,10 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { Settings, Sparkles, Palette, Zap } from "lucide-react";
-import { useMotion, type MotionPref } from "@/hooks/use-reduced-motion";
-import { useTheme, type Theme } from "@/hooks/use-theme";
-
-const motionOptions: { value: MotionPref; label: string }[] = [
-  { value: "auto", label: "Auto" },
-  { value: "full", label: "Full effects" },
-  { value: "reduce", label: "Reduced motion" },
-];
-
-const themeOptions: { value: Theme; label: string }[] = [
-  { value: "neon", label: "Neon" },
-  { value: "monochrome", label: "Mono" },
-];
+import { useState } from 'react';
+import { Settings, Sparkles, Palette, Zap, X } from 'lucide-react';
+import { useMotion, type MotionPref } from '@/hooks/use-reduced-motion';
+import { useTheme, type Theme } from '@/hooks/use-theme';
+import { cn } from '@/lib/utils';
 
 export function LandingControls() {
   const [open, setOpen] = useState(false);
@@ -22,64 +12,83 @@ export function LandingControls() {
   const { theme, setTheme } = useTheme();
 
   return (
-    <div className="fixed bottom-5 right-5 z-50">
+    <div className="fixed bottom-6 right-6 z-[60]">
       {open && (
-        <div className="mb-3 w-72 rounded-2xl border border-border bg-background/85 p-4 text-xs text-foreground shadow-2xl backdrop-blur-xl">
-          <div className="mb-3 flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-            <Sparkles className="h-3 w-3" /> Motion
+        <div className="mb-4 w-72 rounded-2xl border border-white/10 bg-[#0d1117]/95 p-5 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <div className="flex items-center justify-between mb-6">
+            <h4 className="text-xs font-medium text-white/60">Display Settings</h4>
+            <button onClick={() => setOpen(false)} className="text-white/20 hover:text-white">
+              <X className="h-4 w-4" />
+            </button>
           </div>
-          <div className="grid grid-cols-3 gap-1.5">
-            {motionOptions.map((o) => (
-              <button
-                key={o.value}
-                onClick={() => setPref(o.value)}
-                className={`rounded-lg border px-2 py-1.5 text-[11px] transition ${
-                  pref === o.value
-                    ? "border-foreground bg-foreground text-background"
-                    : "border-border text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {o.label}
-              </button>
-            ))}
+
+          <div className="space-y-6">
+            <div>
+              <div className="mb-3 flex items-center gap-2 text-[10px] uppercase tracking-widest text-white/30">
+                <Sparkles className="h-3 w-3" /> Motion
+              </div>
+              <div className="grid grid-cols-3 gap-1.5">
+                {(['auto', 'full', 'reduce'] as MotionPref[]).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setPref(p)}
+                    className={cn(
+                      "rounded-lg border py-2 text-[10px] font-medium transition-all uppercase tracking-tighter",
+                      pref === p 
+                        ? "border-white/20 bg-white text-[#080b10]" 
+                        : "border-white/5 bg-white/5 text-white/40 hover:bg-white/10"
+                    )}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+              {pref === 'auto' && autoReason && (
+                <p className="mt-2 text-[10px] italic text-white/20">
+                  Auto detected: {autoReason} → reduced
+                </p>
+              )}
+            </div>
+
+            <div>
+              <div className="mb-3 flex items-center gap-2 text-[10px] uppercase tracking-widest text-white/30">
+                <Palette className="h-3 w-3" /> Theme
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                {(['neon', 'monochrome'] as Theme[]).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setTheme(t)}
+                    className={cn(
+                      "rounded-lg border py-2 text-[10px] font-medium transition-all uppercase tracking-tighter",
+                      theme === t 
+                        ? "border-white/20 bg-white text-[#080b10]" 
+                        : "border-white/5 bg-white/5 text-white/40 hover:bg-white/10"
+                    )}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
-          {pref === "auto" && autoReason && (
-            <p className="mt-2 text-[10px] text-muted-foreground italic">
-              Auto detected: {autoReason} → reduced
+
+          <div className="mt-6 border-t border-white/5 pt-4">
+            <p className="text-[10px] text-white/20">
+              Synced across tabs · saved locally
             </p>
-          )}
-
-          <div className="mt-4 mb-3 flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-            <Palette className="h-3 w-3" /> Theme
           </div>
-          <div className="grid grid-cols-2 gap-1.5">
-            {themeOptions.map((o) => (
-              <button
-                key={o.value}
-                onClick={() => setTheme(o.value)}
-                className={`rounded-lg border px-2 py-1.5 text-[11px] transition ${
-                  theme === o.value
-                    ? "border-foreground bg-foreground text-background"
-                    : "border-border text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {o.label}
-              </button>
-            ))}
-          </div>
-
-          <p className="mt-3 text-[10px] text-muted-foreground">
-            Synced across tabs · saved locally
-          </p>
         </div>
       )}
 
       <button
-        onClick={() => setOpen((o) => !o)}
-        className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-background/80 text-foreground shadow-lg backdrop-blur-xl transition hover:bg-background"
-        aria-label="Display settings"
+        onClick={() => setOpen(!open)}
+        className={cn(
+          "flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-[#0d1117]/80 text-white/60 shadow-lg backdrop-blur transition-all hover:bg-[#161b22] hover:text-white hover:border-white/20",
+          open && "rotate-90 bg-white text-[#080b10] border-transparent"
+        )}
       >
-        {open ? <Zap className="h-4 w-4" /> : <Settings className="h-4 w-4" />}
+        {open ? <Zap className="h-5 w-5" /> : <Settings className="h-5 w-5" />}
       </button>
     </div>
   );

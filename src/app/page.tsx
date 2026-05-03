@@ -1,25 +1,25 @@
-import { EmbedProcess } from "@/components/EmbedProcess";
-import { Features } from "@/components/Features";
-import { Footer } from "@/components/Footer";
-import { Hero } from "@/components/Hero";
-import { HowItWorks } from "@/components/HowItWorks";
-import { LandingControls } from "@/components/LandingControls";
-import { Navbar } from "@/components/Navbar";
-import { Pricing } from "@/components/Pricing";
+import { Nav } from '@/components/Nav';
+import { Hero } from '@/components/Hero';
+import { Features } from '@/components/Features';
+import { EmbedProcess } from '@/components/EmbedProcess';
+import { HowItWorks } from '@/components/HowItWorks';
+import { Pricing } from '@/components/Pricing';
+import { Footer } from '@/components/Footer';
+import { LandingControls } from '@/components/LandingControls';
 
-export default function Home() {
+export default function Page() {
   return (
-    <>
-      <Navbar />
+    <div className="relative min-h-screen">
+      <Nav />
       <main>
         <Hero />
-        <HowItWorks />
-        <EmbedProcess />
         <Features />
+        <EmbedProcess />
+        <HowItWorks />
         <Pricing />
       </main>
       <Footer />
       <LandingControls />
-    </>
+    </div>
   );
 }

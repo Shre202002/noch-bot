@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { motion } from "framer-motion";
+import { motion } from 'framer-motion';
 
 const steps = [
   { num: "01", title: "Sign up", desc: "Create an account in under a minute." },
@@ -10,36 +10,33 @@ const steps = [
 
 export function HowItWorks() {
   return (
-    <section id="how-it-works" className="relative border-t border-border py-32">
-      <div className="mx-auto max-w-[1400px] px-6">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="max-w-2xl"
-        >
-          <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Workflow</p>
-          <h2 className="mt-6 text-4xl font-medium tracking-tight text-foreground sm:text-6xl">
+    <section id="workflow" className="border-t border-white/5 px-6 py-24 md:py-32 bg-[#0d1117]">
+      <div className="mx-auto max-w-[1200px]">
+        <div className="max-w-2xl">
+          <p className="text-[11px] uppercase tracking-[0.2em] text-white/40">Workflow</p>
+          <h2 className="mt-6 text-[clamp(2rem,4vw,3.5rem)] font-normal tracking-[-0.04em] text-white leading-tight">
             Three steps.<br />Zero friction.
           </h2>
-        </motion.div>
+        </div>
 
-        <div className="mt-20 space-y-px">
+        <div className="mt-20">
           {steps.map((s, i) => (
             <motion.div
               key={s.num}
               initial={{ opacity: 0, x: -20 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
-              transition={{ delay: i * 0.1 }}
-              className="grid grid-cols-12 gap-6 border-t border-border py-10"
+              transition={{ delay: i * 0.15, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+              className="grid gap-6 border-t border-white/5 py-12 md:grid-cols-12 md:items-start"
             >
-              <div className="col-span-2 text-sm text-muted-foreground">{s.num}</div>
-              <div className="col-span-10 md:col-span-4">
-                <h3 className="text-2xl font-medium tracking-tight text-foreground">{s.title}</h3>
+              <div className="text-sm font-medium text-white/20 md:col-span-2">
+                {s.num}
               </div>
-              <div className="col-span-12 md:col-span-6">
-                <p className="text-base text-muted-foreground">{s.desc}</p>
+              <div className="text-2xl font-medium tracking-tight text-white md:col-span-4">
+                {s.title}
+              </div>
+              <div className="text-base leading-relaxed text-white/40 md:col-span-6">
+                {s.desc}
               </div>
             </motion.div>
           ))}

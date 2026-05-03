@@ -1,6 +1,20 @@
 import type { Metadata } from 'next';
+import { DM_Sans, Instrument_Serif } from 'next/font/google';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
+
+const dmSans = DM_Sans({ 
+  subsets: ['latin'], 
+  weight: ['300', '400', '500'],
+  variable: '--font-dm-sans'
+});
+
+const instrumentSerif = Instrument_Serif({ 
+  subsets: ['latin'], 
+  weight: ['400'],
+  style: ['italic'],
+  variable: '--font-instrument-serif'
+});
 
 export const metadata: Metadata = {
   title: 'Nocta - Add AI to your website in 60 seconds',
@@ -14,15 +28,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Code+Pro:wght@400;500;600&display=swap"
-          rel="stylesheet"
-        />
-      </head>
-      <body className="font-body antialiased">
+      <body className={`${dmSans.variable} ${instrumentSerif.variable} font-sans antialiased`}>
         {children}
         <Toaster />
       </body>

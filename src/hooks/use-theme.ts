@@ -1,61 +1,24 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useState } from "react";
+import { useState, useEffect, useCallback } from 'react';
 
-const STORAGE_KEY = "nocta:theme";
-const CHANNEL = "nocta:prefs";
-
-export type Theme = "neon" | "monochrome";
-const DEFAULT: Theme = "neon";
-
-function apply(theme: Theme) {
-  if (typeof document === "undefined") return;
-  const root = document.documentElement;
-  root.classList.remove("theme-neon", "theme-monochrome");
-  root.classList.add(`theme-${theme}`);
-  root.dataset.theme = theme;
-}
+export type Theme = 'neon' | 'monochrome';
 
 export function useTheme() {
-  const [theme, setThemeState] = useState<Theme>(DEFAULT);
+  const [theme, setThemeState] = useState<Theme>('neon');
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const read = () => {
-      const stored = (localStorage.getItem(STORAGE_KEY) as Theme | null) ?? DEFAULT;
+    const stored = localStorage.getItem('nocta-theme') as Theme;
+    if (stored) {
       setThemeState(stored);
-      apply(stored);
-    };
-    read();
-
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY) read();
-    };
-    window.addEventListener("storage", onStorage);
-
-    let bc: BroadcastChannel | null = null;
-    if ("BroadcastChannel" in window) {
-      bc = new BroadcastChannel(CHANNEL);
-      bc.onmessage = (e) => {
-        if (e.data?.type === "theme") read();
-      };
+      document.documentElement.setAttribute('data-theme', stored);
     }
-    return () => {
-      window.removeEventListener("storage", onStorage);
-      bc?.close();
-    };
   }, []);
 
   const setTheme = useCallback((t: Theme) => {
-    if (typeof window === "undefined") return;
-    localStorage.setItem(STORAGE_KEY, t);
     setThemeState(t);
-    apply(t);
-    if ("BroadcastChannel" in window) {
-      const bc = new BroadcastChannel(CHANNEL);
-      bc.postMessage({ type: "theme", theme: t });
-      bc.close();
-    }
+    localStorage.setItem('nocta-theme', t);
+    document.documentElement.setAttribute('data-theme', t);
   }, []);
 
   return { theme, setTheme };

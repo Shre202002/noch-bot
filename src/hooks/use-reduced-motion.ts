@@ -1,120 +1,44 @@
-"use client";
-import { useEffect, useState, useCallback } from "react";
+'use client';
 
-const STORAGE_KEY = "nocta:motion-pref";
-const CHANNEL = "nocta:prefs";
-export type MotionPref = "auto" | "reduce" | "full";
+import { useState, useEffect, useCallback } from 'react';
 
-type Reason = "user" | "os" | "device" | "viewport" | "vitals" | null;
+export type MotionPref = 'auto' | 'full' | 'reduce';
 
-function detectAutoReason(): Reason {
-  if (typeof window === "undefined") return null;
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return "os";
-
-  const nav = navigator as Navigator & {
-    deviceMemory?: number;
-    connection?: { saveData?: boolean; effectiveType?: string };
-  };
-  const lowCores = (nav.hardwareConcurrency ?? 8) <= 4;
-  const lowMem = (nav.deviceMemory ?? 8) <= 4;
-  const saveData = nav.connection?.saveData === true;
-  const slowNet = ["slow-2g", "2g", "3g"].includes(nav.connection?.effectiveType ?? "");
-  if (lowCores || lowMem || saveData || slowNet) return "device";
-
-  if (window.innerWidth <= 640) return "viewport";
-
-  try {
-    const [nav0] = performance.getEntriesByType("navigation") as PerformanceNavigationTiming[];
-    if (nav0) {
-      const fcpEntry = performance.getEntriesByName("first-contentful-paint")[0];
-      const fcp = fcpEntry?.startTime ?? nav0.domContentLoadedEventEnd;
-      if (fcp > 2500) return "vitals";
-    }
-  } catch {
-    // ignore
-  }
-  return null;
-}
-
-export interface MotionState {
-  reduced: boolean;
-  pref: MotionPref;
-  autoReason: Reason;
-  setPref: (p: MotionPref) => void;
-}
-
-export function useMotion(): MotionState {
-  const [pref, setPrefState] = useState<MotionPref>("auto");
-  const [autoReason, setAutoReason] = useState<Reason>(null);
+export function useMotion() {
+  const [pref, setPrefState] = useState<MotionPref>('auto');
+  const [autoReason, setAutoReason] = useState<string | null>(null);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const read = () => {
-      const stored = (localStorage.getItem(STORAGE_KEY) as MotionPref | null) ?? "auto";
-      setPrefState(stored);
-      setAutoReason(detectAutoReason());
-    };
-    read();
-
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const onChange = () => read();
-    mq.addEventListener("change", onChange);
-    window.addEventListener("resize", onChange);
-
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY) read();
-    };
-    window.addEventListener("storage", onStorage);
-
-    let bc: BroadcastChannel | null = null;
-    if ("BroadcastChannel" in window) {
-      bc = new BroadcastChannel(CHANNEL);
-      bc.onmessage = (e) => {
-        if (e.data?.type === "motion") read();
-      };
-    }
-
-    return () => {
-      mq.removeEventListener("change", onChange);
-      window.removeEventListener("resize", onChange);
-      window.removeEventListener("storage", onStorage);
-      bc?.close();
-    };
+    const stored = localStorage.getItem('nocta-motion-pref') as MotionPref;
+    if (stored) setPrefState(stored);
   }, []);
 
   const setPref = useCallback((p: MotionPref) => {
-    if (typeof window === "undefined") return;
-    localStorage.setItem(STORAGE_KEY, p);
     setPrefState(p);
-    if ("BroadcastChannel" in window) {
-      const bc = new BroadcastChannel(CHANNEL);
-      bc.postMessage({ type: "motion", pref: p });
-      bc.close();
-    }
+    localStorage.setItem('nocta-motion-pref', p);
   }, []);
 
-  const reduced = pref === "reduce" ? true : pref === "full" ? false : autoReason !== null;
+  let reduced = pref === 'reduce';
+  
+  useEffect(() => {
+    if (pref === 'auto') {
+      const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+      const lowPower = (navigator as any).hardwareConcurrency <= 4 || (navigator as any).deviceMemory <= 4;
+      
+      if (mediaQuery.matches) {
+        setAutoReason('OS preference');
+      } else if (lowPower) {
+        setAutoReason('Low-power device');
+      } else {
+        setAutoReason(null);
+      }
+    }
+  }, [pref]);
 
-  return { reduced, pref, autoReason, setPref };
-}
-
-export function useReducedMotion(): boolean {
-  return useMotion().reduced;
-}
-
-export function getMotionPreference(): MotionPref {
-  if (typeof window === "undefined") return "auto";
-  return (localStorage.getItem(STORAGE_KEY) as MotionPref | null) ?? "auto";
-}
-
-export function setMotionPreference(pref: MotionPref) {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY, pref);
-  if ("BroadcastChannel" in window) {
-    const bc = new BroadcastChannel(CHANNEL);
-    bc.postMessage({ type: "motion", pref });
-    bc.close();
+  if (pref === 'auto') {
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+    reduced = autoReason !== null || isMobile;
   }
-  window.dispatchEvent(new StorageEvent("storage", { key: STORAGE_KEY, newValue: pref }));
+
+  return { reduced, pref, setPref, autoReason };
 }
