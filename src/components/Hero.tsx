@@ -21,7 +21,7 @@ export function Hero() {
   const showComplexEffects = mounted && !reduced && !isMobile;
 
   return (
-    <section className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6 pt-20">
+    <section className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6 pt-32 pb-16">
       <AuroraBackground />
 
       <div className="relative z-10 mx-auto flex max-w-[1200px] flex-col items-center text-center">
@@ -38,7 +38,7 @@ export function Hero() {
           transition={{ duration: 0.6 }}
           className="mb-10 inline-flex items-center gap-2 rounded-full border border-white/7 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.12em] text-white/40 backdrop-blur"
         >
-          <span className="h-1 w-1 rounded-full bg-white" />
+          <span className="h-1.5 w-1.5 rounded-full bg-white" />
           Announcing NOCTA 1.0
         </motion.div>
 
@@ -46,7 +46,7 @@ export function Hero() {
           initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
-          className={`${showComplexEffects ? 'hero-wordmark' : 'hero-wordmark-static'} select-none text-[clamp(4rem,18vw,16rem)] font-bold leading-[0.85] tracking-[-0.02em]`}
+          className={`${showComplexEffects ? 'hero-wordmark' : 'hero-wordmark-static'} select-none text-[clamp(4rem,18vw,16rem)] font-bold leading-[0.85] tracking-[-0.04em]`}
         >
           NOCTA
         </motion.h1>
@@ -85,15 +85,15 @@ export function Hero() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 1, delay: 0.8 }}
-        className="absolute bottom-10 left-0 right-0 flex items-center justify-center gap-6 text-[11px] uppercase tracking-[0.18em] text-white/20 sm:gap-12"
+        className="mt-24 flex w-full flex-wrap items-center justify-center gap-6 px-4 text-[10px] uppercase tracking-[0.18em] text-white/20 sm:mt-32 sm:gap-12 sm:text-[11px]"
       >
-        <span>Reasoning</span>
-        <span className="h-px w-4 bg-white/10" />
-        <span>Embed</span>
+        <span className="whitespace-nowrap">Reasoning</span>
         <span className="h-px w-4 bg-white/10 hidden sm:inline" />
-        <span className="hidden sm:inline">Analytics</span>
+        <span className="whitespace-nowrap">Embed</span>
         <span className="h-px w-4 bg-white/10 hidden md:inline" />
-        <span className="hidden md:inline">Realtime</span>
+        <span className="whitespace-nowrap">Analytics</span>
+        <span className="h-px w-4 bg-white/10 hidden lg:inline" />
+        <span className="whitespace-nowrap">Realtime</span>
       </motion.div>
     </section>
   );
