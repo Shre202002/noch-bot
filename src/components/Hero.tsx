@@ -85,14 +85,14 @@ export function Hero() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 1, delay: 0.8 }}
-        className="mt-24 flex w-full flex-wrap items-center justify-center gap-6 px-4 text-[10px] uppercase tracking-[0.18em] text-white/20 sm:mt-32 sm:gap-12 sm:text-[11px]"
+        className="mt-24 flex w-full flex-wrap items-center justify-center gap-6 px-4 text-[10px] uppercase tracking-[0.22em] text-white/50 sm:mt-40 sm:gap-12 sm:text-[11px]"
       >
         <span className="whitespace-nowrap">Reasoning</span>
-        <span className="h-px w-4 bg-white/10 hidden sm:inline" />
+        <span className="h-px w-8 bg-white/20 hidden sm:inline" />
         <span className="whitespace-nowrap">Embed</span>
-        <span className="h-px w-4 bg-white/10 hidden md:inline" />
+        <span className="h-px w-8 bg-white/20 hidden md:inline" />
         <span className="whitespace-nowrap">Analytics</span>
-        <span className="h-px w-4 bg-white/10 hidden lg:inline" />
+        <span className="h-px w-8 bg-white/20 hidden lg:inline" />
         <span className="whitespace-nowrap">Realtime</span>
       </motion.div>
     </section>
