@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useTheme } from '@/hooks/use-theme';
 
 interface AuroraProps {
@@ -7,9 +8,15 @@ interface AuroraProps {
 }
 
 export function AuroraBackground({ reduced }: AuroraProps) {
+  const [mounted, setMounted] = useState(false);
   const { theme } = useTheme();
 
-  if (reduced) {
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // During SSR and before initial mount, render a safe static version
+  if (!mounted || reduced) {
     return (
       <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden bg-[#080b10]">
         <div className="absolute inset-0 opacity-40 bg-[radial-gradient(ellipse_at_70%_40%,rgba(99,82,244,0.15),transparent_70%)]" />
@@ -26,11 +33,11 @@ export function AuroraBackground({ reduced }: AuroraProps) {
       />
       <div 
         className="aurora-blob absolute top-[5%] right-[-10%] w-[600px] h-[500px] rounded-full bg-[radial-gradient(ellipse,rgba(139,92,246,0.3),transparent_70%)] blur-[100px] animate-drift"
-        style={{ animationDelay: '-5s', animationDirection: 'reverse' }}
+        style={{ animationDelay: '-5s', animationDirection: 'reverse' } as any}
       />
       <div 
         className="aurora-blob absolute bottom-[5%] left-[10%] w-[500px] h-[450px] rounded-full bg-[radial-gradient(ellipse,rgba(59,130,246,0.2),transparent_70%)] blur-[100px] animate-drift"
-        style={{ animationDelay: '-10s' }}
+        style={{ animationDelay: '-10s' } as any}
       />
 
       {/* 2. Grid Overlay */}

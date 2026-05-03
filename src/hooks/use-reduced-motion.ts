@@ -7,8 +7,10 @@ export type MotionPref = 'auto' | 'full' | 'reduce';
 export function useMotion() {
   const [pref, setPrefState] = useState<MotionPref>('auto');
   const [autoReason, setAutoReason] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     const stored = localStorage.getItem('nocta-motion-pref') as MotionPref;
     if (stored) setPrefState(stored);
   }, []);
@@ -18,10 +20,8 @@ export function useMotion() {
     localStorage.setItem('nocta-motion-pref', p);
   }, []);
 
-  let reduced = pref === 'reduce';
-  
   useEffect(() => {
-    if (pref === 'auto') {
+    if (pref === 'auto' && typeof window !== 'undefined') {
       const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
       const lowPower = (navigator as any).hardwareConcurrency <= 4 || (navigator as any).deviceMemory <= 4;
       
@@ -35,10 +35,19 @@ export function useMotion() {
     }
   }, [pref]);
 
-  if (pref === 'auto') {
-    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-    reduced = autoReason !== null || isMobile;
+  // Default to reduced/safe mode during SSR to avoid hydration mismatch
+  let reduced = true;
+  
+  if (mounted) {
+    if (pref === 'reduce') {
+      reduced = true;
+    } else if (pref === 'full') {
+      reduced = false;
+    } else {
+      const isMobile = window.innerWidth < 768;
+      reduced = autoReason !== null || isMobile;
+    }
   }
 
-  return { reduced, pref, setPref, autoReason };
+  return { reduced, pref, setPref, autoReason, mounted };
 }

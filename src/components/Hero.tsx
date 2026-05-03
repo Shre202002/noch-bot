@@ -7,14 +7,14 @@ import { useMotion } from '@/hooks/use-reduced-motion';
 import Link from 'next/link';
 
 export function Hero() {
-  const { reduced, autoReason } = useMotion();
+  const { reduced, autoReason, mounted } = useMotion();
 
   return (
     <section className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6 pt-20">
       <AuroraBackground reduced={reduced} />
 
       <div className="relative z-10 mx-auto flex max-w-[1200px] flex-col items-center text-center">
-        {autoReason && (
+        {mounted && autoReason && (
           <div className="mb-8 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] uppercase tracking-wider text-white/40 backdrop-blur">
             <Zap className="h-3 w-3" />
             Performance mode: On

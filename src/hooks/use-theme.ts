@@ -6,8 +6,10 @@ export type Theme = 'neon' | 'monochrome';
 
 export function useTheme() {
   const [theme, setThemeState] = useState<Theme>('neon');
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     const stored = localStorage.getItem('nocta-theme') as Theme;
     if (stored) {
       setThemeState(stored);
@@ -21,5 +23,5 @@ export function useTheme() {
     document.documentElement.setAttribute('data-theme', t);
   }, []);
 
-  return { theme, setTheme };
+  return { theme, setTheme, mounted };
 }

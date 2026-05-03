@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Settings, Sparkles, Palette, Zap, X } from 'lucide-react';
 import { useMotion, type MotionPref } from '@/hooks/use-reduced-motion';
 import { useTheme, type Theme } from '@/hooks/use-theme';
@@ -8,8 +8,11 @@ import { cn } from '@/lib/utils';
 
 export function LandingControls() {
   const [open, setOpen] = useState(false);
-  const { pref, setPref, autoReason } = useMotion();
-  const { theme, setTheme } = useTheme();
+  const { pref, setPref, autoReason, mounted: motionMounted } = useMotion();
+  const { theme, setTheme, mounted: themeMounted } = useTheme();
+
+  // Don't render until mounted to avoid hydration mismatch on preferences
+  if (!motionMounted || !themeMounted) return null;
 
   return (
     <div className="fixed bottom-6 right-6 z-[60]">
