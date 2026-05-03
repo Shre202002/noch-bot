@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -6,6 +5,7 @@ import { Nav } from '@/components/Nav';
 import { Hero } from '@/components/Hero';
 import { Features } from '@/components/Features';
 import { EmbedProcess } from '@/components/EmbedProcess';
+import { DashboardScrollSection } from '@/components/DashboardScrollSection';
 import { HowItWorks } from '@/components/HowItWorks';
 import { Pricing } from '@/components/Pricing';
 import { LandingControls } from '@/components/LandingControls';
@@ -29,6 +29,9 @@ export default function Page() {
           <Hero />
           <Features />
           <EmbedProcess />
+          
+          <DashboardScrollSection />
+
           <HowItWorks />
           
           <Featured_05 onJoinClick={() => setIsNewsletterOpen(true)} />
