@@ -18,9 +18,27 @@ export type Account = {
   otpEmail?: string;       // email this OTP was sent to (safety check)
 };
 
+export type Knowledge = {
+  userId: string;
+  url?: string;
+  crawledAt?: string;
+  systemPrompt?: string;
+  botName?: string;
+  botIcon?: string;
+  botColor?: string;
+  theme?: string;
+  content?: string; // first 3000 chars fallback
+  chunkCount?: number;
+};
+
 async function getUsersCollection(): Promise<Collection<Account>> {
   const db = await getDb();
   return db.collection<Account>('users');
+}
+
+async function getKnowledgeCollection(): Promise<Collection<Knowledge>> {
+  const db = await getDb();
+  return db.collection<Knowledge>('knowledge');
 }
 
 export async function readAccounts(): Promise<Account[]> {
@@ -95,4 +113,20 @@ export async function updateAccount(id: string, updates: Partial<Account>): Prom
 export async function deleteAccount(id: string): Promise<void> {
   const coll = await getUsersCollection();
   await coll.deleteOne({ id });
+}
+
+// --- Knowledge Base Functions ---
+
+export async function readKnowledge(userId: string): Promise<Knowledge | null> {
+  const coll = await getKnowledgeCollection();
+  return coll.findOne({ userId });
+}
+
+export async function writeKnowledge(userId: string, updates: Partial<Knowledge>): Promise<void> {
+  const coll = await getKnowledgeCollection();
+  await coll.updateOne(
+    { userId },
+    { $set: { ...updates, userId } },
+    { upsert: true }
+  );
 }
