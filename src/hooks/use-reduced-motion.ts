@@ -99,7 +99,6 @@ export function useMotion(): MotionState {
   return { reduced, pref, autoReason, setPref };
 }
 
-// Backwards-compat: existing callers use this boolean shape
 export function useReducedMotion(): boolean {
   return useMotion().reduced;
 }

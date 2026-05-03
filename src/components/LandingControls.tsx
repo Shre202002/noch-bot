@@ -44,7 +44,7 @@ export function LandingControls() {
             ))}
           </div>
           {pref === "auto" && autoReason && (
-            <p className="mt-2 text-[10px] text-muted-foreground">
+            <p className="mt-2 text-[10px] text-muted-foreground italic">
               Auto detected: {autoReason} → reduced
             </p>
           )}

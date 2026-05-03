@@ -88,7 +88,7 @@ export function Hero() {
           className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row"
         >
           <Link
-            href="/signup"
+            href="/register"
             className="rounded-full bg-foreground px-6 py-3 text-sm font-medium text-background transition hover:opacity-80"
           >
             Try Nocta

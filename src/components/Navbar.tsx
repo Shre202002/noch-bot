@@ -1,11 +1,12 @@
 import Link from "next/link";
+import { Logo } from "./logo";
 
 export function Navbar() {
   return (
     <header className="fixed top-0 left-0 right-0 z-50 h-14">
       <div className="mx-auto flex h-full max-w-[1400px] items-center justify-between px-6">
         <Link href="/" className="flex items-center gap-2">
-          <div className="h-5 w-5 rounded-sm bg-foreground" />
+          <Logo />
           <span className="text-sm font-medium tracking-tight">Nocta</span>
         </Link>
         <nav className="hidden md:flex items-center gap-6 text-xs text-muted-foreground">
@@ -14,7 +15,7 @@ export function Navbar() {
           <a href="#pricing" className="hover:text-foreground">Pricing</a>
           <Link href="/login" className="hover:text-foreground">Sign in</Link>
         </nav>
-        <Link href="/signup" className="rounded-full bg-foreground px-4 py-1.5 text-xs text-background">
+        <Link href="/register" className="rounded-full bg-foreground px-4 py-1.5 text-xs text-background">
           Try Nocta
         </Link>
       </div>

@@ -15,6 +15,7 @@ import {
   SidebarHeader,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { Logo } from "./logo";
 
 const items = [
   { title: "Overview", url: "/dashboard", icon: LayoutDashboard },
@@ -33,7 +34,7 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarHeader className="p-4">
         <Link href="/" className="flex items-center gap-2">
-          <Bot className="h-6 w-6 text-sidebar-primary" />
+          <Logo />
           {!collapsed && <span className="text-lg font-bold text-sidebar-foreground">Nocta</span>}
         </Link>
       </SidebarHeader>

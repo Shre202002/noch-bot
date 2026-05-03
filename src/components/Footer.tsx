@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Logo } from "./logo";
 
 export function Footer() {
   return (
@@ -7,7 +8,7 @@ export function Footer() {
         <div className="grid gap-12 md:grid-cols-12">
           <div className="md:col-span-6">
             <Link href="/" className="flex items-center gap-2">
-              <div className="h-5 w-5 rounded-sm bg-foreground" />
+              <Logo />
               <span className="text-sm font-medium tracking-tight text-foreground">Nocta</span>
             </Link>
             <p className="mt-6 max-w-sm text-sm text-muted-foreground">

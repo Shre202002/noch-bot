@@ -70,7 +70,7 @@ export function Pricing() {
               </ul>
 
               <Link
-                href="/signup"
+                href="/register"
                 className={`mt-10 inline-flex items-center justify-center rounded-full px-6 py-3 text-sm font-medium transition ${
                   plan.featured
                     ? "bg-foreground text-background hover:opacity-80"
