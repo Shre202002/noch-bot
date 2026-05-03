@@ -1,25 +1,32 @@
-import { NextResponse } from 'next/server';
-import { getUserIdFromCookie } from '@/lib/auth';
-import { readKnowledge } from '@/lib/storage';
+import { NextResponse } from "next/server"
+import { getUserIdFromCookie } from "@/lib/auth"
+import { readKnowledge } from "@/lib/storage"
+
+export const dynamic = "force-dynamic"
 
 export async function GET() {
-  try {
-    const userId = await getUserIdFromCookie();
-    if (!userId) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
+  const userId = await getUserIdFromCookie()
+  if (!userId)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-    const knowledge = await readKnowledge(userId);
-    
-    if (!knowledge) {
-      return NextResponse.json(null);
-    }
+  const knowledge = await readKnowledge(userId)
 
-    // Omit sensitive or large content fields
-    const { content, ...safeKnowledge } = knowledge;
-    return NextResponse.json(safeKnowledge);
-  } catch (error) {
-    console.error('[knowledge] error:', error);
-    return NextResponse.json({ error: 'Failed to fetch knowledge' }, { status: 500 });
+  if (!knowledge) {
+    return NextResponse.json({
+      url: null,
+      crawledAt: null,
+      systemPrompt: null,
+      theme: null,
+      hasCrawled: false,
+    })
   }
+
+  // Return everything EXCEPT content (too large)
+  return NextResponse.json({
+    url: knowledge.url || null,
+    crawledAt: knowledge.crawledAt || null,
+    systemPrompt: knowledge.systemPrompt || null,
+    theme: knowledge.theme || null,
+    hasCrawled: !!knowledge.url,
+  })
 }
