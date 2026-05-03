@@ -116,7 +116,7 @@ export const ResetPasswordForm = ({
   };
 
   return (
-    <div className="mx-auto w-full max-w-md rounded-xl border border-white/10 bg-[#0d1117] p-8 text-white shadow-2xl">
+    <div className="mx-auto w-full max-w-md rounded-2xl border border-white/10 bg-[#0d1117] p-8 text-white shadow-2xl">
       <h1 className="mb-2 text-2xl font-bold tracking-tight">Reset Password</h1>
       <p className="mb-6 text-sm text-zinc-400">
         Enter the 6-digit code sent to <span className="font-medium text-white">{email}</span>.

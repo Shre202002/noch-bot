@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Mail, ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
@@ -33,11 +33,10 @@ export default function ForgotPasswordPage() {
       if (!res.ok) {
         setError(data.message || 'Something went wrong.');
         setLoading(false);
-        return; // ← CRITICAL: stop here, do not redirect
+        return;
       }
 
-      // Only redirect on success
-      router.push(`/verify-otp?email=${encodeURIComponent(email)}`);
+      router.push(`/reset-password?email=${encodeURIComponent(email)}`);
 
     } catch (err) {
       setError('Network error. Please try again.');
@@ -79,7 +78,7 @@ export default function ForgotPasswordPage() {
               placeholder="name@company.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="bg-[#1f2228] border-[#2a2d35] text-white focus-visible:ring-0 focus-visible:border-[#36f4a4] h-12 rounded-2xl transition-all"
+              className="bg-[#1f2228] border-[#2a2d35] text-white focus-visible:ring-0 focus-visible:border-white h-12 rounded-2xl transition-all"
               required
             />
           </div>
@@ -87,7 +86,7 @@ export default function ForgotPasswordPage() {
           <Button 
             type="submit" 
             disabled={loading}
-            className="w-full bg-[#36f4a4] hover:bg-[#36f4a4]/90 text-black font-bold h-12 rounded-full transition-all group"
+            className="w-full bg-white hover:bg-zinc-200 text-black font-bold h-12 rounded-full transition-all group"
           >
             {loading ? (
               <Loader2 className="h-5 w-5 animate-spin" />
