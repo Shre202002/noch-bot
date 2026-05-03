@@ -4,7 +4,7 @@ import * as React from "react";
 import { motion, useScroll, useMotionValueEvent } from "framer-motion";
 import { Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Logo } from "@/components/logo";
+// import { Logo } from "@/components/logo";
 
 const navItems = [
   { name: "Features", href: "#features" },
@@ -118,7 +118,8 @@ export function AnimatedNavFramer() {
           variants={logoVariants}
           className="flex-shrink-0 flex items-center font-semibold pl-4 pr-1 sm:pr-3"
         >
-          <Logo className="h-5 sm:h-6" />
+          {/* <Logo className="h-5 sm:h-6" /> */}
+          <img src="/logo.png" alt="Nocta" className="h-10 w-auto" />
         </motion.div>
         
         <motion.div

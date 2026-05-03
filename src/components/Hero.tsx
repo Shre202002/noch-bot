@@ -6,6 +6,7 @@ import { Zap } from 'lucide-react';
 import { AuroraBackground } from './AuroraBackground';
 import { useMotion } from '@/hooks/use-reduced-motion';
 import Link from 'next/link';
+import { LandingControls } from './LandingControls';
 
 export function Hero() {
   const { reduced, autoReason, mounted } = useMotion();
@@ -95,6 +96,8 @@ export function Hero() {
         <span className="h-px w-8 bg-white/20 hidden lg:inline" />
         <span className="whitespace-nowrap">Realtime</span>
       </motion.div>
+
+      <LandingControls />
     </section>
   );
 }

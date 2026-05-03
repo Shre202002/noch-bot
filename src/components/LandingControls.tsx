@@ -29,7 +29,6 @@ export function LandingControls() {
         setOpen(false);
       }
     }
-
     if (open) {
       document.addEventListener("mousedown", handleClickOutside);
     }
@@ -39,60 +38,79 @@ export function LandingControls() {
   if (!motionMounted || !themeMounted) return null;
 
   return (
-    <div className="fixed bottom-5 right-5 z-50" ref={containerRef}>
+    <div className="fixed bottom-4 right-4 sm:bottom-5 sm:right-5 z-50" ref={containerRef}>
       <AnimatePresence>
         {open && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 10 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 10 }}
-            transition={{ 
+            initial={{ opacity: 0, scale: 0.92, y: 16, filter: "blur(4px)" }}
+            animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
+            exit={{ opacity: 0, scale: 0.94, y: 10, filter: "blur(4px)" }}
+            transition={{
               type: "spring",
-              stiffness: 300,
-              damping: 25
+              stiffness: 380,
+              damping: 30,
+              mass: 0.8,
             }}
-            className="mb-3 w-72 rounded-2xl border border-border bg-background/85 p-4 text-xs text-foreground shadow-2xl backdrop-blur-xl"
+            className="mb-3 w-[calc(100vw-2rem)] max-w-[300px] sm:w-72 rounded-2xl border border-border bg-background/85 p-4 text-xs text-foreground shadow-2xl backdrop-blur-xl origin-bottom-right"
           >
+            {/* Motion section */}
             <div className="mb-3 flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
               <Sparkles className="h-3 w-3" /> Motion
             </div>
             <div className="grid grid-cols-3 gap-1.5">
               {motionOptions.map((o) => (
-                <button
+                <motion.button
                   key={o.value}
                   onClick={() => setPref(o.value)}
-                  className={`rounded-lg border px-2 py-1.5 text-[11px] transition ${
+                  whileTap={{ scale: 0.95 }}
+                  className={`rounded-lg border px-2 py-1.5 text-[11px] transition-all duration-200 ${
                     pref === o.value
-                      ? "border-foreground bg-foreground text-background"
-                      : "border-border text-muted-foreground hover:text-foreground"
+                      ? "border-foreground bg-foreground text-background shadow-sm"
+                      : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
                   }`}
                 >
                   {o.label}
-                </button>
+                </motion.button>
               ))}
             </div>
+
             {pref === "auto" && autoReason && (
-              <p className="mt-2 text-[10px] text-muted-foreground">
+              <motion.p
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mt-2 text-[10px] text-muted-foreground overflow-hidden"
+              >
                 Auto detected: {autoReason} → reduced
-              </p>
+              </motion.p>
             )}
 
-            <div className="mt-4 mb-3 flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+            {/* Divider */}
+            <motion.div
+              className="my-3 h-px bg-border"
+              initial={{ scaleX: 0 }}
+              animate={{ scaleX: 1 }}
+              transition={{ delay: 0.1, duration: 0.3 }}
+            />
+
+            {/* Theme section */}
+            <div className="mb-3 flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
               <Palette className="h-3 w-3" /> Theme
             </div>
             <div className="grid grid-cols-2 gap-1.5">
               {themeOptions.map((o) => (
-                <button
+                <motion.button
                   key={o.value}
                   onClick={() => setTheme(o.value)}
-                  className={`rounded-lg border px-2 py-1.5 text-[11px] transition ${
+                  whileTap={{ scale: 0.95 }}
+                  className={`rounded-lg border px-2 py-1.5 text-[11px] transition-all duration-200 ${
                     theme === o.value
-                      ? "border-foreground bg-foreground text-background"
-                      : "border-border text-muted-foreground hover:text-foreground"
+                      ? "border-foreground bg-foreground text-background shadow-sm"
+                      : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
                   }`}
                 >
                   {o.label}
-                </button>
+                </motion.button>
               ))}
             </div>
 
@@ -103,14 +121,27 @@ export function LandingControls() {
         )}
       </AnimatePresence>
 
+      {/* Trigger button */}
       <motion.button
         onClick={() => setOpen((o) => !o)}
-        whileTap={{ scale: 0.9 }}
-        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.85, rotate: -15 }}
+        whileHover={{ scale: 1.08 }}
+        transition={{ type: "spring", stiffness: 400, damping: 20 }}
         className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-background/80 text-foreground shadow-lg backdrop-blur-xl transition hover:bg-background"
         aria-label="Display settings"
       >
-        {open ? <Zap className="h-4 w-4" /> : <Settings className="h-4 w-4" />}
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.span
+            key={open ? "zap" : "settings"}
+            initial={{ opacity: 0, rotate: -30, scale: 0.5 }}
+            animate={{ opacity: 1, rotate: 0, scale: 1 }}
+            exit={{ opacity: 0, rotate: 30, scale: 0.5 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            className="flex items-center justify-center"
+          >
+            {open ? <Zap className="h-4 w-4" /> : <Settings className="h-4 w-4" />}
+          </motion.span>
+        </AnimatePresence>
       </motion.button>
     </div>
   );
