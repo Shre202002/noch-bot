@@ -16,35 +16,36 @@ export type Account = {
   resetTokenExpiry?: string;
 };
 
-async function getAccountsCollection(): Promise<Collection<Account>> {
+async function getUsersCollection(): Promise<Collection<Account>> {
   const db = await getDb();
-  return db.collection<Account>('accounts');
+  // Updated to 'users' collection as requested
+  return db.collection<Account>('users');
 }
 
 export async function readAccounts(): Promise<Account[]> {
-  const coll = await getAccountsCollection();
+  const coll = await getUsersCollection();
   return coll.find({}).toArray();
 }
 
 export async function findAccount(email: string): Promise<Account | undefined> {
-  const coll = await getAccountsCollection();
+  const coll = await getUsersCollection();
   const account = await coll.findOne({ email });
   return account || undefined;
 }
 
 export async function findAccountById(id: string): Promise<Account | undefined> {
-  const coll = await getAccountsCollection();
+  const coll = await getUsersCollection();
   const account = await coll.findOne({ id });
   return account || undefined;
 }
 
 export async function writeAccount(account: Account): Promise<void> {
-  const coll = await getAccountsCollection();
+  const coll = await getUsersCollection();
   await coll.updateOne({ id: account.id }, { $set: account }, { upsert: true });
 }
 
 export async function writeAccounts(accounts: Account[]): Promise<void> {
-  const coll = await getAccountsCollection();
+  const coll = await getUsersCollection();
   const operations = accounts.map((account) => ({
     updateOne: {
       filter: { id: account.id },
@@ -58,6 +59,6 @@ export async function writeAccounts(accounts: Account[]): Promise<void> {
 }
 
 export async function deleteAccount(id: string): Promise<void> {
-  const coll = await getAccountsCollection();
+  const coll = await getUsersCollection();
   await coll.deleteOne({ id });
 }
