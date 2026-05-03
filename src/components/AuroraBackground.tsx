@@ -1,56 +1,37 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useTheme } from '@/hooks/use-theme';
+import { useMotion } from "@/hooks/use-reduced-motion";
 
-interface AuroraProps {
-  reduced?: boolean;
-}
+export function AuroraBackground() {
+  const { reduced, mounted } = useMotion();
 
-export function AuroraBackground({ reduced }: AuroraProps) {
-  const [mounted, setMounted] = useState(false);
-  const { theme } = useTheme();
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // During SSR and before initial mount, render a safe static version
-  if (!mounted || reduced) {
+  if (!mounted) {
     return (
-      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden bg-[#080b10]">
-        <div className="absolute inset-0 opacity-40 bg-[radial-gradient(ellipse_at_70%_40%,rgba(99,82,244,0.15),transparent_70%)]" />
-        <div className="absolute inset-0 grid-bg" />
+      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden bg-background">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,oklch(0_0_0)_75%)]" />
       </div>
     );
   }
 
   return (
-    <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden bg-[#080b10]">
-      {/* 1. Base Animated Blobs */}
-      <div 
-        className="aurora-blob absolute top-[-10%] left-[-5%] w-[700px] h-[600px] rounded-full bg-[radial-gradient(ellipse,rgba(99,82,244,0.4),transparent_70%)] blur-[100px] animate-drift" 
-      />
-      <div 
-        className="aurora-blob absolute top-[5%] right-[-10%] w-[600px] h-[500px] rounded-full bg-[radial-gradient(ellipse,rgba(139,92,246,0.3),transparent_70%)] blur-[100px] animate-drift"
-        style={{ animationDelay: '-5s', animationDirection: 'reverse' } as any}
-      />
-      <div 
-        className="aurora-blob absolute bottom-[5%] left-[10%] w-[500px] h-[450px] rounded-full bg-[radial-gradient(ellipse,rgba(59,130,246,0.2),transparent_70%)] blur-[100px] animate-drift"
-        style={{ animationDelay: '-10s' } as any}
-      />
+    <div
+      className="pointer-events-none absolute inset-0 -z-10 overflow-hidden bg-background"
+      aria-hidden="true"
+    >
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,oklch(0_0_0)_75%)]" />
 
-      {/* 2. Grid Overlay */}
-      <div className="absolute inset-0 grid-bg opacity-[0.4]" />
-      
-      {/* 3. Vignette Overlay (Soft mask to focus center) */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_20%,#080b10_90%)] opacity-80" />
+      {reduced ? (
+        <div className="absolute inset-0 opacity-60 bg-[radial-gradient(ellipse_60%_50%_at_70%_40%,oklch(0.45_0.22_270/0.55),transparent_70%),radial-gradient(ellipse_50%_40%_at_30%_60%,oklch(0.4_0.2_220/0.45),transparent_70%)]" />
+      ) : (
+        <>
+          <div className="aurora-blob aurora-blob-1" />
+          <div className="aurora-blob aurora-blob-2" />
+          <div className="aurora-blob aurora-blob-3" />
+          <div className="absolute inset-0 opacity-[0.15] mix-blend-overlay noise" />
+        </>
+      )}
 
-      {/* 4. Bottom Fade */}
-      <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-b from-transparent to-[#080b10]" />
-      
-      {/* 5. Subtle Noise Texture */}
-      <div className="absolute inset-0 opacity-[0.02] mix-blend-overlay pointer-events-none bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
+      <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-b from-transparent to-background" />
     </div>
   );
 }
