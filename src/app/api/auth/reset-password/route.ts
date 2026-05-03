@@ -1,24 +1,18 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { readAccounts, writeAccount } from '@/lib/storage';
+import { findAccount, writeAccount } from '@/lib/storage';
 
 export async function POST(req: NextRequest) {
   try {
-    const { token, password } = await req.json();
+    const { email, password } = await req.json();
 
-    if (!token || !password || password.length < 8) {
+    if (!email || !password || password.length < 8) {
       return NextResponse.json({ error: 'Invalid data' }, { status: 400 });
     }
 
-    const accounts = await readAccounts();
-    const now = new Date().toISOString();
-    const account = accounts.find(
-      (a) => a.resetToken === token && a.resetTokenExpiry && a.resetTokenExpiry > now
-    );
-
+    const account = await findAccount(email);
     if (!account) {
-      return NextResponse.json({ error: 'Invalid or expired reset link' }, { status: 400 });
+      return NextResponse.json({ error: 'Account not found' }, { status: 404 });
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
@@ -26,7 +20,7 @@ export async function POST(req: NextRequest) {
     await writeAccount({
       ...account,
       passwordHash,
-      resetToken: undefined,
+      resetToken: undefined, // Clear the code
       resetTokenExpiry: undefined,
     });
 

@@ -1,8 +1,8 @@
-
 'use client';
 
 import { useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -62,19 +62,19 @@ export default function SigninModal({ trigger }: { trigger?: React.ReactNode }) 
       <DialogTrigger asChild>
         {trigger || <Button variant="ghost">Sign in</Button>}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md bg-black border-white/10 text-white">
         <div className="flex flex-col items-center gap-2">
           <div
-            className="flex size-11 shrink-0 items-center justify-center rounded-full border bg-white/5"
+            className="flex size-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5"
             aria-hidden="true"
           >
             <img src="/logo.png" alt="logo" className="h-6 w-auto" />
           </div>
           <DialogHeader>
-            <DialogTitle className="sm:text-center text-xl">
+            <DialogTitle className="sm:text-center text-xl text-white">
               Sign in to Nocta
             </DialogTitle>
-            <DialogDescription className="sm:text-center">
+            <DialogDescription className="sm:text-center text-zinc-400">
               Welcome back! Please enter your details.
             </DialogDescription>
           </DialogHeader>
@@ -83,38 +83,48 @@ export default function SigninModal({ trigger }: { trigger?: React.ReactNode }) 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor={`${id}-email`}>Email</Label>
+              <Label htmlFor={`${id}-email`} className="text-zinc-400">Email</Label>
               <Input
                 id={`${id}-email`}
                 placeholder="john@example.com"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                className="bg-white/5 border-white/10 text-white focus-visible:ring-violet-600"
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor={`${id}-password`}>Password</Label>
+              <div className="flex justify-between items-center">
+                <Label htmlFor={`${id}-password`} className="text-zinc-400">Password</Label>
+                <Link 
+                  href="/forgot-password" 
+                  className="text-xs text-violet-500 hover:text-violet-400 font-medium"
+                >
+                  Forgot password?
+                </Link>
+              </div>
               <Input
                 id={`${id}-password`}
                 placeholder="Enter your password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                className="bg-white/5 border-white/10 text-white focus-visible:ring-violet-600"
                 required
               />
             </div>
           </div>
-          <Button type="submit" className="w-full font-semibold" disabled={loading}>
+          <Button type="submit" className="w-full font-bold bg-violet-600 text-white hover:bg-violet-700" disabled={loading}>
             {loading ? 'Signing in...' : 'Sign in'}
           </Button>
         </form>
 
-        <div className="before:bg-border after:bg-border flex items-center gap-3 before:h-px before:flex-1 after:h-px after:flex-1">
-          <span className="text-muted-foreground text-xs uppercase tracking-widest font-bold">Or</span>
+        <div className="before:bg-white/10 after:bg-white/10 flex items-center gap-3 before:h-px before:flex-1 after:h-px after:flex-1">
+          <span className="text-zinc-500 text-[10px] uppercase tracking-widest font-bold">Or</span>
         </div>
 
-        <Button variant="outline" className="w-full flex items-center gap-2" asChild>
+        <Button variant="outline" className="w-full flex items-center gap-2 bg-transparent border-white/10 text-white hover:bg-white/5" asChild>
           <a href="/api/auth/google">
             <svg className="h-4 w-4" viewBox="0 0 24 24">
               <path
@@ -137,10 +147,6 @@ export default function SigninModal({ trigger }: { trigger?: React.ReactNode }) 
             Continue with Google
           </a>
         </Button>
-
-        <p className="text-muted-foreground text-center text-[10px] uppercase tracking-wider">
-          Don't have an account? <button type="button" className="underline hover:no-underline">Sign up</button>
-        </p>
       </DialogContent>
     </Dialog>
   );
