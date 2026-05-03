@@ -19,8 +19,8 @@ export function Nav() {
       scrolled ? "backdrop-blur-xl bg-[#080b10]/85 border-b border-white/5" : "bg-transparent"
     )}>
       <div className="mx-auto flex h-full max-w-[1200px] items-center justify-between px-6">
-        <Link href="/" className="text-[18px] font-medium tracking-[-0.03em] text-white">
-          nocta
+        <Link href="/" className="text-[18px] font-bold tracking-[-0.03em] text-white">
+          NOCTA
         </Link>
         
         <div className="hidden md:flex items-center gap-8">
@@ -46,7 +46,7 @@ export function Nav() {
             href="/register" 
             className="rounded-full bg-white px-4 py-1.5 text-xs font-medium text-[#080b10] hover:opacity-90 transition-opacity"
           >
-            Try Nocta
+            Try NOCTA
           </Link>
         </div>
       </div>

@@ -6,8 +6,8 @@ export function Footer() {
       <div className="mx-auto max-w-[1200px]">
         <div className="grid gap-12 md:grid-cols-12">
           <div className="md:col-span-6">
-            <Link href="/" className="text-[18px] font-medium tracking-[-0.03em] text-white">
-              nocta
+            <Link href="/" className="text-[18px] font-bold tracking-[-0.03em] text-white uppercase">
+              NOCTA
             </Link>
             <p className="mt-6 max-w-sm text-[13px] leading-relaxed text-white/30">
               An AI chatbot platform for the modern web. Built to be fast, embeddable, and out of your way.
@@ -44,7 +44,7 @@ export function Footer() {
 
         <div className="mt-20 flex flex-col items-center justify-between gap-6 border-t border-white/5 pt-8 md:flex-row">
           <p className="text-[11px] text-white/20">
-            © 2026 Nocta. All rights reserved. Built for the open web.
+            © 2026 NOCTA. All rights reserved. Built for the open web.
           </p>
           <div className="flex gap-6">
              <Link href="#" className="text-[11px] text-white/20 hover:text-white transition-colors">X / Twitter</Link>

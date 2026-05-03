@@ -17,7 +17,7 @@ const instrumentSerif = Instrument_Serif({
 });
 
 export const metadata: Metadata = {
-  title: 'Nocta - Add AI to your website in 60 seconds',
+  title: 'NOCTA - Add AI to your website in 60 seconds',
   description: 'Full-stack multi-tenant SaaS AI chatbot platform',
 };
 

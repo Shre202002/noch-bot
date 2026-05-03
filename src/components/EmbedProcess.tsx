@@ -99,7 +99,7 @@ export function EmbedProcess() {
             From signup to<br />live in 4 minutes.
           </h2>
           <p className="mt-6 text-base text-white/40">
-            Watch how a Nocta chatbot goes from blank slate to answering customers — visualized.
+            Watch how a NOCTA chatbot goes from blank slate to answering customers — visualized.
           </p>
         </div>
 

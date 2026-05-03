@@ -35,7 +35,7 @@ export function AppSidebar() {
       <SidebarHeader className="p-4">
         <Link href="/" className="flex items-center gap-2">
           <Logo />
-          {!collapsed && <span className="text-lg font-bold text-sidebar-foreground">Nocta</span>}
+          {!collapsed && <span className="text-lg font-bold text-sidebar-foreground uppercase tracking-tight">NOCTA</span>}
         </Link>
       </SidebarHeader>
       <SidebarContent>
