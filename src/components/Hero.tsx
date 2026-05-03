@@ -85,12 +85,12 @@ export function Hero() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 1, delay: 0.8 }}
-        className="absolute bottom-10 left-0 right-0 flex items-center justify-center gap-4 text-[10px] uppercase tracking-[0.18em] text-white/20 px-6 sm:gap-12 sm:text-[11px]"
+        className="absolute bottom-10 left-0 right-0 flex items-center justify-center gap-6 text-[11px] uppercase tracking-[0.18em] text-white/20 sm:gap-12"
       >
         <span>Reasoning</span>
-        <span className="h-px w-3 bg-white/10 sm:w-4" />
+        <span className="h-px w-4 bg-white/10" />
         <span>Embed</span>
-        <span className="h-px w-3 bg-white/10 hidden sm:inline sm:w-4" />
+        <span className="h-px w-4 bg-white/10 hidden sm:inline" />
         <span className="hidden sm:inline">Analytics</span>
         <span className="h-px w-4 bg-white/10 hidden md:inline" />
         <span className="hidden md:inline">Realtime</span>
