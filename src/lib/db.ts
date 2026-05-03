@@ -4,6 +4,10 @@ import { MongoClient, Db } from 'mongodb';
 const uri = process.env.MONGODB_URI!;
 const dbName = process.env.MONGODB_DB!;
 
+if (!uri) {
+  throw new Error('Please define the MONGODB_URI environment variable inside .env');
+}
+
 declare global {
   // eslint-disable-next-line no-var
   var _mongoClient: MongoClient | undefined;
@@ -19,10 +23,8 @@ export async function getClient(): Promise<MongoClient> {
     }
     client = global._mongoClient;
   } else {
-    if (!client) {
-      client = new MongoClient(uri);
-      await client.connect();
-    }
+    client = new MongoClient(uri);
+    await client.connect();
   }
   return client;
 }

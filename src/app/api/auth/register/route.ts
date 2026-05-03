@@ -1,42 +1,54 @@
 
 import { NextRequest, NextResponse } from 'next/server';
+import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
-import { findAccountByEmail, writeAccount } from '@/lib/storage';
-import { hashPassword, createTokenCookie } from '@/lib/auth';
+import { findAccount, writeAccount } from '@/lib/storage';
+import { signToken } from '@/lib/auth';
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, password, name } = await req.json();
+    const { email, password } = await req.json();
 
     if (!email || !password) {
-      return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
+      return NextResponse.json({ error: 'Email and password required' }, { status: 400 });
     }
 
-    const existing = await findAccountByEmail(email);
-    if (existing) {
-      return NextResponse.json({ error: 'User already exists' }, { status: 400 });
+    if (password.length < 8) {
+      return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
     }
 
-    const userId = uuidv4();
-    const passwordHash = await hashPassword(password);
+    const existingAccount = await findAccount(email);
+    if (existingAccount) {
+      return NextResponse.json({ error: 'Email already registered' }, { status: 400 });
+    }
+
+    const id = uuidv4();
+    const passwordHash = await bcrypt.hash(password, 10);
+    const createdAt = new Date().toISOString();
 
     await writeAccount({
-      id: userId,
+      id,
       email,
       passwordHash,
-      name,
-      createdAt: new Date().toISOString(),
+      createdAt,
       plan: 'free',
       crawlCount: 0,
     });
 
-    const response = NextResponse.json({ success: true, userId });
-    const cookie = createTokenCookie(userId);
-    response.cookies.set(cookie.name, cookie.value, cookie);
+    const token = signToken(id);
+    const response = NextResponse.json({ success: true });
+
+    response.cookies.set('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+      path: '/',
+      sameSite: 'lax',
+    });
 
     return response;
   } catch (error) {
     console.error('Registration error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Registration failed' }, { status: 500 });
   }
 }

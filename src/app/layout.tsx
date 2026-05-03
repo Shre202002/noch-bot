@@ -1,19 +1,17 @@
+
 import type { Metadata } from 'next';
-import { DM_Sans, Instrument_Serif } from 'next/font/google';
+import { Inter, Syne } from 'next/font/google';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 
-const dmSans = DM_Sans({ 
+const inter = Inter({ 
   subsets: ['latin'], 
-  weight: ['300', '400', '500'],
-  variable: '--font-dm-sans'
+  variable: '--font-inter'
 });
 
-const instrumentSerif = Instrument_Serif({ 
-  subsets: ['latin'], 
-  weight: ['400'],
-  style: ['italic'],
-  variable: '--font-instrument-serif'
+const syne = Syne({ 
+  subsets: ['latin'],
+  variable: '--font-syne'
 });
 
 export const metadata: Metadata = {
@@ -28,7 +26,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-      <body className={`${dmSans.variable} ${instrumentSerif.variable} font-sans antialiased`}>
+      <body className={`${inter.variable} ${syne.variable} font-body antialiased bg-black text-white`}>
         {children}
         <Toaster />
       </body>
