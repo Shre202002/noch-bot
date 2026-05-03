@@ -4,12 +4,13 @@
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import createGlobe, { COBEOptions } from "cobe";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 
 /**
  * @fileOverview A global scale feature section for NOCTA.
  * Showcases the platform's reach using an interactive 3D globe.
+ * Optimized for "half-globe" aesthetic and responsive layouts.
  */
 
 interface Featured_05Props {
@@ -20,12 +21,14 @@ export default function Featured_05({ onJoinClick }: Featured_05Props) {
   return (
     <section className="relative w-full overflow-hidden border-y border-white/5 bg-[#0d1117] py-24 md:py-32 mt-24">
       <div className="mx-auto max-w-[1200px] px-6">
-        <div className="flex flex-col-reverse items-center justify-between gap-12 md:flex-row">
-          <div className="z-10 max-w-xl text-left">
+        <div className="flex flex-col items-start justify-between gap-12 lg:flex-row">
+          <div className="z-10 max-w-2xl text-left">
             <p className="text-[11px] uppercase tracking-[0.2em] text-white/40 mb-4">Scale Globally</p>
             <h2 className="text-3xl md:text-5xl font-normal tracking-tight text-white leading-tight">
               Deploy <span className="text-primary font-medium">AI Agents</span>{" "}
-              <span className="text-white/40">anywhere in the world. NOCTA powers millions of conversations across every continent, in real-time.</span>
+              <span className="text-white/40 block mt-2">
+                Powering millions of conversations across every continent in real-time.
+              </span>
             </h2>
             <Button 
               onClick={onJoinClick}
@@ -34,8 +37,10 @@ export default function Featured_05({ onJoinClick }: Featured_05Props) {
               Join the Network <ArrowRight className="h-4 w-4" />
             </Button>
           </div>
-          <div className="relative h-[300px] w-full max-w-xl md:h-[450px]">
-            <Globe className="absolute -bottom-20 -right-20 md:-right-40 scale-125 md:scale-150" />
+          
+          <div className="relative h-[300px] w-full lg:h-[500px] lg:flex-1">
+            {/* Positioned for the "Half Globe" look on larger screens */}
+            <Globe className="absolute -bottom-32 -right-32 lg:-bottom-48 lg:-right-48 scale-110 lg:scale-150" />
           </div>
         </div>
       </div>
@@ -81,14 +86,66 @@ export function Globe({
   className?: string;
   config?: COBEOptions;
 }) {
-  let phi = 0;
-  let width = 0;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const pointerInteracting = useRef<number | null>(null);
   const pointerInteractionMovement = useRef(0);
+  
+  // Use Refs for values needed in the onRender closure to avoid hook dependency issues
+  const phiRef = useRef(0);
+  const widthRef = useRef(0);
+  const rRef = useRef(0);
+  
   const [r, setR] = useState(0);
 
-  const updatePointerInteraction = (value: any) => {
+  // Sync state to Ref for use in onRender callback
+  useEffect(() => {
+    rRef.current = r;
+  }, [r]);
+
+  const onRender = useCallback(
+    (state: Record<string, any>) => {
+      if (!pointerInteracting.current) phiRef.current += 0.005;
+      state.phi = phiRef.current + rRef.current;
+      state.width = widthRef.current * 2;
+      state.height = widthRef.current * 2;
+    },
+    [],
+  );
+
+  const onResize = useCallback(() => {
+    if (canvasRef.current) {
+      widthRef.current = canvasRef.current.offsetWidth;
+    }
+  }, []);
+
+  // Stable config reference
+  const memoizedConfig = useMemo(() => config, [config]);
+
+  useEffect(() => {
+    if (!canvasRef.current) return;
+
+    window.addEventListener("resize", onResize);
+    onResize();
+
+    const globe = createGlobe(canvasRef.current, {
+      ...memoizedConfig,
+      width: widthRef.current * 2,
+      height: widthRef.current * 2,
+      onRender,
+    });
+
+    const timeout = setTimeout(() => {
+      if (canvasRef.current) canvasRef.current.style.opacity = "1";
+    });
+
+    return () => {
+      window.removeEventListener("resize", onResize);
+      clearTimeout(timeout);
+      globe.destroy();
+    };
+  }, [memoizedConfig, onRender, onResize]);
+
+  const updatePointerInteraction = (value: number | null) => {
     pointerInteracting.current = value;
     if (canvasRef.current) {
       canvasRef.current.style.cursor = value ? "grabbing" : "grab";
@@ -102,39 +159,6 @@ export function Globe({
       setR(delta / 200);
     }
   };
-
-  const onRender = useCallback(
-    (state: Record<string, any>) => {
-      if (!pointerInteracting.current) phi += 0.005;
-      state.phi = phi + r;
-      state.width = width * 2;
-      state.height = width * 2;
-    },
-    [r],
-  );
-
-  const onResize = () => {
-    if (canvasRef.current) {
-      width = canvasRef.current.offsetWidth;
-    }
-  };
-
-  useEffect(() => {
-    window.addEventListener("resize", onResize);
-    onResize();
-
-    const globe = createGlobe(canvasRef.current!, {
-      ...config,
-      width: width * 2,
-      height: width * 2,
-      onRender,
-    });
-
-    setTimeout(() => {
-      if (canvasRef.current) canvasRef.current.style.opacity = "1";
-    });
-    return () => globe.destroy();
-  }, []);
 
   return (
     <div
