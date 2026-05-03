@@ -94,7 +94,7 @@ const Sidebar = ({ user }: { user?: any }) => {
 
       <div className="border-t border-border pt-4 space-y-2">
         <SidebarOption
-          Icon={User, Settings}
+          Icon={User}
           title="Account"
           href="/dashboard/account"
           selected={pathname === "/dashboard/account"}
