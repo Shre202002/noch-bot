@@ -1,4 +1,3 @@
-
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -10,7 +9,7 @@ import { cn } from "@/lib/utils";
 /**
  * @fileOverview A global scale feature section for NOCTA.
  * Showcases the platform's reach using an interactive 3D globe.
- * Optimized for "half-globe" aesthetic and responsive layouts.
+ * Optimized for a "half-globe" aesthetic with a 55/45 layout split.
  */
 
 interface Featured_05Props {
@@ -21,36 +20,45 @@ export default function Featured_05({ onJoinClick }: Featured_05Props) {
   return (
     <section className="relative w-full overflow-hidden border-y border-white/5 bg-[#0d1117] py-24 md:py-32 mt-24">
       <div className="mx-auto max-w-[1200px] px-6">
-        <div className="flex flex-col items-start justify-between gap-12 lg:flex-row lg:items-center">
-          {/* Content Division - 70% */}
-          <div className="z-10 w-full lg:w-[70%] text-left">
-            <p className="text-[11px] uppercase tracking-[0.2em] text-white/40 mb-4">Scale Globally</p>
-            <h2 className="text-3xl md:text-5xl font-normal tracking-tight text-white leading-tight">
-              Deploy <span className="text-primary font-medium">AI Agents</span>{" "}
-              <span className="text-white/40 block mt-2 max-w-xl">
-                Powering millions of conversations across every continent in real-time.
-              </span>
+        <div className="flex flex-col lg:flex-row lg:items-center gap-12 lg:gap-0">
+
+          {/* TEXT — 55% on desktop */}
+          <div className="z-10 w-full lg:w-[55%] lg:pr-12 text-left">
+            <p className="text-[11px] uppercase tracking-[0.2em] text-white/40 mb-6">
+              Scale Globally
+            </p>
+            <h2 className="text-4xl md:text-5xl lg:text-6xl font-normal tracking-tight text-white leading-[1.05]">
+              Deploy{" "}
+              <span className="text-[#7c6fff] font-medium">AI Agents</span>
             </h2>
-            <Button 
+            <p className="mt-5 text-xl md:text-2xl lg:text-3xl font-normal text-white/35 leading-snug max-w-lg">
+              Powering millions of conversations across every continent in real-time.
+            </p>
+            <Button
               onClick={onJoinClick}
               className="mt-10 inline-flex items-center gap-2 rounded-full bg-white px-8 py-6 text-sm font-semibold text-black transition hover:opacity-90"
             >
               Join the Network <ArrowRight className="h-4 w-4" />
             </Button>
           </div>
-          
-          {/* Globe Division - 30% container with overflow for half-globe effect */}
-          <div className="relative h-[300px] w-full lg:h-[500px] lg:w-[30%]">
-            {/* 
-              Positioned to achieve the "Half Globe" look. 
-              We shift it right and down so only a portion is visible in the container.
-            */}
-            <Globe className="absolute -bottom-24 -right-24 lg:-bottom-40 lg:-right-40 scale-[1.4] lg:scale-[2.2]" />
+
+          {/* GLOBE — 45% on desktop, overflows right ~20% */}
+          <div className="relative hidden lg:block lg:w-[45%] h-[600px] flex-shrink-0">
+            <Globe className="absolute top-1/2 -translate-y-1/2 -right-[20%] w-[700px] h-[700px]" />
           </div>
+
+          {/* GLOBE — mobile, centered and clipped */}
+          <div className="relative block lg:hidden w-full h-[320px] overflow-hidden">
+            <Globe className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[420px] h-[420px]" />
+          </div>
+
         </div>
       </div>
-      
-      {/* Background Decorative Element */}
+
+      {/* Right edge fade — makes globe crop feel intentional */}
+      <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-[#0d1117] to-transparent z-10 pointer-events-none hidden lg:block" />
+
+      {/* Background grid */}
       <div className="absolute inset-0 -z-10 opacity-[0.03] grid-bg" />
     </section>
   );
@@ -95,14 +103,12 @@ export function Globe({
   const pointerInteracting = useRef<number | null>(null);
   const pointerInteractionMovement = useRef(0);
   
-  // Use Refs for values needed in the onRender closure to avoid hook dependency issues
   const phiRef = useRef(0);
   const widthRef = useRef(0);
   const rRef = useRef(0);
   
   const [r, setR] = useState(0);
 
-  // Sync state to Ref for use in onRender callback
   useEffect(() => {
     rRef.current = r;
   }, [r]);
@@ -123,7 +129,6 @@ export function Globe({
     }
   }, []);
 
-  // Stable config reference
   const memoizedConfig = useMemo(() => config, [config]);
 
   useEffect(() => {
@@ -166,16 +171,9 @@ export function Globe({
   };
 
   return (
-    <div
-      className={cn(
-        "absolute inset-0 mx-auto aspect-[1/1] w-full max-w-[600px]",
-        className,
-      )}
-    >
+    <div className={cn("relative", className)}>
       <canvas
-        className={cn(
-          "size-full opacity-0 transition-opacity duration-500 [contain:layout_paint_size]",
-        )}
+        className="size-full opacity-0 transition-opacity duration-500 [contain:layout_paint_size]"
         ref={canvasRef}
         onPointerDown={(e) =>
           updatePointerInteraction(
