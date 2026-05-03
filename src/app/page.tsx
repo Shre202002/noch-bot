@@ -8,29 +8,37 @@ import { Features } from '@/components/Features';
 import { EmbedProcess } from '@/components/EmbedProcess';
 import { HowItWorks } from '@/components/HowItWorks';
 import { Pricing } from '@/components/Pricing';
-import { Footer } from '@/components/Footer';
 import { LandingControls } from '@/components/LandingControls';
 import Featured_05 from '@/components/ui/globe-feature-section';
 import { NewsletterPopup } from '@/components/NewsletterPopup';
+import { CinematicFooter } from '@/components/ui/motion-footer';
 
 export default function Page() {
   const [isNewsletterOpen, setIsNewsletterOpen] = useState(false);
 
   return (
-    <div className="relative min-h-screen">
-      <Nav />
-      <main>
-        <Hero />
-        <Features />
-        <EmbedProcess />
-        <HowItWorks />
-        
-        {/* New Global Scale Feature Section - Full Width */}
-        <Featured_05 onJoinClick={() => setIsNewsletterOpen(true)} />
+    <div className="relative w-full selection:bg-white/20 overflow-x-hidden">
+      {/* 
+        MAIN CONTENT AREA 
+        We use a high z-index and minimum height to allow the user 
+        to scroll down and reveal the footer underneath.
+      */}
+      <div className="relative z-10 w-full bg-background border-b border-white/5 rounded-b-[40px] shadow-2xl">
+        <Nav />
+        <main>
+          <Hero />
+          <Features />
+          <EmbedProcess />
+          <HowItWorks />
+          
+          <Featured_05 onJoinClick={() => setIsNewsletterOpen(true)} />
 
-        <Pricing />
-      </main>
-      <Footer />
+          <Pricing />
+        </main>
+      </div>
+
+      <CinematicFooter />
+      
       <LandingControls />
       <NewsletterPopup 
         isOpen={isNewsletterOpen} 
