@@ -3,25 +3,9 @@
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 
-type Tab = 'Crawl' | 'Persona' | 'Appearance' | 'Preview' | 'Embed'
+type Tab = 'Crawl' | 'Embed' | 'Theme' | 'Preview' | 'Embed Code'
 
 type Message = { role: 'user' | 'assistant'; content: string }
-
-type Theme = {
-  bubbleColor: string
-  headerColor: string
-  userMsgColor: string
-  sendBtnColor: string
-  accentColor: string
-}
-
-type KnowledgeState = {
-  url: string | null
-  crawledAt: string | null
-  systemPrompt: string | null
-  theme: Theme | null
-  hasCrawled: boolean
-}
 
 const COLOR_OPTIONS = [
   { id: 'green',  value: '#36f4a4' },
@@ -34,57 +18,55 @@ const COLOR_OPTIONS = [
   { id: 'white',  value: '#ffffff' },
 ]
 
-const ICON_OPTIONS = [
-  { id: 'robot',   emoji: '🤖' },
-  { id: 'chat',    emoji: '💬' },
-  { id: 'bolt',    emoji: '⚡' },
-  { id: 'target',  emoji: '🎯' },
-  { id: 'brain',   emoji: '🧠' },
-  { id: 'star',    emoji: '🌟' },
-  { id: 'crystal', emoji: '🔮' },
-  { id: 'arm',     emoji: '🦾' },
-]
+const THEME_COMPONENTS = [
+  { key: 'bubbleColor',  label: 'Chat Bubble',     desc: 'Floating button color' },
+  { key: 'headerColor',  label: 'Header Bar',       desc: 'Top bar of chat window' },
+  { key: 'userMsgColor', label: 'User Messages',    desc: 'Sent message bubbles' },
+  { key: 'sendBtnColor', label: 'Send Button',      desc: 'Send arrow button' },
+  { key: 'accentColor',  label: 'Accent / Links',   desc: 'Hover states and links' },
+] as const
 
 export default function ConfigurePage() {
-  const [activeTab, setActiveTab] = useState<Tab>('Crawl')
-  const [userId, setUserId] = useState('')
-  const [knowledge, setKnowledge] = useState<KnowledgeState>({
-    url: null, crawledAt: null, systemPrompt: null, theme: null, hasCrawled: false
-  })
-
-  // Tab 1: Crawl States
+  // Step 1 — Crawl
   const [crawlUrl, setCrawlUrl] = useState('')
   const [crawling, setCrawling] = useState(false)
-  const [logs, setLogs] = useState<string[]>([])
+  const [crawlLogs, setCrawlLogs] = useState<string[]>([])
+  const [crawledPages, setCrawledPages] = useState<{url: string, chars: number}[]>([])
   const [crawlDone, setCrawlDone] = useState(false)
   const [crawlError, setCrawlError] = useState('')
-  const [crawlStats, setCrawlStats] = useState({ pages: 0, chunks: 0 })
-  const logsEndRef = useRef<HTMLDivElement>(null)
 
-  // Tab 2: Persona States
-  const [systemPrompt, setSystemPrompt] = useState('')
-  const [savingPersona, setSavingPersona] = useState(false)
-  const [personaSaved, setPersonaSaved] = useState(false)
+  // Step 2 — Embedding
+  const [embedding, setEmbedding] = useState(false)
+  const [embedLogs, setEmbedLogs] = useState<string[]>([])
+  const [embedDone, setEmbedDone] = useState(false)
+  const [chunkCount, setChunkCount] = useState(0)
 
-  // Tab 3: Appearance States
-  const [selectedColor, setSelectedColor] = useState('green')
-  const [selectedIcon, setSelectedIcon] = useState('robot')
-  const [savingAppearance, setSavingAppearance] = useState(false)
-  const [appearanceSaved, setAppearanceSaved] = useState(false)
-  const [extracting, setExtracting] = useState(false)
+  // Step 3 — Theme
+  const [extractingTheme, setExtractingTheme] = useState(false)
   const [palette, setPalette] = useState<string[]>([])
+  const [themeConfig, setThemeConfig] = useState({
+    bubbleColor:  '#36f4a4',
+    headerColor:  '#36f4a4',
+    userMsgColor: '#36f4a4',
+    sendBtnColor: '#36f4a4',
+    accentColor:  '#36f4a4',
+  })
+  const [themeSaved, setThemeSaved] = useState(false)
 
-  // Tab 4: Preview States
+  // Step 4 — Preview
   const [previewMessages, setPreviewMessages] = useState<Message[]>([])
   const [previewInput, setPreviewInput] = useState('')
   const [previewStreaming, setPreviewStreaming] = useState(false)
-  const previewBottomRef = useRef<HTMLDivElement>(null)
 
-  // Tab 5: Embed States
+  // Step 5 — Embed
   const [copied, setCopied] = useState(false)
 
-  const activeColor = COLOR_OPTIONS.find(c => c.id === selectedColor)?.value ?? '#36f4a4'
-  const activeIcon = ICON_OPTIONS.find(i => i.id === selectedIcon)?.emoji ?? '🤖'
+  // Global
+  const [activeTab, setActiveTab] = useState<Tab>('Crawl')
+  const [userId, setUserId] = useState('')
+  const [baseUrl, setBaseUrl] = useState('')
+  const logsEndRef = useRef<HTMLDivElement>(null)
+  const previewBottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     // Get userId
@@ -92,23 +74,26 @@ export default function ConfigurePage() {
       .then(r => r.json())
       .then(d => { if (d.id) setUserId(d.id) })
 
-    // Get existing knowledge
+    // Dynamic base URL
+    setBaseUrl(window.location.origin)
+
+    // Load existing knowledge
     fetch('/api/knowledge')
       .then(r => r.json())
       .then(d => {
-        setKnowledge(d)
-        if (d.url) setCrawlUrl(d.url)
-        if (d.systemPrompt) setSystemPrompt(d.systemPrompt)
-        if (d.theme) {
-          const match = COLOR_OPTIONS.find(c => c.value === d.theme.bubbleColor)
-          if (match) setSelectedColor(match.id)
+        if (d.url) {
+          setCrawlUrl(d.url)
+          setCrawlDone(true)
+          setEmbedDone(true)
         }
+        if (d.theme) setThemeConfig(d.theme)
+        if (d.palette) setPalette(d.palette)
       })
   }, [])
 
   useEffect(() => {
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [logs])
+  }, [crawlLogs, embedLogs])
 
   useEffect(() => {
     previewBottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -117,10 +102,13 @@ export default function ConfigurePage() {
   const startCrawl = async () => {
     if (!crawlUrl.trim()) return
     setCrawling(true)
-    setLogs([])
+    setCrawlLogs([])
+    setCrawledPages([])
     setCrawlDone(false)
     setCrawlError('')
-    setCrawlStats({ pages: 0, chunks: 0 })
+    setEmbedDone(false)
+    setChunkCount(0)
+    setEmbedLogs([])
 
     try {
       const res = await fetch('/api/crawl', {
@@ -130,99 +118,105 @@ export default function ConfigurePage() {
       })
 
       if (!res.body) throw new Error('No response stream')
+
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
+      const pages: {url: string, chars: number}[] = []
 
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
 
         const text = decoder.decode(value)
-        const lines = text.split('\n').filter(l => l.startsWith('data: '))
+        const lines = text.split('\n').filter(l => l.startsWith('data:'))
 
         for (const line of lines) {
           try {
             const event = JSON.parse(line.replace('data: ', '').trim())
 
-            if (event.type === 'start') setLogs(['🚀 ' + event.message])
-            if (event.type === 'crawling') setLogs(prev => [...prev, `🔍 Crawling (${event.count}): ${event.page}`])
-            if (event.type === 'page_done') setLogs(prev => [...prev, `✓ Done: ${event.page} (${event.chars} chars)`])
-            if (event.type === 'page_error') setLogs(prev => [...prev, `✗ Failed: ${event.page}`])
-            if (event.type === 'embedding') setLogs(prev => [...prev, `⚡ ${event.message}`])
-            if (event.type === 'done') {
-              setCrawlDone(true)
-              setCrawlStats({ pages: event.pagesCrawled, chunks: event.chunks })
-              setLogs(prev => [...prev, `✅ Complete! ${event.pagesCrawled} pages · ${event.chunks} chunks`])
-              fetch('/api/knowledge').then(r => r.json()).then(d => setKnowledge(d))
-            }
-            if (event.type === 'error') {
-              setCrawlError(event.message)
-              setLogs(prev => [...prev, `❌ Error: ${event.message}`])
+            switch(event.type) {
+              case 'start':
+                setCrawlLogs(['🚀 ' + event.message])
+                break
+              case 'crawling':
+                setCrawlLogs(prev => [...prev, `🔍 [${event.count}] ${event.page}`])
+                break
+              case 'page_done':
+                pages.push({ url: event.page, chars: event.chars })
+                setCrawledPages([...pages])
+                setCrawlLogs(prev => [...prev, `✓ ${event.page}`])
+                break
+              case 'page_error':
+                setCrawlLogs(prev => [...prev, `✗ Failed: ${event.page}`])
+                break
+              case 'embedding':
+                setEmbedLogs(prev => [...prev, `⚡ ${event.message}`])
+                if (event.message?.includes('vectors stored')) {
+                  setEmbedDone(true)
+                  const match = event.message.match(/(\d+) vectors/)
+                  if (match) setChunkCount(parseInt(match[1]))
+                }
+                break
+              case 'done':
+                setCrawlDone(true)
+                setChunkCount(event.chunks || 0)
+                setCrawlLogs(prev => [...prev, `✅ Crawl complete — ${event.pagesCrawled} pages`])
+                break
+              case 'error':
+                setCrawlError(event.message)
+                setCrawlLogs(prev => [...prev, `❌ ${event.message}`])
+                break
             }
           } catch { }
         }
       }
     } catch (err: any) {
-      setCrawlError(err.message || 'Crawl failed')
+      setCrawlError(err.message)
     } finally {
       setCrawling(false)
     }
   }
 
-  const savePersona = async () => {
-    setSavingPersona(true)
-    try {
-      await fetch('/api/save-prompt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: systemPrompt }),
-      })
-      setPersonaSaved(true)
-      setTimeout(() => setPersonaSaved(false), 2000)
-    } finally {
-      setSavingPersona(false)
-    }
-  }
-
   const extractTheme = async () => {
-    if (!knowledge.url) return
-    setExtracting(true)
+    if (!crawlUrl) return
+    setExtractingTheme(true)
+    setPalette([])
     try {
       const res = await fetch('/api/extract-theme', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: knowledge.url }),
+        body: JSON.stringify({ url: crawlUrl }),
       })
       const data = await res.json()
-      if (data.palette) setPalette(data.palette)
-      if (data.theme?.bubbleColor) {
-        const match = COLOR_OPTIONS.find(c => c.value === data.theme.bubbleColor)
-        if (match) setSelectedColor(match.id)
+      if (data.palette?.length > 0) {
+        setPalette(data.palette)
+        const primary = data.palette[0]
+        setThemeConfig({
+          bubbleColor:  primary,
+          headerColor:  primary,
+          userMsgColor: primary,
+          sendBtnColor: primary,
+          accentColor:  data.palette[1] || primary,
+        })
       }
+    } catch (err) {
+      console.error('Theme extraction failed:', err)
     } finally {
-      setExtracting(false)
+      setExtractingTheme(false)
     }
   }
 
-  const saveAppearance = async () => {
-    setSavingAppearance(true)
+  const saveTheme = async () => {
     try {
-      const theme = {
-        bubbleColor: activeColor,
-        headerColor: activeColor,
-        userMsgColor: activeColor,
-        sendBtnColor: activeColor,
-        accentColor: activeColor,
-      }
       await fetch('/api/theme', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ theme }),
+        body: JSON.stringify({ theme: themeConfig }),
       })
-      setAppearanceSaved(true)
-      setTimeout(() => setAppearanceSaved(false), 2000)
-    } finally {
-      setSavingAppearance(false)
+      setThemeSaved(true)
+      setTimeout(() => setThemeSaved(false), 2000)
+    } catch (err) {
+      console.error('Save theme failed:', err)
     }
   }
 
@@ -241,7 +235,6 @@ export default function ConfigurePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: newMessages, userId }),
       })
-
       if (!res.body) throw new Error('No stream')
 
       const streamMessages: Message[] = [...newMessages, { role: 'assistant', content: '' }]
@@ -275,18 +268,12 @@ export default function ConfigurePage() {
     }
   }
 
-  const embedCode = `<script\n  src="https://nocta-chat-bot.vercel.app/embed.js"\n  data-user-id="${userId}"\n  defer>\n</script>`
+  const embedCode = `<script\n  src="${baseUrl}/embed.js"\n  data-user-id="${userId}"\n  defer>\n</script>`
 
-  const copyEmbed = () => {
-    navigator.clipboard.writeText(embedCode)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-
-  const TABS: Tab[] = ['Crawl', 'Persona', 'Appearance', 'Preview', 'Embed']
+  const TABS = ['Crawl', 'Embed', 'Theme', 'Preview', 'Embed Code'] as const
 
   return (
-    <div style={{ padding: '32px 40px', maxWidth: 900, margin: '0 auto' }}>
+    <div style={{ padding: '32px 40px', maxWidth: 960, margin: '0 auto' }}>
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes typingBounce {
@@ -299,263 +286,183 @@ export default function ConfigurePage() {
         <h1 style={{ fontSize: 36, fontWeight: 400, color: '#fff', letterSpacing: '-0.9px', marginBottom: 6 }}>
           Configure
         </h1>
-        <p style={{ fontSize: 14, color: '#7d8187' }}>Set up and customize your AI chatbot.</p>
+        <p style={{ fontSize: 14, color: '#7d8187' }}>Set up your AI chatbot step by step.</p>
       </div>
 
-      <div style={{
-        display: 'flex', gap: 0, borderBottom: '1px solid #2a2d35',
-        marginBottom: 32, overflowX: 'auto'
-      }}>
-        {TABS.map(tab => (
-          <button
+      <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
+        {[
+          { tab: 'Crawl', done: crawlDone, label: '1. Crawl' },
+          { tab: 'Embed', done: embedDone, label: '2. Vectorize' },
+          { tab: 'Theme', done: themeSaved, label: '3. Theme' },
+          { tab: 'Preview', done: previewMessages.length > 0, label: '4. Preview' },
+          { tab: 'Embed Code', done: false, label: '5. Embed' },
+        ].map(({ tab, done, label }) => (
+          <div
             key={tab}
-            onClick={() => setActiveTab(tab)}
+            onClick={() => setActiveTab(tab as any)}
             style={{
-              background: 'transparent', border: 'none',
-              borderBottom: activeTab === tab ? '2px solid #36f4a4' : '2px solid transparent',
-              color: activeTab === tab ? '#36f4a4' : '#7d8187',
-              padding: '0 20px 14px', fontSize: 14, cursor: 'pointer',
-              whiteSpace: 'nowrap', transition: 'color 0.15s',
-              marginBottom: -1
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '6px 14px', borderRadius: 9999, cursor: 'pointer',
+              background: activeTab === tab ? '#36f4a420' : 'transparent',
+              border: activeTab === tab ? '1px solid #36f4a4' : '1px solid #2a2d35',
+              color: activeTab === tab ? '#36f4a4' : done ? '#7d8187' : '#4a4e56',
+              fontSize: 13, transition: 'all 0.15s'
             }}
           >
-            {tab}
-          </button>
+            {done && <span style={{ color: '#36f4a4' }}>✓</span>}
+            {label}
+          </div>
         ))}
       </div>
 
-      <div className="tab-content">
+      <div style={{ background: '#1f2228', border: '1px solid #2a2d35', borderRadius: 16, padding: 32 }}>
         {activeTab === 'Crawl' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          <div style={{ display:'flex', flexDirection:'column', gap:24 }}>
             <div>
-              <h2 style={{ fontSize: 20, fontWeight: 400, color: '#fff', marginBottom: 6 }}>Train your chatbot</h2>
-              <p style={{ fontSize: 14, color: '#7d8187' }}>Paste your website URL. Nocta crawls up to 15 pages and learns your content.</p>
+              <h2 style={{ fontSize:20, color:'#fff', fontWeight:400, marginBottom:6 }}>Step 1 — Crawl Your Website</h2>
+              <p style={{ fontSize:14, color:'#7d8187' }}>Enter your website URL. Nocta will crawl up to 15 pages and extract all content.</p>
             </div>
-
-            {knowledge.crawledAt && (
-              <div style={{
-                background: '#1f2228', border: '1px solid #2a2d35', borderRadius: 8, padding: '12px 16px',
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-              }}>
-                <div>
-                  <span style={{ fontSize: 12, color: '#7d8187' }}>Last crawled: </span>
-                  <span style={{ fontSize: 12, color: '#fff' }}>{new Date(knowledge.crawledAt).toLocaleString()}</span>
-                  <div style={{ fontSize: 12, color: '#36f4a4', marginTop: 2 }}>{knowledge.url}</div>
-                </div>
-                <button onClick={() => setCrawlDone(false)} style={{
-                  background: 'transparent', border: '1px solid #2a2d35', color: '#7d8187',
-                  borderRadius: 9999, padding: '6px 16px', fontSize: 13, cursor: 'pointer'
-                }}>Re-crawl</button>
-              </div>
-            )}
-
-            <div style={{ display: 'flex', gap: 12 }}>
+            <div style={{ display:'flex', gap:12 }}>
               <input
                 value={crawlUrl}
                 onChange={e => setCrawlUrl(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && !crawling && startCrawl()}
                 placeholder="https://yourwebsite.com"
                 disabled={crawling}
-                onKeyDown={e => e.key === 'Enter' && startCrawl()}
                 style={{
-                  flex: 1, background: '#0a0a0a', border: '1px solid #2a2d35',
-                  borderRadius: 8, padding: '12px 16px', color: '#fff',
-                  fontSize: 14, outline: 'none', opacity: crawling ? 0.5 : 1
+                  flex:1, background:'#0a0a0a', border:'1px solid #2a2d35',
+                  borderRadius:8, padding:'12px 16px', color:'#fff',
+                  fontSize:14, outline:'none'
                 }}
               />
               <button
                 onClick={startCrawl}
                 disabled={crawling || !crawlUrl.trim()}
                 style={{
-                  background: crawling ? '#7d8187' : '#36f4a4',
-                  color: '#000', borderRadius: 9999, padding: '12px 24px',
-                  border: 'none', fontWeight: 500, fontSize: 14,
-                  cursor: crawling ? 'not-allowed' : 'pointer',
-                  whiteSpace: 'nowrap', minWidth: 120,
-                  display: 'flex', alignItems: 'center', gap: 8
+                  background: crawling ? '#2a2d35' : '#36f4a4',
+                  color: crawling ? '#7d8187' : '#000',
+                  border:'none', borderRadius:9999,
+                  padding:'12px 28px', fontWeight:500,
+                  fontSize:14, cursor: crawling ? 'not-allowed' : 'pointer',
+                  display:'flex', alignItems:'center', gap:8, whiteSpace:'nowrap'
                 }}
               >
                 {crawling ? (
                   <>
                     <span style={{
-                      width: 14, height: 14, borderRadius: '50%',
-                      border: '2px solid #000', borderTopColor: 'transparent',
-                      display: 'inline-block', animation: 'spin 0.8s linear infinite'
-                    }} />
+                      width:14, height:14, border:'2px solid #7d8187',
+                      borderTopColor:'#fff', borderRadius:'50%',
+                      display:'inline-block', animation:'spin 0.8s linear infinite'
+                    }}/>
                     Crawling...
                   </>
-                ) : 'Start Crawl'}
+                ) : crawlDone ? 'Re-crawl' : 'Start Crawl'}
               </button>
             </div>
 
-            {logs.length > 0 && (
+            {crawlLogs.length > 0 && (
               <div style={{
-                background: '#0a0a0a', border: '1px solid #2a2d35',
-                borderRadius: 12, padding: 20, maxHeight: 280, overflowY: 'auto'
+                background:'#0a0a0a', border:'1px solid #2a2d35',
+                borderRadius:12, padding:20, maxHeight:220, overflowY:'auto'
               }}>
-                <div style={{ fontSize: 12, color: '#7d8187', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                  {crawlDone ? '✅ Crawl Complete' : '⏳ Crawling...'}
-                </div>
-                {logs.map((log, i) => (
+                <div style={{ fontSize:11, color:'#7d8187', marginBottom:10, textTransform:'uppercase', letterSpacing:'0.08em' }}>Live Log</div>
+                {crawlLogs.map((log, i) => (
                   <div key={i} style={{
-                    fontFamily: 'GeistMono, monospace', fontSize: 12,
-                    color: i === logs.length - 1 && !crawlDone ? '#36f4a4' :
-                           log.startsWith('✅') ? '#36f4a4' :
-                           log.startsWith('✗') || log.startsWith('❌') ? '#ef4444' : '#7d8187',
-                    padding: '3px 0', lineHeight: 1.6,
-                  }}>
-                    {log}
-                  </div>
+                    fontFamily:'GeistMono, monospace', fontSize:12, padding:'2px 0',
+                    color: log.startsWith('✅') ? '#36f4a4' : log.startsWith('❌') || log.startsWith('✗') ? '#ef4444' : i === crawlLogs.length-1 ? '#36f4a4' : '#7d8187'
+                  }}>{log}</div>
                 ))}
-                {crawlError && <div style={{ color: '#ef4444', fontSize: 13, marginTop: 8 }}>❌ {crawlError}</div>}
                 <div ref={logsEndRef} />
               </div>
             )}
 
+            {crawledPages.length > 0 && (
+              <div style={{ background:'#1f2228', border:'1px solid #2a2d35', borderRadius:12, padding:20 }}>
+                <div style={{ fontSize:11, color:'#7d8187', marginBottom:14, textTransform:'uppercase', letterSpacing:'0.08em' }}>Crawled Pages ({crawledPages.length})</div>
+                <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                  {crawledPages.map((page, i) => (
+                    <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 12px', background:'#0a0a0a', borderRadius:8, border:'1px solid #2a2d35' }}>
+                      <span style={{ fontSize:12, color:'#fff', fontFamily:'GeistMono, monospace', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:'75%' }}>{page.url}</span>
+                      <span style={{ fontSize:11, color:'#7d8187', flexShrink:0 }}>{(page.chars/1000).toFixed(1)}k chars</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {crawlError && <div style={{ background:'#1a0a0a', border:'1px solid #ef4444', borderRadius:8, padding:16, color:'#ef4444', fontSize:14 }}>❌ {crawlError}</div>}
             {crawlDone && (
-              <div style={{
-                background: '#0d2420', border: '1px solid #36f4a430',
-                borderRadius: 12, padding: 20, display: 'flex', gap: 32
-              }}>
-                <div>
-                  <div style={{ fontSize: 28, fontWeight: 400, color: '#36f4a4' }}>{crawlStats.pages}</div>
-                  <div style={{ fontSize: 13, color: '#7d8187' }}>Pages crawled</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: 28, fontWeight: 400, color: '#36f4a4' }}>{crawlStats.chunks}</div>
-                  <div style={{ fontSize: 13, color: '#7d8187' }}>Chunks indexed</div>
-                </div>
-                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
-                  <button onClick={() => setActiveTab('Persona')} style={{
-                    background: '#36f4a4', color: '#000', borderRadius: 9999,
-                    padding: '10px 20px', border: 'none', fontWeight: 500, fontSize: 14, cursor: 'pointer'
-                  }}>Next: Set Persona →</button>
-                </div>
+              <div style={{ display:'flex', justifyContent:'flex-end' }}>
+                <button onClick={() => setActiveTab('Embed')} style={{ background:'#36f4a4', color:'#000', border:'none', borderRadius:9999, padding:'12px 28px', fontWeight:500, fontSize:14, cursor:'pointer' }}>Next: Vectorize Data →</button>
               </div>
             )}
           </div>
         )}
 
-        {activeTab === 'Persona' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 640 }}>
+        {activeTab === 'Embed' && (
+          <div style={{ display:'flex', flexDirection:'column', gap:24 }}>
             <div>
-              <h2 style={{ fontSize: 20, fontWeight: 400, color: '#fff', marginBottom: 6 }}>Bot Persona</h2>
-              <p style={{ fontSize: 14, color: '#7d8187' }}>Give your chatbot a personality and instructions.</p>
+              <h2 style={{ fontSize:20, color:'#fff', fontWeight:400, marginBottom:6 }}>Step 2 — Vectorize & Store</h2>
+              <p style={{ fontSize:14, color:'#7d8187' }}>Your crawled content is chunked into 500-word segments and stored as vectors in Qdrant.</p>
             </div>
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                <label style={{ fontSize: 13, color: '#7d8187' }}>Instructions</label>
-                <span style={{ fontSize: 12, color: '#4a4e56' }}>{systemPrompt.length} / 1000</span>
-              </div>
-              <textarea
-                value={systemPrompt}
-                onChange={e => setSystemPrompt(e.target.value.slice(0, 1000))}
-                rows={10}
-                placeholder="You are a helpful assistant for [Company Name]..."
-                style={{
-                  width: '100%', background: '#0a0a0a', border: '1px solid #2a2d35',
-                  borderRadius: 8, padding: 16, color: '#fff', fontSize: 13,
-                  fontFamily: 'GeistMono, monospace', lineHeight: 1.6, resize: 'vertical', outline: 'none'
-                }}
-              />
-            </div>
-            <button onClick={savePersona} disabled={savingPersona} style={{
-              background: personaSaved ? '#0d2420' : '#36f4a4',
-              color: personaSaved ? '#36f4a4' : '#000',
-              border: personaSaved ? '1px solid #36f4a430' : 'none',
-              borderRadius: 9999, padding: '12px 24px', fontWeight: 500, fontSize: 14,
-              cursor: 'pointer', alignSelf: 'flex-start', transition: 'all 0.2s'
-            }}>
-              {personaSaved ? '✓ Persona Saved' : savingPersona ? 'Saving...' : 'Save Persona'}
-            </button>
+            {!crawlDone ? (
+              <div style={{ background:'#1f2228', border:'1px solid #eab308', borderRadius:8, padding:16, color:'#eab308', fontSize:14 }}>⚠ Complete Step 1 (Crawl) first.</div>
+            ) : (
+              <>
+                <div style={{ background:'#0a0a0a', border:'1px solid #2a2d35', borderRadius:12, padding:20, minHeight:120 }}>
+                  <div style={{ fontSize:11, color:'#7d8187', marginBottom:10, textTransform:'uppercase', letterSpacing:'0.08em' }}>Vector Storage Log</div>
+                  {embedLogs.length === 0 ? <div style={{ color:'#4a4e56', fontSize:13 }}>Embedding logs will appear here during crawl...</div> : embedLogs.map((log, i) => (
+                    <div key={i} style={{ fontFamily:'GeistMono, monospace', fontSize:12, padding:'2px 0', color: log.includes('✅') ? '#36f4a4' : '#7d8187' }}>{log}</div>
+                  ))}
+                </div>
+                {embedDone && (
+                  <div style={{ display:'flex', gap:24, background:'#0d2420', border:'1px solid #36f4a430', borderRadius:12, padding:24 }}>
+                    <div><div style={{ fontSize:32, color:'#36f4a4', fontWeight:400 }}>{chunkCount}</div><div style={{ fontSize:13, color:'#7d8187' }}>Chunks indexed</div></div>
+                    <div><div style={{ fontSize:32, color:'#36f4a4', fontWeight:400 }}>{crawledPages.length}</div><div style={{ fontSize:13, color:'#7d8187' }}>Pages vectorized</div></div>
+                    <div style={{ marginLeft:'auto', display:'flex', alignItems:'center' }}><div style={{ background:'#36f4a420', border:'1px solid #36f4a430', borderRadius:8, padding:'8px 16px', color:'#36f4a4', fontSize:13 }}>✓ Stored in Qdrant</div></div>
+                  </div>
+                )}
+                <div style={{ display:'flex', justifyContent:'flex-end' }}>
+                  <button onClick={() => setActiveTab('Theme')} style={{ background:'#36f4a4', color:'#000', border:'none', borderRadius:9999, padding:'12px 28px', fontWeight:500, fontSize:14, cursor:'pointer' }}>Next: Detect Theme →</button>
+                </div>
+              </>
+            )}
           </div>
         )}
 
-        {activeTab === 'Appearance' && (
-          <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap' }}>
-            <div style={{ flex: 1, minWidth: 300, display: 'flex', flexDirection: 'column', gap: 28 }}>
-              <div>
-                <h2 style={{ fontSize: 20, fontWeight: 400, color: '#fff', marginBottom: 6 }}>Appearance</h2>
-                <p style={{ fontSize: 14, color: '#7d8187' }}>Customize how your chat widget looks.</p>
-              </div>
-
-              {knowledge.url && (
-                <div style={{
-                  background: '#1f2228', border: '1px solid #2a2d35', borderRadius: 8, padding: 16,
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-                }}>
-                  <div>
-                    <div style={{ fontSize: 13, color: '#fff' }}>Auto-detect brand colors</div>
-                    <div style={{ fontSize: 12, color: '#7d8187' }}>Extract colors from your website</div>
-                  </div>
-                  <button onClick={extractTheme} disabled={extracting} style={{
-                    background: 'transparent', border: '1px solid #2a2d35', color: '#7d8187',
-                    borderRadius: 9999, padding: '6px 16px', fontSize: 13, cursor: 'pointer'
-                  }}>{extracting ? 'Detecting...' : 'Detect Colors'}</button>
-                </div>
-              )}
-
+        {activeTab === 'Theme' && (
+          <div style={{ display:'flex', gap:32, flexWrap:'wrap' }}>
+            <div style={{ flex:1, minWidth:300, display:'flex', flexDirection:'column', gap:24 }}>
+              <div><h2 style={{ fontSize:20, color:'#fff', fontWeight:400, marginBottom:6 }}>Step 3 — Detect & Set Theme</h2><p style={{ fontSize:14, color:'#7d8187' }}>Auto-detect your brand colors, then assign each color to chatbot components.</p></div>
+              <button onClick={extractTheme} disabled={extractingTheme || !crawlUrl} style={{ background:'transparent', border:'1px solid #36f4a4', color:'#36f4a4', borderRadius:9999, padding:'12px 24px', fontSize:14, cursor:'pointer', alignSelf:'flex-start', display:'flex', alignItems:'center', gap:8, opacity: !crawlUrl ? 0.4 : 1 }}>
+                {extractingTheme ? (<><span style={{ width:14, height:14, border:'2px solid #36f4a4', borderTopColor:'transparent', borderRadius:'50%', display:'inline-block', animation:'spin 0.8s linear infinite' }}/>Detecting...</>) : '🎨 Detect Brand Colors'}
+              </button>
               {palette.length > 0 && (
-                <div>
-                  <label style={{ fontSize: 13, color: '#7d8187', display: 'block', marginBottom: 10 }}>Detected from your website</label>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    {palette.map(color => (
-                      <div key={color} onClick={() => {
-                        const match = COLOR_OPTIONS.find(c => c.value === color)
-                        if (match) setSelectedColor(match.id)
-                      }} style={{
-                        width: 36, height: 36, borderRadius: '50%', background: color,
-                        cursor: 'pointer', border: '2px solid #2a2d35'
-                      }} title={color} />
-                    ))}
-                  </div>
-                </div>
+                <div><div style={{ fontSize:12, color:'#7d8187', marginBottom:10, textTransform:'uppercase', letterSpacing:'0.08em' }}>Detected Colors ({palette.length})</div><div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>{palette.map((color, i) => (<div key={i} title={color} style={{ width:40, height:40, borderRadius:'50%', background:color, cursor:'pointer', border:'2px solid #2a2d35', transition:'transform 0.15s', position:'relative' }}><div style={{ position:'absolute', bottom:-20, left:'50%', transform:'translateX(-50%)', fontSize:9, color:'#4a4e56', fontFamily:'GeistMono, monospace', whiteSpace:'nowrap' }}>{color}</div></div>))}</div></div>
               )}
-
-              <div>
-                <label style={{ fontSize: 13, color: '#7d8187', display: 'block', marginBottom: 10 }}>Bot Icon</label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-                  {ICON_OPTIONS.map(icon => (
-                    <div key={icon.id} onClick={() => setSelectedIcon(icon.id)} style={{
-                      height: 56, borderRadius: 12, display: 'flex', alignItems: 'center',
-                      justifyContent: 'center', fontSize: 24, cursor: 'pointer',
-                      background: selectedIcon === icon.id ? '#36f4a420' : '#0a0a0a',
-                      border: selectedIcon === icon.id ? '2px solid #36f4a4' : '1px solid #2a2d35'
-                    }}>{icon.emoji}</div>
-                  ))}
-                </div>
+              <div style={{ display:'flex', flexDirection:'column', gap:16, marginTop:8 }}>
+                <div style={{ fontSize:13, color:'#fff' }}>Assign Colors to Components</div>
+                {THEME_COMPONENTS.map(({ key, label, desc }) => (
+                  <div key={key} style={{ background:'#1f2228', border:'1px solid #2a2d35', borderRadius:10, padding:16 }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', marginBottom:10 }}><div><div style={{ fontSize:13, color:'#fff' }}>{label}</div><div style={{ fontSize:11, color:'#7d8187' }}>{desc}</div></div><div style={{ width:32, height:32, borderRadius:8, background: themeConfig[key as keyof typeof themeConfig], border:'2px solid #2a2d35', flexShrink:0 }} /></div>
+                    <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                      {palette.map((color, i) => (<div key={`palette-${i}`} onClick={() => setThemeConfig(prev => ({ ...prev, [key]: color }))} title={color} style={{ width:28, height:28, borderRadius:'50%', background:color, cursor:'pointer', border: themeConfig[key as keyof typeof themeConfig] === color ? '2px solid #fff' : '2px solid transparent', transform: themeConfig[key as keyof typeof themeConfig] === color ? 'scale(1.15)' : 'scale(1)', transition:'all 0.15s' }} />))}
+                      {palette.length > 0 && <div style={{ width:1, background:'#2a2d35', margin:'0 4px' }} />}
+                      {['#36f4a4','#2563eb','#8b5cf6','#FF5701','#ec4899','#ef4444','#eab308','#ffffff'].map(color => (<div key={color} onClick={() => setThemeConfig(prev => ({ ...prev, [key]: color }))} title={color} style={{ width:28, height:28, borderRadius:'50%', background:color, cursor:'pointer', border: themeConfig[key as keyof typeof themeConfig] === color ? '2px solid #fff' : '2px solid transparent', transform: themeConfig[key as keyof typeof themeConfig] === color ? 'scale(1.15)' : 'scale(1)', transition:'all 0.15s' }} />))}
+                    </div>
+                  </div>
+                ))}
               </div>
-
-              <div>
-                <label style={{ fontSize: 13, color: '#7d8187', display: 'block', marginBottom: 10 }}>Accent Color</label>
-                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                  {COLOR_OPTIONS.map(color => (
-                    <div key={color.id} onClick={() => setSelectedColor(color.id)} style={{
-                      width: 40, height: 40, borderRadius: '50%', background: color.value,
-                      cursor: 'pointer', border: selectedColor === color.id ? '2px solid #fff' : '2px solid transparent',
-                      transform: selectedColor === color.id ? 'scale(1.15)' : 'scale(1)', transition: 'all 0.15s'
-                    }} />
-                  ))}
-                </div>
-              </div>
-
-              <button onClick={saveAppearance} disabled={savingAppearance} style={{
-                background: appearanceSaved ? '#0d2420' : '#36f4a4', color: appearanceSaved ? '#36f4a4' : '#000',
-                border: appearanceSaved ? '1px solid #36f4a430' : 'none', borderRadius: 9999,
-                padding: '12px 24px', fontWeight: 500, fontSize: 14, cursor: 'pointer'
-              }}>{appearanceSaved ? '✓ Saved' : savingAppearance ? 'Saving...' : 'Save Appearance'}</button>
+              <button onClick={saveTheme} style={{ background: themeSaved ? '#0d2420' : '#36f4a4', color: themeSaved ? '#36f4a4' : '#000', border: themeSaved ? '1px solid #36f4a430' : 'none', borderRadius:9999, padding:'12px 28px', fontWeight:500, fontSize:14, cursor:'pointer', alignSelf:'flex-start', transition:'all 0.2s' }}>{themeSaved ? '✓ Theme Saved' : 'Save Theme'}</button>
+              <div style={{ display:'flex', justifyContent:'flex-end' }}><button onClick={() => setActiveTab('Preview')} style={{ background:'#36f4a4', color:'#000', border:'none', borderRadius:9999, padding:'12px 28px', fontWeight:500, fontSize:14, cursor:'pointer' }}>Next: Preview Chatbot →</button></div>
             </div>
-
-            <div style={{ width: 260, flexShrink: 0 }}>
-              <label style={{ fontSize: 13, color: '#7d8187', display: 'block', marginBottom: 10 }}>Live Preview</label>
-              <div style={{ background: '#f7f8fc', borderRadius: 16, overflow: 'hidden', border: '1px solid #2a2d35', fontFamily: 'DM Sans, sans-serif' }}>
-                <div style={{ background: activeColor, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ width: 32, height: 32, borderRadius: 10, background: 'rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>{activeIcon}</div>
-                  <div style={{ color: '#fff', fontSize: 13, fontWeight: 500 }}>AI Assistant</div>
-                </div>
-                <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: '8px 12px', fontSize: 12, color: '#333', maxWidth: '85%' }}>Hi! How can I help you?</div>
-                  <div style={{ background: activeColor, borderRadius: 12, padding: '8px 12px', fontSize: 12, color: '#000', maxWidth: '85%', alignSelf: 'flex-end' }}>Tell me more!</div>
-                </div>
+            <div style={{ width:260, flexShrink:0 }}>
+              <div style={{ fontSize:12, color:'#7d8187', marginBottom:10, textTransform:'uppercase', letterSpacing:'0.08em' }}>Live Preview</div>
+              <div style={{ background:'#f7f8fc', borderRadius:16, overflow:'hidden', border:'1px solid #2a2d35', fontFamily:'DM Sans, sans-serif' }}>
+                <div style={{ background: themeConfig.headerColor, padding:'14px 16px', display:'flex', alignItems:'center', gap:10 }}><div style={{ width:32, height:32, borderRadius:10, background:'rgba(0,0,0,0.2)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16 }}>🤖</div><div><div style={{ fontSize:13, fontWeight:500, color:'#fff' }}>AI Assistant</div><div style={{ fontSize:11, color:'rgba(255,255,255,0.7)' }}>● Online</div></div></div>
+                <div style={{ padding:12, display:'flex', flexDirection:'column', gap:8 }}><div style={{ background:'#fff', border:'1px solid #eee', borderRadius:12, padding:'8px 12px', fontSize:12, color:'#333', maxWidth:'85%' }}>Hi! How can I help you today?</div><div style={{ background: themeConfig.userMsgColor, borderRadius:12, padding:'8px 12px', fontSize:12, color:'#000', maxWidth:'85%', alignSelf:'flex-end' }}>Tell me more!</div></div>
+                <div style={{ borderTop:'1px solid #eee', padding:'10px 12px', display:'flex', gap:8, alignItems:'center', background:'#fff' }}><div style={{ flex:1, fontSize:11, color:'#bbb', fontStyle:'italic' }}>Ask a question...</div><div style={{ width:26, height:26, borderRadius:8, background: themeConfig.sendBtnColor, display:'flex', alignItems:'center', justifyContent:'center', fontSize:12 }}>➤</div></div>
+                <div style={{ padding:'10px 12px', display:'flex', justifyContent:'flex-end' }}><div style={{ width:44, height:44, borderRadius:'50%', background: themeConfig.bubbleColor, display:'flex', alignItems:'center', justifyContent:'center', fontSize:20 }}>💬</div></div>
               </div>
             </div>
           </div>
@@ -563,49 +470,44 @@ export default function ConfigurePage() {
 
         {activeTab === 'Preview' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            <div>
-              <h2 style={{ fontSize: 20, fontWeight: 400, color: '#fff', marginBottom: 6 }}>Preview</h2>
-              <p style={{ fontSize: 14, color: '#7d8187' }}>Test your chatbot live before embedding.</p>
-            </div>
-            {!knowledge.hasCrawled && (
-              <div style={{ background: '#1f2228', border: '1px solid #eab308', borderRadius: 8, padding: 16, color: '#eab308', fontSize: 14 }}>⚠ You haven't crawled any website yet. Go to the Crawl tab first.</div>
-            )}
+            <div><h2 style={{ fontSize: 20, color: '#fff', fontWeight: 400, marginBottom: 6 }}>Step 4 — Preview Your Chatbot</h2><p style={{ fontSize: 14, color: '#7d8187' }}>Interact with your agent live using the custom colors you selected.</p></div>
+            {!crawlDone && <div style={{ background:'#1f2228', border:'1px solid #eab308', borderRadius:8, padding:16, color:'#eab308', fontSize:14 }}>⚠ Complete Step 1 (Crawl) first.</div>}
             <div style={{ maxWidth: 560, background: '#0a0a0a', border: '1px solid #2a2d35', borderRadius: 12, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-              <div style={{ background: '#1f2228', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 12, borderBottom: '1px solid #2a2d35' }}>
-                <div style={{ width: 32, height: 32, borderRadius: 10, background: activeColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>{activeIcon}</div>
-                <div><div style={{ fontSize: 14, color: '#fff' }}>AI Assistant</div><div style={{ fontSize: 12, color: '#7d8187' }}>{previewStreaming ? 'Typing...' : '● Online'}</div></div>
+              <div style={{ background: themeConfig.headerColor, padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 12, borderBottom: '1px solid #2a2d35' }}>
+                <div style={{ width: 32, height: 32, borderRadius: 10, background: 'rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>🤖</div>
+                <div><div style={{ fontSize: 14, color: '#fff' }}>AI Assistant</div><div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#fff/70' }}><div style={{ width: 6, height: 6, borderRadius: '50%', background: previewStreaming ? '#eab308' : '#36f4a4' }} />{previewStreaming ? 'Typing...' : 'Online'}</div></div>
               </div>
               <div style={{ height: 360, overflowY: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {previewMessages.length === 0 ? <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4a4e56', fontSize: 13 }}>Send a message to test...</div> : 
-                  previewMessages.map((msg, i) => (
-                    <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
-                      <div style={{
-                        maxWidth: '78%', padding: '10px 14px', borderRadius: msg.role === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-                        background: msg.role === 'user' ? activeColor : '#1f2228', color: msg.role === 'user' ? '#000' : '#fff', fontSize: 13
-                      }}>{msg.content || '...'}</div>
+                {previewMessages.length === 0 ? <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4a4e56', fontSize: 13 }}>Send a message to test your chatbot...</div> : previewMessages.map((msg, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                    <div style={{ maxWidth: '78%', padding: '10px 14px', borderRadius: msg.role === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px', background: msg.role === 'user' ? themeConfig.userMsgColor : '#1f2228', color: msg.role === 'user' ? '#000' : '#fff', fontSize: 13, lineHeight: 1.55, border: msg.role === 'assistant' ? '1px solid #2a2d35' : 'none' }}>
+                      {msg.content || <span style={{ display: 'flex', gap: 4 }}>{[0,1,2].map(i => (<span key={i} style={{ width: 6, height: 6, borderRadius: '50%', background: '#7d8187', display: 'inline-block', animation: `typingBounce 1.2s infinite ${i * 0.2}s` }} />))}</span>}
                     </div>
-                  ))
-                }
+                  </div>
+                ))}
                 <div ref={previewBottomRef} />
               </div>
-              <div style={{ borderTop: '1px solid #2a2d35', padding: 16, display: 'flex', gap: 10 }}>
-                <input value={previewInput} onChange={e => setPreviewInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendPreviewMessage()} placeholder="Ask a question..." style={{ flex: 1, background: '#1f2228', border: '1px solid #2a2d35', borderRadius: 8, padding: '10px 14px', color: '#fff' }} />
-                <button onClick={() => sendPreviewMessage()} disabled={previewStreaming} style={{ background: activeColor, color: '#000', border: 'none', borderRadius: 9999, padding: '10px 18px', fontWeight: 500 }}>Send</button>
+              <div style={{ borderTop: '1px solid #2a2d35', padding: 16, display: 'flex', gap: 10, alignItems: 'center' }}>
+                <input value={previewInput} onChange={e => setPreviewInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendPreviewMessage()} placeholder="Ask a question..." disabled={previewStreaming || !crawlDone} style={{ flex: 1, background: '#1f2228', border: '1px solid #2a2d35', borderRadius: 8, padding: '10px 14px', color: '#fff', fontSize: 13, outline: 'none', opacity: !crawlDone ? 0.5 : 1 }} />
+                <button onClick={() => sendPreviewMessage()} disabled={previewStreaming || !previewInput.trim() || !crawlDone} style={{ background: themeConfig.sendBtnColor, color: '#000', border: 'none', borderRadius: 9999, padding: '10px 18px', fontWeight: 500, fontSize: 13, cursor: 'pointer', opacity: previewStreaming ? 0.5 : 1 }}>Send</button>
               </div>
             </div>
+            {previewMessages.length > 0 && (
+              <div style={{ display:'flex', justifyContent:'flex-end' }}><button onClick={() => setActiveTab('Embed Code')} style={{ background:'#36f4a4', color:'#000', border:'none', borderRadius:9999, padding:'12px 28px', fontWeight:500, fontSize:14, cursor:'pointer' }}>Next: Get Embed Code →</button></div>
+            )}
           </div>
         )}
 
-        {activeTab === 'Embed' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 640 }}>
-            <div><h2 style={{ fontSize: 20, fontWeight: 400, color: '#fff', marginBottom: 6 }}>Embed Your Chatbot</h2><p style={{ fontSize: 14, color: '#7d8187' }}>Copy this script tag and paste it before &lt;/body&gt; on your website.</p></div>
-            <div style={{ background: '#0a0a0a', border: '1px solid #2a2d35', borderRadius: 12, overflow: 'hidden' }}>
-              <div style={{ padding: '10px 16px', borderBottom: '1px solid #2a2d35', display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: 12, color: '#7d8187' }}>HTML</span>
-                <button onClick={copyEmbed} style={{ background: 'transparent', border: '1px solid #2a2d35', color: copied ? '#36f4a4' : '#7d8187', borderRadius: 9999, padding: '4px 14px', fontSize: 12 }}>{copied ? '✓ Copied!' : 'Copy'}</button>
-              </div>
-              <pre style={{ padding: 20, margin: 0, fontSize: 13, color: '#36f4a4', overflowX: 'auto' }}>{embedCode}</pre>
+        {activeTab === 'Embed Code' && (
+          <div style={{ display:'flex', flexDirection:'column', gap:24, maxWidth:640 }}>
+            <div><h2 style={{ fontSize:20, color:'#fff', fontWeight:400, marginBottom:6 }}>Step 5 — Embed Your Chatbot</h2><p style={{ fontSize:14, color:'#7d8187' }}>Paste this script tag before &lt;/body&gt; on any website. Works on localhost and in production automatically.</p></div>
+            {!crawlDone && <div style={{ background:'#1f2228', border:'1px solid #eab308', borderRadius:8, padding:16, color:'#eab308', fontSize:14 }}>⚠ Complete Steps 1–3 before embedding.</div>}
+            <div style={{ display:'flex', alignItems:'center', gap:8, background:'#1f2228', border:'1px solid #2a2d35', borderRadius:8, padding:'10px 16px', alignSelf:'flex-start' }}><div style={{ width:8, height:8, borderRadius:'50%', background: baseUrl.includes('localhost') ? '#eab308' : '#36f4a4' }}/><span style={{ fontSize:13, color:'#7d8187' }}>Environment: <span style={{ color:'#fff' }}>{baseUrl}</span></span></div>
+            <div style={{ background:'#0a0a0a', border:'1px solid #2a2d35', borderRadius:12, overflow:'hidden' }}>
+              <div style={{ padding:'10px 16px', borderBottom:'1px solid #2a2d35', display:'flex', justifyContent:'space-between', alignItems:'center' }}><span style={{ fontSize:12, color:'#7d8187', fontFamily:'GeistMono, monospace' }}>HTML — paste before &lt;/body&gt;</span><button onClick={() => { navigator.clipboard.writeText(embedCode); setCopied(true); setTimeout(() => setCopied(false), 2000); }} style={{ background: copied ? '#0d2420' : 'transparent', border:'1px solid #2a2d35', color: copied ? '#36f4a4' : '#7d8187', borderRadius:9999, padding:'4px 14px', fontSize:12, cursor:'pointer', transition:'all 0.2s' }}>{copied ? '✓ Copied!' : 'Copy'}</button></div>
+              <pre style={{ padding:20, margin:0, fontSize:13, fontFamily:'GeistMono, monospace', color:'#36f4a4', overflowX:'auto', lineHeight:1.8 }}>{embedCode}</pre>
             </div>
+            <div style={{ display:'flex', flexDirection:'column', gap:12 }}><div style={{ fontSize:11, color:'#7d8187', textTransform:'uppercase', letterSpacing:'0.08em' }}>How to install</div>{['Copy the script tag above', 'Paste it before </body> in your website HTML', 'Save and reload — your chatbot is live instantly', 'Works on: Next.js, React, WordPress, Webflow, plain HTML'].map((step, i) => (<div key={i} style={{ display:'flex', alignItems:'center', gap:14 }}><div style={{ width:24, height:24, borderRadius:'50%', flexShrink:0, background:'#36f4a420', color:'#36f4a4', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:500 }}>{i + 1}</div><span style={{ fontSize:14, color:'#7d8187' }}>{step}</span></div>))}</div>
           </div>
         )}
       </div>
