@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Send, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,41 +9,32 @@ import { Input } from "@/components/ui/input";
 
 /**
  * @fileOverview A premium newsletter popup for NOCTA.
- * Appears after a delay to encourage users to join the platform's newsletter.
+ * Now a controlled component triggered by specific user actions.
  */
 
-export function NewsletterPopup() {
-  const [isVisible, setIsVisible] = useState(false);
+interface NewsletterPopupProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export function NewsletterPopup({ isOpen, onClose }: NewsletterPopupProps) {
   const [email, setEmail] = useState("");
   const [subscribed, setSubscribed] = useState(false);
-
-  useEffect(() => {
-    const hasSeen = localStorage.getItem("nocta:newsletter-seen");
-    if (!hasSeen) {
-      const timer = setTimeout(() => {
-        setIsVisible(true);
-      }, 5000); // Show after 5 seconds
-      return () => clearTimeout(timer);
-    }
-  }, []);
-
-  const handleClose = () => {
-    setIsVisible(false);
-    localStorage.setItem("nocta:newsletter-seen", "true");
-  };
 
   const handleSubscribe = () => {
     if (email && email.includes("@")) {
       setSubscribed(true);
       setTimeout(() => {
-        handleClose();
+        onClose();
+        // Reset state for next time it's opened
+        setTimeout(() => setSubscribed(false), 500);
       }, 2000);
     }
   };
 
   return (
     <AnimatePresence>
-      {isVisible && (
+      {isOpen && (
         <div className="fixed inset-0 z-[100] flex items-end justify-center p-6 md:items-center">
           <motion.div
             initial={{ opacity: 0, y: 100 }}
@@ -52,7 +43,7 @@ export function NewsletterPopup() {
             className="relative w-full max-w-[440px] rounded-3xl border border-white/10 bg-[#161b22] p-8 shadow-2xl backdrop-blur-xl"
           >
             <button
-              onClick={handleClose}
+              onClick={onClose}
               className="absolute right-4 top-4 text-white/20 hover:text-white transition-colors"
             >
               <X className="h-5 w-5" />
@@ -65,7 +56,7 @@ export function NewsletterPopup() {
                     <Sparkles className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-medium text-white">Stay in the loop</h3>
+                    <h3 className="text-lg font-medium text-white">Join the Network</h3>
                     <p className="text-xs text-white/40">The future of AI agents, delivered.</p>
                   </div>
                 </div>
@@ -113,7 +104,7 @@ export function NewsletterPopup() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={handleClose}
+            onClick={onClose}
             className="fixed inset-0 -z-10 bg-black/60 backdrop-blur-sm"
           />
         </div>

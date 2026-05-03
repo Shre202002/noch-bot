@@ -12,24 +12,36 @@ import { cn } from "@/lib/utils";
  * Showcases the platform's reach using an interactive 3D globe.
  */
 
-export default function Featured_05() {
+interface Featured_05Props {
+  onJoinClick?: () => void;
+}
+
+export default function Featured_05({ onJoinClick }: Featured_05Props) {
   return (
-    <section className="relative w-full mx-auto overflow-hidden rounded-3xl bg-[#0d1117] border border-white/5 shadow-md px-6 py-16 md:px-16 md:py-24 mt-24">
-      <div className="flex flex-col-reverse items-center justify-between gap-10 md:flex-row">
-        <div className="z-10 max-w-xl text-left">
-          <p className="text-[11px] uppercase tracking-[0.2em] text-white/40 mb-4">Scale Globally</p>
-          <h2 className="text-3xl md:text-5xl font-normal tracking-tight text-white leading-tight">
-            Deploy <span className="text-primary font-medium">AI Agents</span>{" "}
-            <span className="text-white/40">anywhere in the world. NOCTA powers millions of conversations across every continent, in real-time.</span>
-          </h2>
-          <Button className="mt-8 inline-flex items-center gap-2 rounded-full bg-white px-6 py-6 text-sm font-semibold text-black transition hover:opacity-90">
-            Join the Network <ArrowRight className="h-4 w-4" />
-          </Button>
-        </div>
-        <div className="relative h-[300px] w-full max-w-xl md:h-[400px]">
-          <Globe className="absolute -bottom-20 -right-20 md:-right-40 scale-125 md:scale-150" />
+    <section className="relative w-full overflow-hidden border-y border-white/5 bg-[#0d1117] py-24 md:py-32 mt-24">
+      <div className="mx-auto max-w-[1200px] px-6">
+        <div className="flex flex-col-reverse items-center justify-between gap-12 md:flex-row">
+          <div className="z-10 max-w-xl text-left">
+            <p className="text-[11px] uppercase tracking-[0.2em] text-white/40 mb-4">Scale Globally</p>
+            <h2 className="text-3xl md:text-5xl font-normal tracking-tight text-white leading-tight">
+              Deploy <span className="text-primary font-medium">AI Agents</span>{" "}
+              <span className="text-white/40">anywhere in the world. NOCTA powers millions of conversations across every continent, in real-time.</span>
+            </h2>
+            <Button 
+              onClick={onJoinClick}
+              className="mt-10 inline-flex items-center gap-2 rounded-full bg-white px-8 py-6 text-sm font-semibold text-black transition hover:opacity-90"
+            >
+              Join the Network <ArrowRight className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="relative h-[300px] w-full max-w-xl md:h-[450px]">
+            <Globe className="absolute -bottom-20 -right-20 md:-right-40 scale-125 md:scale-150" />
+          </div>
         </div>
       </div>
+      
+      {/* Background Decorative Element */}
+      <div className="absolute inset-0 -z-10 opacity-[0.03] grid-bg" />
     </section>
   );
 }
