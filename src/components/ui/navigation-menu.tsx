@@ -4,13 +4,13 @@ import * as React from "react";
 import { motion, useScroll, useMotionValueEvent } from "framer-motion";
 import { Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
-// import { Logo } from "@/components/logo";
+import SigninModal from "./signin-modal";
+import SignupModal from "./signup-modal";
 
 const navItems = [
   { name: "Features", href: "#features" },
   { name: "Process", href: "#process" },
   { name: "Pricing", href: "#pricing" },
-  { name: "Sign in", href: "/login" },
 ];
 
 const EXPAND_SCROLL_THRESHOLD = 80;
@@ -118,7 +118,6 @@ export function AnimatedNavFramer() {
           variants={logoVariants}
           className="flex-shrink-0 flex items-center font-semibold pl-4 pr-1 sm:pr-3"
         >
-          {/* <Logo className="h-5 sm:h-6" /> */}
           <img src="/logo.png" alt="Nocta" className="h-10 w-auto" />
         </motion.div>
         
@@ -134,11 +133,27 @@ export function AnimatedNavFramer() {
               href={item.href}
               variants={itemVariants}
               onClick={(e) => e.stopPropagation()}
-              className="text-[10px] sm:text-sm font-medium text-muted-foreground hover:text-foreground transition-colors px-1.5 sm:px-2 py-1 whitespace-nowrap"
+              className="text-[10px] sm:text-sm font-medium text-muted-foreground hover:text-foreground px-1.5 sm:px-2 py-1 whitespace-nowrap"
             >
               {item.name}
             </motion.a>
           ))}
+          
+          <motion.div variants={itemVariants} onClick={(e) => e.stopPropagation()}>
+            <SigninModal trigger={
+              <button className="text-[10px] sm:text-sm font-medium text-muted-foreground hover:text-foreground px-1.5 sm:px-2 py-1 whitespace-nowrap cursor-pointer">
+                Sign in
+              </button>
+            } />
+          </motion.div>
+
+          <motion.div variants={itemVariants} onClick={(e) => e.stopPropagation()} className="ml-1">
+             <SignupModal trigger={
+               <button className="text-[10px] sm:text-sm font-bold text-white bg-primary/20 hover:bg-primary/30 border border-primary/20 rounded-full px-3 py-1 whitespace-nowrap cursor-pointer">
+                 Try Nocta
+               </button>
+             } />
+          </motion.div>
         </motion.div>
         
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
