@@ -121,7 +121,7 @@ export function EmbedProcess() {
                   <div className="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-[#080b10]">
                     <s.icon className="h-4 w-4 text-white" />
                   </div>
-                  <span className="text-[11px] uppercase tracking-[0.2em] text-white/20">
+                  <span className="text-[11px] uppercase tracking-[0.2em] text-white/40">
                     Step {s.num}
                   </span>
                 </div>

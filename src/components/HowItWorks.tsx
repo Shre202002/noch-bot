@@ -29,7 +29,7 @@ export function HowItWorks() {
               transition={{ delay: i * 0.15, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
               className="grid gap-6 border-t border-white/5 py-12 md:grid-cols-12 md:items-start"
             >
-              <div className="text-sm font-medium text-white/20 md:col-span-2">
+              <div className="text-sm font-medium text-white/40 md:col-span-2">
                 {s.num}
               </div>
               <div className="text-2xl font-medium tracking-tight text-white md:col-span-4">
