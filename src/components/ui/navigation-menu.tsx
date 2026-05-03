@@ -7,7 +7,6 @@ import { cn } from "@/lib/utils";
 import { Logo } from "@/components/logo";
 
 const navItems = [
-  { name: "Home", href: "#" },
   { name: "Features", href: "#features" },
   { name: "Process", href: "#process" },
   { name: "Pricing", href: "#pricing" },
@@ -74,16 +73,18 @@ export function AnimatedNavFramer() {
   const [isExpanded, setExpanded] = React.useState(true);
   
   const { scrollY } = useScroll();
-  const lastScrollY = useRef(0);
-  const scrollPositionOnCollapse = useRef(0);
+  const lastScrollY = React.useRef(0);
+  const scrollPositionOnCollapse = React.useRef(0);
 
   useMotionValueEvent(scrollY, "change", (latest) => {
     const previous = lastScrollY.current;
     
+    // Collapse when scrolling down
     if (isExpanded && latest > previous && latest > 150) {
       setExpanded(false);
       scrollPositionOnCollapse.current = latest; 
     } 
+    // Expand when scrolling up significantly
     else if (!isExpanded && latest < previous && (scrollPositionOnCollapse.current - latest > EXPAND_SCROLL_THRESHOLD)) {
       setExpanded(true);
     }
@@ -100,7 +101,7 @@ export function AnimatedNavFramer() {
 
 
   return (
-    <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50">
+    <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-full flex justify-center px-4">
       <motion.nav
         initial={{ y: -80, opacity: 0 }}
         animate={isExpanded ? "expanded" : "collapsed"}
@@ -109,20 +110,20 @@ export function AnimatedNavFramer() {
         whileTap={!isExpanded ? { scale: 0.95 } : {}}
         onClick={handleNavClick}
         className={cn(
-          "flex items-center overflow-hidden rounded-full border bg-background/80 shadow-lg backdrop-blur-sm h-12",
+          "flex items-center overflow-hidden rounded-full border bg-background/80 shadow-lg backdrop-blur-sm h-12 max-w-full transition-all duration-300",
           !isExpanded && "cursor-pointer justify-center"
         )}
       >
         <motion.div
           variants={logoVariants}
-          className="flex-shrink-0 flex items-center font-semibold pl-4 pr-3"
+          className="flex-shrink-0 flex items-center font-semibold pl-4 pr-1 sm:pr-3"
         >
-          <Logo className="h-6" />
+          <Logo className="h-5 sm:h-6" />
         </motion.div>
         
         <motion.div
           className={cn(
-            "flex items-center gap-1 sm:gap-4 pr-5",
+            "flex items-center gap-0.5 sm:gap-4 pr-4 sm:pr-6",
             !isExpanded && "pointer-events-none" 
           )}
         >
@@ -132,7 +133,7 @@ export function AnimatedNavFramer() {
               href={item.href}
               variants={itemVariants}
               onClick={(e) => e.stopPropagation()}
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors px-2 py-1"
+              className="text-[10px] sm:text-sm font-medium text-muted-foreground hover:text-foreground transition-colors px-1.5 sm:px-2 py-1 whitespace-nowrap"
             >
               {item.name}
             </motion.a>
@@ -150,8 +151,4 @@ export function AnimatedNavFramer() {
       </motion.nav>
     </div>
   );
-}
-
-function useRef(initialValue: number) {
-  return React.useRef(initialValue);
 }
