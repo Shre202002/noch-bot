@@ -14,11 +14,13 @@ export type Account = {
   avatar?: string;
   resetToken?: string;
   resetTokenExpiry?: string;
+  otpHash?: string;        // bcrypt hash of the 6-digit OTP
+  otpExpiry?: string;      // ISO string — 5 minutes from generation
+  otpEmail?: string;       // email this OTP was sent to (safety check)
 };
 
 async function getUsersCollection(): Promise<Collection<Account>> {
   const db = await getDb();
-  // Updated to 'users' collection as requested
   return db.collection<Account>('users');
 }
 
@@ -39,23 +41,54 @@ export async function findAccountById(id: string): Promise<Account | undefined> 
   return account || undefined;
 }
 
+export async function findAccountByResetToken(token: string): Promise<Account | undefined> {
+  const coll = await getUsersCollection();
+  const account = await coll.findOne({ resetToken: token });
+  return account || undefined;
+}
+
 export async function writeAccount(account: Account): Promise<void> {
   const coll = await getUsersCollection();
   await coll.updateOne({ id: account.id }, { $set: account }, { upsert: true });
 }
 
-export async function writeAccounts(accounts: Account[]): Promise<void> {
+// Save hashed OTP against user
+export async function saveOtp(
+  email: string,
+  otpHash: string,
+  expiry: string
+): Promise<void> {
   const coll = await getUsersCollection();
-  const operations = accounts.map((account) => ({
-    updateOne: {
-      filter: { id: account.id },
-      update: { $set: account },
-      upsert: true,
-    },
-  }));
-  if (operations.length > 0) {
-    await coll.bulkWrite(operations);
-  }
+  await coll.updateOne(
+    { email },
+    { $set: { otpHash, otpExpiry: expiry, otpEmail: email } }
+  );
+}
+
+// Clear OTP fields after successful use
+export async function clearOtp(email: string): Promise<void> {
+  const coll = await getUsersCollection();
+  await coll.updateOne(
+    { email },
+    { $unset: { otpHash: '', otpExpiry: '', otpEmail: '' } }
+  );
+}
+
+// Update password hash
+export async function updatePassword(
+  email: string,
+  newPasswordHash: string
+): Promise<void> {
+  const coll = await getUsersCollection();
+  await coll.updateOne(
+    { email },
+    { $set: { passwordHash: newPasswordHash } }
+  );
+}
+
+export async function updateAccount(id: string, updates: Partial<Account>): Promise<void> {
+  const coll = await getUsersCollection();
+  await coll.updateOne({ id }, { $set: updates });
 }
 
 export async function deleteAccount(id: string): Promise<void> {

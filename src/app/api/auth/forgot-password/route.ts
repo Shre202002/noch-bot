@@ -1,56 +1,42 @@
+
 import { NextRequest, NextResponse } from 'next/server';
-import nodemailer from 'nodemailer';
-import { findAccount, writeAccount } from '@/lib/storage';
+import bcrypt from 'bcryptjs';
+import { findAccount, saveOtp, clearOtp } from '@/lib/storage';
+import { sendOtpEmail } from '@/lib/mailer';
 
 export async function POST(req: NextRequest) {
   try {
     const { email } = await req.json();
 
-    const account = await findAccount(email);
-    if (!account) {
-      // Return success even if email not found to prevent enumeration
-      return NextResponse.json({ success: true });
+    if (!email) {
+      return NextResponse.json({ error: 'Email is required' }, { status: 400 });
     }
 
-    // Generate a 6-digit verification code
-    const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
-    const resetTokenExpiry = new Date(Date.now() + 3600000).toISOString(); // 1 hour
+    const account = await findAccount(email);
+    
+    // Always return 200 for security (anti-enumeration)
+    if (!account) {
+      return NextResponse.json({ success: true, message: 'If an account exists, an OTP has been sent.' });
+    }
 
-    await writeAccount({
-      ...account,
-      resetToken: resetCode, // Reusing resetToken field for OTP code
-      resetTokenExpiry,
-    });
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpHash = await bcrypt.hash(otp, 10);
+    const expiry = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // 5 minutes
 
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_APP_PASSWORD,
-      },
-    });
+    await saveOtp(email, otpHash, expiry);
 
-    const mailOptions = {
-      from: `"Nocta" <${process.env.GMAIL_USER}>`,
-      to: email,
-      subject: `${resetCode} is your Nocta verification code`,
-      html: `
-        <div style="background-color: #000; color: #fff; padding: 40px; font-family: sans-serif; text-align: center;">
-          <h1 style="color: #7C3AED; font-size: 32px; letter-spacing: -1px;">NOCTA</h1>
-          <p style="color: #71717A; font-size: 16px;">Enter this code to verify your identity and reset your password:</p>
-          <div style="display: inline-block; background-color: #161B22; border: 1px solid #2A2A2A; color: #fff; padding: 16px 32px; font-size: 32px; font-weight: bold; letter-spacing: 8px; border-radius: 8px; margin: 24px 0;">
-            ${resetCode}
-          </div>
-          <p style="margin-top: 30px; font-size: 12px; color: #71717A;">This code will expire in 1 hour. If you didn't request this, you can safely ignore this email.</p>
-        </div>
-      `,
-    };
+    try {
+      await sendOtpEmail(email, otp);
+    } catch (emailError) {
+      console.error('Email send failed:', emailError);
+      await clearOtp(email);
+      return NextResponse.json({ error: 'Failed to send email' }, { status: 500 });
+    }
 
-    await transporter.sendMail(mailOptions);
-
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, message: 'OTP sent to your email' });
   } catch (error) {
     console.error('Forgot password error:', error);
-    return NextResponse.json({ error: 'Failed to send reset email' }, { status: 500 });
+    return NextResponse.json({ error: 'Something went wrong' }, { status: 500 });
   }
 }

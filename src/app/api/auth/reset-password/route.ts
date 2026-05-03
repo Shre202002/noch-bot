@@ -1,32 +1,44 @@
+
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { findAccount, writeAccount } from '@/lib/storage';
+import { findAccountByResetToken, updatePassword, updateAccount } from '@/lib/storage';
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, password } = await req.json();
+    const { resetToken, newPassword } = await req.json();
 
-    if (!email || !password || password.length < 8) {
-      return NextResponse.json({ error: 'Invalid data' }, { status: 400 });
+    if (!resetToken || !newPassword) {
+      return NextResponse.json({ error: 'Token and password are required' }, { status: 400 });
     }
 
-    const account = await findAccount(email);
+    if (newPassword.length < 8) {
+      return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
+    }
+
+    const account = await findAccountByResetToken(resetToken);
+
     if (!account) {
-      return NextResponse.json({ error: 'Account not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Invalid or expired reset token' }, { status: 400 });
     }
 
-    const passwordHash = await bcrypt.hash(password, 10);
+    // Check expiry
+    if (new Date() > new Date(account.resetTokenExpiry!)) {
+      await updateAccount(account.id, { resetToken: undefined, resetTokenExpiry: undefined });
+      return NextResponse.json({ error: 'Reset token expired, please start over' }, { status: 400 });
+    }
+
+    const newHash = await bcrypt.hash(newPassword, 10);
+    await updatePassword(account.email, newHash);
     
-    await writeAccount({
-      ...account,
-      passwordHash,
-      resetToken: undefined, // Clear the code
+    // Clear token fields
+    await updateAccount(account.id, {
+      resetToken: undefined,
       resetTokenExpiry: undefined,
     });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, message: 'Password updated successfully' });
   } catch (error) {
     console.error('Reset password error:', error);
-    return NextResponse.json({ error: 'Reset failed' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to reset password' }, { status: 500 });
   }
 }
