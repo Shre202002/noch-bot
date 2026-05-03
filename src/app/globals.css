@@ -16,6 +16,15 @@
     background-color: var(--bg);
     color: #f0f0f0;
     font-family: var(--font-dm-sans);
+    overflow-x: hidden;
+  }
+}
+
+@layer components {
+  .aurora-blob {
+    will-change: transform;
+    pointer-events: none;
+    mix-blend-mode: screen;
   }
 }
 
@@ -41,16 +50,16 @@
 }
 
 [data-theme="monochrome"] .aurora-blob {
-  filter: blur(90px) saturate(0);
-  opacity: 0.4;
+  filter: blur(90px) saturate(0) !important;
+  opacity: 0.2 !important;
 }
 
 @keyframes drift {
   0%, 100% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(30px, -20px) scale(1.05); }
-  66% { transform: translate(-20px, 15px) scale(0.97); }
+  33% { transform: translate(40px, -30px) scale(1.1); }
+  66% { transform: translate(-30px, 20px) scale(0.9); }
 }
 
 .animate-drift {
-  animation: drift 12s ease-in-out infinite;
+  animation: drift 15s ease-in-out infinite;
 }
