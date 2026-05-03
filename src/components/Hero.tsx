@@ -11,7 +11,7 @@ export function Hero() {
 
   return (
     <section className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6 pt-20">
-      <AuroraBackground reduced={reduced} />
+      <AuroraBackground />
 
       <div className="relative z-10 mx-auto flex max-w-[1200px] flex-col items-center text-center">
         {mounted && autoReason && (
