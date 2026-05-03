@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Zap } from 'lucide-react';
 import { AuroraBackground } from './AuroraBackground';
@@ -8,6 +9,16 @@ import Link from 'next/link';
 
 export function Hero() {
   const { reduced, autoReason, mounted } = useMotion();
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth <= 640);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  const showComplexEffects = mounted && !reduced && !isMobile;
 
   return (
     <section className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6 pt-20">
@@ -35,7 +46,7 @@ export function Hero() {
           initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
-          className="hero-wordmark select-none text-[clamp(5rem,20vw,16rem)] font-bold leading-[0.85] tracking-[-0.06em] uppercase"
+          className={`${showComplexEffects ? 'hero-wordmark' : 'hero-wordmark-static'} select-none text-[clamp(4rem,18vw,16rem)] font-bold leading-[0.85] tracking-[-0.02em]`}
         >
           NOCTA
         </motion.h1>
@@ -44,7 +55,7 @@ export function Hero() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.4 }}
-          className="mx-auto mt-10 max-w-[500px] text-base text-white/40 md:text-lg"
+          className="mx-auto mt-10 max-w-[500px] px-4 text-base text-white/40 md:text-lg"
         >
           An AI chatbot platform built to deploy intelligent agents on any website in seconds.
         </motion.p>
@@ -57,13 +68,13 @@ export function Hero() {
         >
           <Link
             href="/register"
-            className="rounded-full bg-white px-8 py-3 text-sm font-medium text-[#080b10] hover:opacity-90 transition-opacity"
+            className="w-full sm:w-auto rounded-full bg-white px-8 py-3 text-sm font-medium text-[#080b10] hover:opacity-90 transition-opacity"
           >
             Try NOCTA
           </Link>
           <Link
             href="#features"
-            className="rounded-full border border-white/10 px-8 py-3 text-sm font-medium text-white/60 hover:text-white hover:border-white/20 transition-all"
+            className="w-full sm:w-auto rounded-full border border-white/10 px-8 py-3 text-sm font-medium text-white/60 hover:text-white hover:border-white/20 transition-all"
           >
             Learn more
           </Link>
@@ -74,12 +85,12 @@ export function Hero() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 1, delay: 0.8 }}
-        className="absolute bottom-10 left-0 right-0 flex items-center justify-center gap-6 text-[11px] uppercase tracking-[0.18em] text-white/20 sm:gap-12"
+        className="absolute bottom-10 left-0 right-0 flex items-center justify-center gap-4 text-[10px] uppercase tracking-[0.18em] text-white/20 px-6 sm:gap-12 sm:text-[11px]"
       >
         <span>Reasoning</span>
-        <span className="h-px w-4 bg-white/10" />
+        <span className="h-px w-3 bg-white/10 sm:w-4" />
         <span>Embed</span>
-        <span className="h-px w-4 bg-white/10 hidden sm:inline" />
+        <span className="h-px w-3 bg-white/10 hidden sm:inline sm:w-4" />
         <span className="hidden sm:inline">Analytics</span>
         <span className="h-px w-4 bg-white/10 hidden md:inline" />
         <span className="hidden md:inline">Realtime</span>

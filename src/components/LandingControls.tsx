@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Settings, Sparkles, Palette, Zap } from "lucide-react";
 import { useMotion, type MotionPref } from "@/hooks/use-reduced-motion";
 import { useTheme, type Theme } from "@/hooks/use-theme";
@@ -18,13 +18,27 @@ const themeOptions: { value: Theme; label: string }[] = [
 
 export function LandingControls() {
   const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
   const { pref, setPref, autoReason, mounted: motionMounted } = useMotion();
   const { theme, setTheme, mounted: themeMounted } = useTheme();
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+
+    if (open) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [open]);
 
   if (!motionMounted || !themeMounted) return null;
 
   return (
-    <div className="fixed bottom-5 right-5 z-50">
+    <div className="fixed bottom-5 right-5 z-50" ref={containerRef}>
       {open && (
         <div className="mb-3 w-72 rounded-2xl border border-border bg-background/85 p-4 text-xs text-foreground shadow-2xl backdrop-blur-xl">
           <div className="mb-3 flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">

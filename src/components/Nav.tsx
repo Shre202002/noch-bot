@@ -19,20 +19,26 @@ export function Nav() {
       scrolled ? "backdrop-blur-xl bg-[#080b10]/85 border-b border-white/5" : "bg-transparent"
     )}>
       <div className="mx-auto flex h-full max-w-[1200px] items-center justify-between px-6">
-        <Link href="/" className="text-[18px] font-bold tracking-[-0.03em] text-white">
+        <Link href="/" className="text-[18px] font-bold tracking-[-0.03em] text-white uppercase">
           NOCTA
         </Link>
         
         <div className="hidden md:flex items-center gap-8">
-          {['Product', 'Company', 'Pricing', 'Sign in'].map((item) => (
+          {['Product', 'Company', 'Pricing'].map((item) => (
             <Link 
               key={item} 
-              href={`#${item.toLowerCase().replace(' ', '-')}`}
+              href={`#${item.toLowerCase()}`}
               className="text-[13px] text-white/40 transition-colors hover:text-white"
             >
               {item}
             </Link>
           ))}
+          <Link 
+            href="/login"
+            className="text-[13px] text-white/40 transition-colors hover:text-white"
+          >
+            Sign in
+          </Link>
         </div>
 
         <div className="flex items-center gap-3">
