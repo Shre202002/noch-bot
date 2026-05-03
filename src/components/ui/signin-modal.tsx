@@ -90,7 +90,7 @@ export default function SigninModal({ trigger }: { trigger?: React.ReactNode }) 
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="bg-white/5 border-white/10 text-white focus-visible:ring-violet-600"
+                className="bg-white/5 border-white/10 text-white focus-visible:ring-white h-11"
                 required
               />
             </div>
@@ -99,7 +99,7 @@ export default function SigninModal({ trigger }: { trigger?: React.ReactNode }) 
                 <Label htmlFor={`${id}-password`} className="text-zinc-400">Password</Label>
                 <Link 
                   href="/forgot-password" 
-                  className="text-xs text-violet-500 hover:text-violet-400 font-medium"
+                  className="text-xs text-zinc-300 hover:text-white font-medium underline underline-offset-4"
                 >
                   Forgot password?
                 </Link>
@@ -110,12 +110,12 @@ export default function SigninModal({ trigger }: { trigger?: React.ReactNode }) 
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="bg-white/5 border-white/10 text-white focus-visible:ring-violet-600"
+                className="bg-white/5 border-white/10 text-white focus-visible:ring-white h-11"
                 required
               />
             </div>
           </div>
-          <Button type="submit" className="w-full font-bold bg-violet-600 text-white hover:bg-violet-700" disabled={loading}>
+          <Button type="submit" className="w-full font-bold bg-white text-black hover:bg-zinc-200 h-11" disabled={loading}>
             {loading ? 'Signing in...' : 'Sign in'}
           </Button>
         </form>
@@ -124,7 +124,7 @@ export default function SigninModal({ trigger }: { trigger?: React.ReactNode }) 
           <span className="text-zinc-500 text-[10px] uppercase tracking-widest font-bold">Or</span>
         </div>
 
-        <Button variant="outline" className="w-full flex items-center gap-2 bg-transparent border-white/10 text-white hover:bg-white/5" asChild>
+        <Button variant="outline" className="w-full h-11 flex items-center gap-2 bg-transparent border-white/10 text-white hover:bg-white/5" asChild>
           <a href="/api/auth/google">
             <svg className="h-4 w-4" viewBox="0 0 24 24">
               <path

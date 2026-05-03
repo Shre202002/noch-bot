@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useId, useState } from 'react';
@@ -73,19 +72,19 @@ export default function SignupModal({ trigger }: { trigger?: React.ReactNode }) 
       <DialogTrigger asChild>
         {trigger || <Button variant="secondary">Sign up</Button>}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md bg-black border-white/10 text-white">
         <div className="flex flex-col items-center gap-2">
           <div
-            className="flex size-11 shrink-0 items-center justify-center rounded-full border bg-white/5"
+            className="flex size-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5"
             aria-hidden="true"
           >
             <img src="/logo.png" alt="logo" className="h-6 w-auto" />
           </div>
           <DialogHeader>
-            <DialogTitle className="sm:text-center text-xl">
+            <DialogTitle className="sm:text-center text-xl text-white">
               Sign up to Nocta
             </DialogTitle>
-            <DialogDescription className="sm:text-center">
+            <DialogDescription className="sm:text-center text-zinc-400">
               We just need a few details to get you started.
             </DialogDescription>
           </DialogHeader>
@@ -94,49 +93,52 @@ export default function SignupModal({ trigger }: { trigger?: React.ReactNode }) 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor={`${id}-name`}>Full name</Label>
+              <Label htmlFor={`${id}-name`} className="text-zinc-400">Full name</Label>
               <Input
                 id={`${id}-name`}
                 placeholder="John Doe"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                className="bg-white/5 border-white/10 text-white focus-visible:ring-white h-11"
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor={`${id}-email`}>Email</Label>
+              <Label htmlFor={`${id}-email`} className="text-zinc-400">Email</Label>
               <Input
                 id={`${id}-email`}
                 placeholder="john@example.com"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                className="bg-white/5 border-white/10 text-white focus-visible:ring-white h-11"
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor={`${id}-password`}>Password</Label>
+              <Label htmlFor={`${id}-password`} className="text-zinc-400">Password</Label>
               <Input
                 id={`${id}-password`}
                 placeholder="Enter your password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                className="bg-white/5 border-white/10 text-white focus-visible:ring-white h-11"
                 required
               />
             </div>
           </div>
-          <Button type="submit" className="w-full font-semibold" disabled={loading}>
+          <Button type="submit" className="w-full font-bold bg-white text-black hover:bg-zinc-200 h-11" disabled={loading}>
             {loading ? 'Creating account...' : 'Sign up'}
           </Button>
         </form>
 
-        <div className="before:bg-border after:bg-border flex items-center gap-3 before:h-px before:flex-1 after:h-px after:flex-1">
-          <span className="text-muted-foreground text-xs uppercase tracking-widest font-bold">Or</span>
+        <div className="before:bg-white/10 after:bg-white/10 flex items-center gap-3 before:h-px before:flex-1 after:h-px after:flex-1">
+          <span className="text-zinc-500 text-[10px] uppercase tracking-widest font-bold">Or</span>
         </div>
 
-        <Button variant="outline" className="w-full flex items-center gap-2" asChild>
+        <Button variant="outline" className="w-full h-11 flex items-center gap-2 bg-transparent border-white/10 text-white hover:bg-white/5" asChild>
           <a href="/api/auth/google">
             <svg className="h-4 w-4" viewBox="0 0 24 24">
               <path
@@ -160,7 +162,7 @@ export default function SignupModal({ trigger }: { trigger?: React.ReactNode }) 
           </a>
         </Button>
 
-        <p className="text-muted-foreground text-center text-[10px] uppercase tracking-wider">
+        <p className="text-zinc-500 text-center text-[10px] uppercase tracking-wider mt-4">
           By signing up you agree to our{' '}
           <TocDialog />
         </p>

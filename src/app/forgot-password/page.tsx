@@ -100,7 +100,7 @@ export default function ForgotPasswordPage() {
             </div>
             <div className="space-y-2 text-center">
               <h1 className="font-headline text-3xl font-bold text-white tracking-tight">Forgot password?</h1>
-              <p className="text-zinc-400">Enter your email and we'll send you a verification code.</p>
+              <p className="text-zinc-400 text-sm">Enter your email and we'll send you a verification code.</p>
             </div>
 
             {error && (
@@ -119,14 +119,14 @@ export default function ForgotPasswordPage() {
                   placeholder="name@company.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="bg-white/5 border-white/10 text-white focus-visible:ring-violet-600 h-11"
+                  className="bg-white/5 border-white/10 text-white focus-visible:ring-white h-11"
                   required
                 />
               </div>
 
               <Button 
                 type="submit" 
-                className="w-full bg-violet-600 hover:bg-violet-700 text-white h-11 rounded-[6px] transition-all font-bold"
+                className="w-full bg-white text-black hover:bg-zinc-200 h-11 rounded-[6px] transition-all font-bold"
                 disabled={loading}
               >
                 {loading ? 'Sending code...' : 'Send verification code'}

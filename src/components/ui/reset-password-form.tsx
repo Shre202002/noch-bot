@@ -21,7 +21,7 @@ const PasswordRequirement = ({ met, text }: { met: boolean; text: string }) => {
     <motion.div
       className={cn(
         "flex items-center text-sm",
-        met ? "text-emerald-500" : "text-muted-foreground"
+        met ? "text-emerald-500" : "text-zinc-500"
       )}
       initial={{ opacity: 0, y: -5 }}
       animate={{ opacity: 1, y: 0 }}
@@ -116,7 +116,7 @@ export const ResetPasswordForm = ({
   };
 
   return (
-    <div className="mx-auto w-full max-w-md rounded-xl border border-white/10 bg-black p-8 text-white shadow-2xl">
+    <div className="mx-auto w-full max-w-md rounded-xl border border-white/10 bg-[#0d1117] p-8 text-white shadow-2xl">
       <h1 className="mb-2 text-2xl font-bold tracking-tight">Reset Password</h1>
       <p className="mb-6 text-sm text-zinc-400">
         Enter the 6-digit code sent to <span className="font-medium text-white">{email}</span>.
@@ -136,7 +136,7 @@ export const ResetPasswordForm = ({
                   onChange={(e) => handleOtpChange(index, e.target.value)}
                   onKeyDown={(e) => handleKeyDown(index, e)}
                   disabled={isCodeVerified || isVerifying}
-                  className="h-12 w-12 border-white/10 bg-white/5 text-center text-lg font-semibold focus-visible:ring-violet-600"
+                  className="h-12 w-12 border-white/10 bg-white/5 text-center text-lg font-semibold focus-visible:ring-white"
                   aria-label={`OTP digit ${index + 1}`}
                 />
               ))}
@@ -174,7 +174,7 @@ export const ResetPasswordForm = ({
                       placeholder="••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="border-white/10 bg-white/5 pr-10 focus-visible:ring-violet-600"
+                      className="bg-white/5 border-white/10 pr-10 focus-visible:ring-white h-11"
                     />
                     <button
                       type="button"
@@ -205,7 +205,7 @@ export const ResetPasswordForm = ({
           <Button
             type="submit"
             disabled={!allRequirementsMet || isSubmitting || !isCodeVerified}
-            className="bg-violet-600 font-bold text-white hover:bg-violet-700 disabled:opacity-50"
+            className="bg-white font-bold text-black hover:bg-zinc-200 disabled:opacity-50 h-11"
           >
             {isSubmitting ? "Resetting..." : "Reset password"}
           </Button>
