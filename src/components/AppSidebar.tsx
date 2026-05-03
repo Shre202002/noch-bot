@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Settings, Code2, BarChart3, User, Bot } from "lucide-react";
+import { LayoutDashboard, Settings, Code2, BarChart3, User } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -15,7 +15,7 @@ import {
   SidebarHeader,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { Logo } from "./logo";
+import { LogoIcon } from "./logo";
 
 const items = [
   { title: "Overview", url: "/dashboard", icon: LayoutDashboard },
@@ -34,7 +34,7 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarHeader className="p-4">
         <Link href="/" className="flex items-center gap-2">
-          <Logo />
+          <LogoIcon className="h-6 w-6" />
           {!collapsed && <span className="text-lg font-bold text-sidebar-foreground uppercase tracking-tight">NOCTA</span>}
         </Link>
       </SidebarHeader>

@@ -74,8 +74,8 @@ export function AnimatedNavFramer() {
   const [isExpanded, setExpanded] = React.useState(true);
   
   const { scrollY } = useScroll();
-  const lastScrollY = React.useRef(0);
-  const scrollPositionOnCollapse = React.useRef(0);
+  const lastScrollY = useRef(0);
+  const scrollPositionOnCollapse = useRef(0);
 
   useMotionValueEvent(scrollY, "change", (latest) => {
     const previous = lastScrollY.current;
@@ -115,14 +115,14 @@ export function AnimatedNavFramer() {
       >
         <motion.div
           variants={logoVariants}
-          className="flex-shrink-0 flex items-center font-semibold pl-4 pr-2"
+          className="flex-shrink-0 flex items-center font-semibold pl-4 pr-3"
         >
-          <Logo />
+          <Logo className="h-6" />
         </motion.div>
         
         <motion.div
           className={cn(
-            "flex items-center gap-1 sm:gap-4 pr-4",
+            "flex items-center gap-1 sm:gap-4 pr-5",
             !isExpanded && "pointer-events-none" 
           )}
         >
@@ -150,4 +150,8 @@ export function AnimatedNavFramer() {
       </motion.nav>
     </div>
   );
+}
+
+function useRef(initialValue: number) {
+  return React.useRef(initialValue);
 }
