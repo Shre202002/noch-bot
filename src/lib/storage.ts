@@ -1,4 +1,3 @@
-
 import { getDb } from './db';
 import { Collection } from 'mongodb';
 
@@ -34,6 +33,8 @@ export async function findAccount(email: string): Promise<Account | undefined> {
   const account = await coll.findOne({ email });
   return account || undefined;
 }
+
+export const findAccountByEmail = findAccount;
 
 export async function findAccountById(id: string): Promise<Account | undefined> {
   const coll = await getUsersCollection();

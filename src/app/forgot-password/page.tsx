@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -16,12 +15,11 @@ export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
     setLoading(true);
-    setError(null);
 
     try {
       const res = await fetch('/api/auth/forgot-password', {
@@ -33,13 +31,16 @@ export default function ForgotPasswordPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || 'Failed to send OTP');
-      } else {
-        router.push(`/verify-otp?email=${encodeURIComponent(email)}`);
+        setError(data.message || 'Something went wrong.');
+        setLoading(false);
+        return; // ← CRITICAL: stop here, do not redirect
       }
+
+      // Only redirect on success
+      router.push(`/verify-otp?email=${encodeURIComponent(email)}`);
+
     } catch (err) {
-      setError('Something went wrong. Please try again.');
-    } finally {
+      setError('Network error. Please try again.');
       setLoading(false);
     }
   };

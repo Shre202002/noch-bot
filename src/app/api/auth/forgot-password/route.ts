@@ -1,42 +1,54 @@
-
-import { NextRequest, NextResponse } from 'next/server';
-import bcrypt from 'bcryptjs';
-import { findAccount, saveOtp, clearOtp } from '@/lib/storage';
-import { sendOtpEmail } from '@/lib/mailer';
+import { NextRequest, NextResponse } from 'next/server'
+import bcrypt from 'bcryptjs'
+import { findAccount, saveOtp } from '@/lib/storage'
+import { sendOtpEmail } from '@/lib/mailer'
 
 export async function POST(req: NextRequest) {
   try {
-    const { email } = await req.json();
+    const { email } = await req.json()
 
-    if (!email) {
-      return NextResponse.json({ error: 'Email is required' }, { status: 400 });
+    if (!email || typeof email !== 'string') {
+      return NextResponse.json(
+        { success: false, message: 'Email is required.' },
+        { status: 400 }
+      )
     }
 
-    const account = await findAccount(email);
-    
-    // Always return 200 for security (anti-enumeration)
+    // Check if user exists — return error if not
+    const account = await findAccount(email.toLowerCase().trim())
+
     if (!account) {
-      return NextResponse.json({ success: true, message: 'If an account exists, an OTP has been sent.' });
+      return NextResponse.json(
+        { success: false, message: 'This email is not registered with Nocta.' },
+        { status: 400 }
+      )
     }
 
     // Generate 6-digit OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const otpHash = await bcrypt.hash(otp, 10);
-    const expiry = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // 5 minutes
+    const otp = Math.floor(100000 + Math.random() * 900000).toString()
 
-    await saveOtp(email, otpHash, expiry);
+    // Hash OTP before storing
+    const otpHash = await bcrypt.hash(otp, 10)
 
-    try {
-      await sendOtpEmail(email, otp);
-    } catch (emailError) {
-      console.error('Email send failed:', emailError);
-      await clearOtp(email);
-      return NextResponse.json({ error: 'Failed to send email' }, { status: 500 });
-    }
+    // Expiry: 5 minutes from now
+    const otpExpiry = new Date(Date.now() + 5 * 60 * 1000).toISOString()
 
-    return NextResponse.json({ success: true, message: 'OTP sent to your email' });
-  } catch (error) {
-    console.error('Forgot password error:', error);
-    return NextResponse.json({ error: 'Something went wrong' }, { status: 500 });
+    // Save hashed OTP to DB
+    await saveOtp(email.toLowerCase().trim(), otpHash, otpExpiry)
+
+    // Send OTP email
+    await sendOtpEmail(email, otp)
+
+    return NextResponse.json(
+      { success: true, message: 'OTP sent to your email.' },
+      { status: 200 }
+    )
+
+  } catch (err) {
+    console.error('[forgot-password] error:', err)
+    return NextResponse.json(
+      { success: false, message: 'Failed to send OTP. Please try again.' },
+      { status: 500 }
+    )
   }
 }
