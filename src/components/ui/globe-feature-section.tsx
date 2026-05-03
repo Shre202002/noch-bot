@@ -22,8 +22,8 @@ export default function Featured_05({ onJoinClick }: Featured_05Props) {
       <div className="mx-auto max-w-[1200px] px-6">
         <div className="flex flex-col lg:flex-row lg:items-center gap-12 lg:gap-0">
 
-          {/* TEXT — 60% on desktop */}
-          <div className="z-10 w-full lg:w-[60%] lg:pr-20 text-left">
+          {/* TEXT — 60% on desktop with increased padding */}
+          <div className="z-10 w-full lg:w-[60%] lg:pr-24 text-left">
             <p className="text-[11px] uppercase tracking-[0.2em] text-white/40 mb-6">
               Scale Globally
             </p>
@@ -42,9 +42,12 @@ export default function Featured_05({ onJoinClick }: Featured_05Props) {
             </Button>
           </div>
 
-          {/* GLOBE — 40% desktop column, globe overflows right by ~35% */}
-          <div className="relative hidden lg:block lg:w-[40%] h-[600px] flex-shrink-0 overflow-visible">
-            <Globe className="absolute top-1/2 -translate-y-1/2 -right-[35%] w-[750px] h-[750px]" />
+          {/* GLOBE — 40% desktop column, globe overflows right using specific pixel offset */}
+          <div className="relative hidden lg:block lg:w-[40%] h-[600px] flex-shrink-0" style={{ overflow: 'visible' }}>
+            <Globe 
+              className="absolute top-1/2 -translate-y-1/2 w-[800px] h-[800px]" 
+              style={{ right: '-280px' }} 
+            />
           </div>
 
           {/* GLOBE — mobile, centered and clipped */}
@@ -94,9 +97,11 @@ const GLOBE_CONFIG: COBEOptions = {
 
 export function Globe({
   className,
+  style,
   config = GLOBE_CONFIG,
 }: {
   className?: string;
+  style?: React.CSSProperties;
   config?: COBEOptions;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -171,7 +176,7 @@ export function Globe({
   };
 
   return (
-    <div className={cn("relative", className)}>
+    <div className={cn("relative", className)} style={style}>
       <canvas
         className="size-full opacity-0 transition-opacity duration-500 [contain:layout_paint_size]"
         ref={canvasRef}
