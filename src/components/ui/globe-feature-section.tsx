@@ -21,12 +21,13 @@ export default function Featured_05({ onJoinClick }: Featured_05Props) {
   return (
     <section className="relative w-full overflow-hidden border-y border-white/5 bg-[#0d1117] py-24 md:py-32 mt-24">
       <div className="mx-auto max-w-[1200px] px-6">
-        <div className="flex flex-col items-start justify-between gap-12 lg:flex-row">
-          <div className="z-10 max-w-2xl text-left">
+        <div className="flex flex-col items-start justify-between gap-12 lg:flex-row lg:items-center">
+          {/* Content Division - 70% */}
+          <div className="z-10 w-full lg:w-[70%] text-left">
             <p className="text-[11px] uppercase tracking-[0.2em] text-white/40 mb-4">Scale Globally</p>
             <h2 className="text-3xl md:text-5xl font-normal tracking-tight text-white leading-tight">
               Deploy <span className="text-primary font-medium">AI Agents</span>{" "}
-              <span className="text-white/40 block mt-2">
+              <span className="text-white/40 block mt-2 max-w-xl">
                 Powering millions of conversations across every continent in real-time.
               </span>
             </h2>
@@ -38,9 +39,13 @@ export default function Featured_05({ onJoinClick }: Featured_05Props) {
             </Button>
           </div>
           
-          <div className="relative h-[300px] w-full lg:h-[500px] lg:flex-1">
-            {/* Positioned for the "Half Globe" look on larger screens */}
-            <Globe className="absolute -bottom-32 -right-32 lg:-bottom-48 lg:-right-48 scale-110 lg:scale-150" />
+          {/* Globe Division - 30% container with overflow for half-globe effect */}
+          <div className="relative h-[300px] w-full lg:h-[500px] lg:w-[30%]">
+            {/* 
+              Positioned to achieve the "Half Globe" look. 
+              We shift it right and down so only a portion is visible in the container.
+            */}
+            <Globe className="absolute -bottom-24 -right-24 lg:-bottom-40 lg:-right-40 scale-[1.4] lg:scale-[2.2]" />
           </div>
         </div>
       </div>
