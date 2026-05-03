@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -12,6 +11,7 @@ const navItems = [
   { name: "Features", href: "#features" },
   { name: "Process", href: "#process" },
   { name: "Pricing", href: "#pricing" },
+  { name: "Sign in", href: "/login" },
 ];
 
 const EXPAND_SCROLL_THRESHOLD = 80;
@@ -123,7 +123,7 @@ export function AnimatedNavFramer() {
         <motion.div
           className={cn(
             "flex items-center gap-1 sm:gap-4 pr-4",
-            !isExpanded && "pointer-events-none"
+            !isExpanded && "pointer-events-none" 
           )}
         >
           {navItems.map((item) => (
