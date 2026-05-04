@@ -40,10 +40,11 @@ export async function POST(req: NextRequest) {
       const info = await qdrant.getCollection(COLLECTION);
       console.log(info);
       const searchResult = await qdrant.search(COLLECTION, {
-        vector: {
-          name: "default",
-          vector: queryVector,
-        },
+        // vector: {
+        //   name: "default",
+        //   vector: queryVector,
+        // },
+        vector: queryVector,
         limit: 5,
         with_payload: true,
         filter: {
@@ -66,31 +67,12 @@ export async function POST(req: NextRequest) {
       console.warn("[chat] RAG search failed, continuing without context:", err);
     }
 
-    // Build final system prompt with context
-    // const finalSystemPrompt = contextText
-    //   ? `${systemPrompt}\n\nRelevant context from the knowledge base:\n${contextText}\n\nUse this context to answer accurately. If the answer is not in the context, say so.`
-    //   : systemPrompt;
     console.log("🔍 RAG context length:", contextText.length);
     const finalSystemPrompt = contextText
-      ? `
-You are an AI assistant for this website.
-
-STRICT RULES:
-- Answer ONLY using the provided context below
-- Do NOT use general knowledge
-- If the answer is not in the context, say:
-  "I don't know based on the provided data."
-
-CONTEXT:
-${contextText}
-`
-      : `
-You are an AI assistant.
-
-If no context is available, say:
-"I don't have enough data yet. Please train me first."
-`;
-
+      ? `You are a helpful assistant for this website. Answer questions naturally and conversationally based on the information below. Be concise, friendly, and specific. Don't mention "context" or "provided data" — just answer as if you know this website well.
+      WEBSITE INFORMATION:
+      ${contextText}`
+      : `You are a helpful assistant for this website. You don't have enough information yet to answer specific questions. Politely ask the user what they'd like to know and suggest they contact the website owner for details.`;
     // Call Groq
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
