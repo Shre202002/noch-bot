@@ -1,37 +1,41 @@
+import { NextRequest, NextResponse } from 'next/server';
+import axios from 'axios';
+import * as cheerio from 'cheerio';
+import { writeKnowledge, readKnowledge } from '@/lib/storage';
+import { getUserIdFromCookie } from '@/lib/auth';
+import { embedText } from '@/lib/embeddings';
+import { qdrant, ensureCollection, COLLECTION } from '@/lib/qdrant';
 
-import { NextRequest } from "next/server";
-import axios from "axios";
-import * as cheerio from "cheerio";
-import { writeKnowledge, readKnowledge } from "@/lib/storage";
-import { getUserIdFromCookie } from "@/lib/auth";
-import { embedText } from "@/lib/embeddings";
-import { qdrant, ensureCollection, COLLECTION } from "@/lib/qdrant";
-import { v4 as uuid } from "uuid";
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
 
-function chunkText(text: string, wordsPerChunk = 500): string[] {
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: corsHeaders });
+}
+
+function chunkText(text: string, wordsPerChunk = 300): string[] {
   const words = text.split(/\s+/).filter(Boolean);
   const chunks: string[] = [];
   for (let i = 0; i < words.length; i += wordsPerChunk) {
-    chunks.push(words.slice(i, i + wordsPerChunk).join(" "));
+    chunks.push(words.slice(i, i + wordsPerChunk).join(' '));
   }
   return chunks;
 }
 
 function extractText(html: string, baseUrl: string): { text: string; links: string[] } {
   const $ = cheerio.load(html);
-  $("script, style, nav, footer, head, noscript, svg, img").remove();
-  const text = $("body").text().replace(/\s+/g, " ").trim();
+  $('script, style, nav, footer, head, noscript, svg, img').remove();
+  const text = $('body').text().replace(/\s+/g, ' ').trim();
   const links: string[] = [];
   const origin = new URL(baseUrl).origin;
-  $("a[href]").each((_, el) => {
-    const href = $(el).attr("href") || "";
+  $('a[href]').each((_, el) => {
+    const href = $(el).attr('href') || '';
     try {
       const absolute = new URL(href, baseUrl).href;
-      if (
-        absolute.startsWith(origin) &&
-        !absolute.includes("#") &&
-        !absolute.includes("?")
-      ) {
+      if (absolute.startsWith(origin) && !absolute.includes('#') && !absolute.includes('?')) {
         links.push(absolute);
       }
     } catch {}
@@ -39,155 +43,121 @@ function extractText(html: string, baseUrl: string): { text: string; links: stri
   return { text, links: [...new Set(links)] };
 }
 
-export async function POST(req: NextRequest) {
-  const encoder = new TextEncoder();
+function numericId(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash) || 1;
+}
 
-  const stream = new ReadableStream({
-    async start(controller) {
-      function send(data: object) {
-        controller.enqueue(
-          encoder.encode(`data: ${JSON.stringify(data)}\n\n`)
-        );
-      }
+export async function POST(req: NextRequest) {
+  try {
+    const userId = await getUserIdFromCookie();
+    if (!userId) {
+      return NextResponse.json({ error: 'Not authenticated.' }, { status: 401, headers: corsHeaders });
+    }
+
+    const body = await req.json();
+    const { url } = body;
+
+    if (!url) {
+      return NextResponse.json({ error: 'URL is required.' }, { status: 400, headers: corsHeaders });
+    }
+
+    try { new URL(url); } catch {
+      return NextResponse.json({ error: 'Invalid URL format.' }, { status: 400, headers: corsHeaders });
+    }
+
+    // STEP 1: CRAWL
+    console.log(`[crawl] Starting crawl for ${url}`);
+    const visited = new Set<string>();
+    const queue = [url];
+    const allContent: string[] = [];
+    const MAX_PAGES = 10;
+
+    while (queue.length > 0 && visited.size < MAX_PAGES) {
+      const current = queue.shift()!;
+      if (visited.has(current)) continue;
+      visited.add(current);
 
       try {
-        const body = await req.json();
-        const { url, extraUrls = [] } = body;
-
-        if (!url) {
-          send({ type: "error", message: "URL is required." });
-          controller.close();
-          return;
-        }
-
-        try {
-          new URL(url);
-        } catch {
-          send({ type: "error", message: "Invalid URL format." });
-          controller.close();
-          return;
-        }
-
-        const userId = await getUserIdFromCookie();
-        if (!userId) {
-          send({ type: "error", message: "Not authenticated." });
-          controller.close();
-          return;
-        }
-
-        const visited = new Set<string>();
-        const queue = [url, ...extraUrls.filter(Boolean)];
-        const allContent: string[] = [];
-        const MAX_PAGES = 15;
-
-        send({ type: "start", message: `Starting crawl for ${url}` });
-
-        while (queue.length > 0 && visited.size < MAX_PAGES) {
-          const current = queue.shift()!;
-          if (visited.has(current)) continue;
-          visited.add(current);
-
-          send({
-            type: "crawling",
-            page: current,
-            count: visited.size,
-            total: Math.min(queue.length + visited.size, MAX_PAGES),
-          });
-
-          try {
-            const response = await axios.get(current, {
-              timeout: 8000,
-              headers: {
-                "User-Agent": "Mozilla/5.0 (compatible; ChatBot-Crawler/1.0)",
-              },
-            });
-
-            const { text, links } = extractText(response.data, current);
-
-            if (text.length > 100) {
-              allContent.push(`\n\n--- Page: ${current} ---\n${text.slice(0, 3000)}`);
-              send({ type: "page_done", page: current, chars: text.length });
-            }
-
-            for (const link of links) {
-              if (!visited.has(link)) queue.push(link);
-            }
-          } catch {
-            send({ type: "page_error", page: current });
-          }
-        }
-
-        if (allContent.length === 0) {
-          send({ type: "error", message: "Could not extract content from this site." });
-          controller.close();
-          return;
-        }
-
-        const fullText = allContent.join("\n");
-
-        // Save to MongoDB fallback
-        const existing = await readKnowledge(userId);
-        await writeKnowledge(userId, {
-          ...existing,
-          url,
-          content: fullText.slice(0, 3000),
-          crawledAt: new Date().toISOString(),
+        const response = await axios.get(current, {
+          timeout: 8000,
+          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NoctaBot/1.0)' },
         });
-
-        // Chunk
-        send({ type: "embedding", message: "Chunking content..." });
-        const chunks = chunkText(fullText);
-        send({ type: "embedding", message: `Created ${chunks.length} chunks. Starting embeddings...` });
-
-        // Qdrant setup
-        try {
-          await ensureCollection();
-          await qdrant.delete(COLLECTION, {
-            filter: {
-              must: [{ key: "userId", match: { value: userId } }],
-            },
-          });
-        } catch (err: any) {
-          send({ type: "embedding", message: `Qdrant setup warning: ${err?.message}` });
+        const { text, links } = extractText(response.data, current);
+        if (text.length > 100) {
+          allContent.push(`--- Page: ${current} ---\n${text.slice(0, 4000)}`);
+          console.log(`[crawl] Crawled: ${current} (${text.length} chars)`);
         }
-
-        // Embed + upsert
-        send({ type: "embedding", message: `Embedding ${chunks.length} chunks...` });
-        try {
-          const points = await Promise.all(
-            chunks.map(async (chunk, i) => ({
-              id: uuid(),
-              vector: await embedText(chunk),
-              payload: { userId, url, text: chunk, chunkIndex: i },
-            }))
-          );
-          await qdrant.upsert(COLLECTION, { points });
-          send({ type: "embedding", message: `✅ ${chunks.length} vectors stored!` });
-        } catch (err: any) {
-          send({ type: "embedding", message: `Vector storage failed: ${err?.message}. Using basic mode.` });
+        for (const link of links) {
+          if (!visited.has(link)) queue.push(link);
         }
-
-        send({
-          type: "done",
-          pagesCrawled: visited.size,
-          characters: fullText.length,
-          chunks: chunks.length,
-        });
-
       } catch (err: any) {
-        send({ type: "error", message: err?.message || "Crawl failed." });
+        console.warn(`[crawl] Skipped ${current}: ${err?.message}`);
       }
+    }
 
-      controller.close();
-    },
-  });
+    if (allContent.length === 0) {
+      return NextResponse.json({ error: 'Could not extract content from this site.' }, { status: 422, headers: corsHeaders });
+    }
 
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      "Connection": "keep-alive",
-      "X-Accel-Buffering": "no",
-    },
-  });
+    const fullText = allContent.join('\n\n');
+    console.log(`[crawl] ${visited.size} pages, ${fullText.length} chars`);
+
+    // Save to MongoDB
+    const existing = await readKnowledge(userId);
+    await writeKnowledge(userId, {
+      ...existing,
+      url,
+      content: fullText.slice(0, 3000),
+      crawledAt: new Date().toISOString(),
+    });
+
+    // STEP 2: CHUNK
+    const chunks = chunkText(fullText);
+    console.log(`[crawl] ${chunks.length} chunks created`);
+
+    // STEP 3: QDRANT SETUP
+    await ensureCollection();
+    try {
+      await qdrant.delete(COLLECTION, {
+        filter: { must: [{ key: 'userId', match: { value: userId } }] },
+      });
+    } catch { /* nothing to delete */ }
+
+    // STEP 4: EMBED + UPSERT one by one (safest)
+    const points = [];
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i];
+      const vector = await embedText(chunk);
+      points.push({
+        id: numericId(`${userId}-${i}-${chunk.slice(0, 30)}`),
+        vector,
+        payload: { userId, url, text: chunk, chunkIndex: i },
+      });
+      console.log(`[crawl] Embedded ${i + 1}/${chunks.length}`);
+      // 300ms delay to avoid Gemini rate limits
+      await new Promise(r => setTimeout(r, 300));
+    }
+
+    await qdrant.upsert(COLLECTION, { wait: true, points });
+    console.log(`[crawl] Upserted ${points.length} vectors`);
+
+    await writeKnowledge(userId, { chunkCount: points.length });
+
+    return NextResponse.json({
+      success: true,
+      pagesCrawled: visited.size,
+      chunks: points.length,
+      characters: fullText.length,
+    }, { headers: corsHeaders });
+
+  } catch (err: any) {
+    console.error('[crawl] Fatal error:', err?.message, JSON.stringify(err?.data || ''));
+    return NextResponse.json({ error: err?.message || 'Crawl failed.' },  );
+  }
 }

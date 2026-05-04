@@ -22,7 +22,7 @@ export async function ensureCollection() {
     if (!exists) {
       await qdrant.createCollection(COLLECTION, {
         vectors: {
-          size: 768, // Dimensionality of Gemini text-embedding-004
+          size: 3072, // Dimensionality of Gemini text-embedding-004
           distance: "Cosine",
         },
       });
