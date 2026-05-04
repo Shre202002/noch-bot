@@ -36,14 +36,24 @@ export async function POST(req: NextRequest) {
     try {
       await ensureCollection();
       const queryVector = await embedText(userMessage);
-
+      console.log("Query vector length:", queryVector.length);
+      const info = await qdrant.getCollection(COLLECTION);
+      console.log(info);
       const searchResult = await qdrant.search(COLLECTION, {
-        vector: queryVector,
-        limit: 5,
-        filter: {
-          must: [{ key: "userId", match: { value: userId } }],
+        vector: {
+          name: "default",
+          vector: queryVector,
         },
+        limit: 5,
         with_payload: true,
+        filter: {
+          must: [
+            {
+              key: "userId",
+              match: { value: userId },
+            },
+          ],
+        },
       });
 
       if (searchResult.length > 0) {
@@ -57,9 +67,29 @@ export async function POST(req: NextRequest) {
     }
 
     // Build final system prompt with context
+    // const finalSystemPrompt = contextText
+    //   ? `${systemPrompt}\n\nRelevant context from the knowledge base:\n${contextText}\n\nUse this context to answer accurately. If the answer is not in the context, say so.`
+    //   : systemPrompt;
+    console.log("🔍 RAG context length:", contextText.length);
     const finalSystemPrompt = contextText
-      ? `${systemPrompt}\n\nRelevant context from the knowledge base:\n${contextText}\n\nUse this context to answer accurately. If the answer is not in the context, say so.`
-      : systemPrompt;
+      ? `
+You are an AI assistant for this website.
+
+STRICT RULES:
+- Answer ONLY using the provided context below
+- Do NOT use general knowledge
+- If the answer is not in the context, say:
+  "I don't know based on the provided data."
+
+CONTEXT:
+${contextText}
+`
+      : `
+You are an AI assistant.
+
+If no context is available, say:
+"I don't have enough data yet. Please train me first."
+`;
 
     // Call Groq
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });

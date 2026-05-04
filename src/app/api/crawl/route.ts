@@ -16,6 +16,10 @@ export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: corsHeaders });
 }
 
+
+
+
+
 function chunkText(text: string, wordsPerChunk = 300): string[] {
   const words = text.split(/\s+/).filter(Boolean);
   const chunks: string[] = [];
@@ -38,7 +42,7 @@ function extractText(html: string, baseUrl: string): { text: string; links: stri
       if (absolute.startsWith(origin) && !absolute.includes('#') && !absolute.includes('?')) {
         links.push(absolute);
       }
-    } catch {}
+    } catch { }
   });
   return { text, links: [...new Set(links)] };
 }
@@ -74,9 +78,10 @@ export async function POST(req: NextRequest) {
     // STEP 1: CRAWL
     console.log(`[crawl] Starting crawl for ${url}`);
     const visited = new Set<string>();
+    const pages: { url: string; chars: number }[] = [];
     const queue = [url];
     const allContent: string[] = [];
-    const MAX_PAGES = 10;
+    const MAX_PAGES = 15;
 
     while (queue.length > 0 && visited.size < MAX_PAGES) {
       const current = queue.shift()!;
@@ -89,7 +94,16 @@ export async function POST(req: NextRequest) {
           headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NoctaBot/1.0)' },
         });
         const { text, links } = extractText(response.data, current);
+        // if (text.length > 100) {
+        //   allContent.push(`--- Page: ${current} ---\n${text.slice(0, 4000)}`);
+        //   console.log(`[crawl] Crawled: ${current} (${text.length} chars)`);
+        // }
         if (text.length > 100) {
+          pages.push({
+            url: current,
+            chars: text.length,
+          });
+
           allContent.push(`--- Page: ${current} ---\n${text.slice(0, 4000)}`);
           console.log(`[crawl] Crawled: ${current} (${text.length} chars)`);
         }
@@ -151,13 +165,13 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      pagesCrawled: visited.size,
+      pages,
       chunks: points.length,
       characters: fullText.length,
     }, { headers: corsHeaders });
 
   } catch (err: any) {
     console.error('[crawl] Fatal error:', err?.message, JSON.stringify(err?.data || ''));
-    return NextResponse.json({ error: err?.message || 'Crawl failed.' },  );
+    return NextResponse.json({ error: err?.message || 'Crawl failed.' },);
   }
 }

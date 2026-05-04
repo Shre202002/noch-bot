@@ -664,7 +664,8 @@ export default function ConfigurePage() {
       const logs: string[] = ['🚀 Starting crawl for ' + crawlUrl.trim()]
 
       pages.forEach((p: {url: string, chars: number}, i: number) => {
-        logs.push(`🔍 [${i + 1}] ${p.url}`)
+        // logs.push(`🔍 [${i + 1}] ${p.url}`)
+        logs.push(`🔍 [${i + 1}] ${p.url} (${(p.chars/1000).toFixed(1)}k chars)`)
         logs.push(`✓ ${p.url} — ${(p.chars/1000).toFixed(1)}k chars`)
       })
 
