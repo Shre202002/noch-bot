@@ -1,3 +1,4 @@
+
 "use client"
 import React, { useState, useEffect } from "react";
 import {
@@ -79,7 +80,7 @@ const Sidebar = ({ user }: { user?: any }) => {
     { icon: Bot, title: "Bot Config", href: "/dashboard/configure" },
     { icon: Code2, title: "Embed Codes", href: "/dashboard/embed" },
     { icon: BarChart3, title: "Analytics", href: "/dashboard/analytics" },
-    { icon: MessageSquare, title: "History", href: "#", notifs: 4 },
+    { icon: MessageSquare, title: "History", href: "/dashboard/history", notifs: 4 },
   ];
 
   return (
