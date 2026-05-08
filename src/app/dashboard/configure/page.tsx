@@ -33,7 +33,7 @@ export default function ConfigurePage() {
 
   const [previewTypingText, setPreviewTypingText] = useState('')
   const [previewIsTyping, setPreviewIsTyping] = useState(false)
-  const previewIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  // const previewIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
     fetch('/api/auth/me').then(r => r.json()).then(d => { if (d.id) setUserId(d.id) })
@@ -143,43 +143,135 @@ export default function ConfigurePage() {
 
   // ✅ FIXED: Handles plain JSON response from chat API
   const sendPreviewMessage = async (text?: string) => {
-    const userText = text || previewInput.trim()
-    if (!userText || previewLoading || previewIsTyping || !userId) return
+    const userText = text || previewInput.trim();
 
-    const newMessages: Message[] = [...previewMessages, { role: 'user', content: userText }]
-    setPreviewMessages(newMessages)
-    setPreviewInput('')
-    setPreviewLoading(true)
+    if (!userText || previewLoading || previewIsTyping || !userId) {
+      return;
+    }
+
+    const newMessages: Message[] = [
+      ...previewMessages,
+      { role: "user", content: userText },
+    ];
+
+    setPreviewMessages(newMessages);
+    setPreviewInput("");
+    setPreviewLoading(true);
 
     try {
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: newMessages, userId }),
-      })
-      const data = await res.json()
-      const responseText = data.error ? '⚠️ ' + data.error : data.text || 'No response.'
-      setPreviewLoading(false)
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messages: newMessages,
+          userId,
+        }),
+      });
 
-      // Typewriter effect
-      setPreviewIsTyping(true)
-      setPreviewTypingText('')
-      let i = 0
-      previewIntervalRef.current = setInterval(() => {
-        i++
-        setPreviewTypingText(responseText.slice(0, i))
-        if (i >= responseText.length) {
-          clearInterval(previewIntervalRef.current!)
-          setPreviewIsTyping(false)
-          setPreviewTypingText('')
-          setPreviewMessages([...newMessages, { role: 'assistant', content: responseText }])
+      if (!res.body) {
+        throw new Error("No response stream");
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+
+      let streamedText = "";
+
+      // stop dots
+
+
+      // start streaming text
+      setPreviewIsTyping(true);
+      // setPreviewTypingText("");
+
+      while (true) {
+        const { done, value } = await reader.read();
+
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+
+        const lines = chunk
+          .split("\n")
+          .filter(line => line.startsWith("data:"));
+
+        for (const line of lines) {
+          try {
+
+            const parsed = JSON.parse(
+              line.replace("data: ", "")
+            );
+
+            // first token arrives
+            if (parsed.token) {
+
+              // remove typing dots
+              setPreviewLoading(false);
+
+              // start typing state
+              if (!previewIsTyping) {
+                setPreviewIsTyping(true);
+              }
+
+              streamedText += parsed.token;
+
+              // smooth streaming effect
+              await new Promise(resolve =>
+                setTimeout(resolve, 12)
+              );
+
+              setPreviewTypingText(streamedText);
+            }
+
+            // stream finished
+            if (parsed.done) {
+
+              setPreviewMessages([
+                ...newMessages,
+                {
+                  role: "assistant",
+                  content: streamedText,
+                },
+              ]);
+
+              setPreviewTypingText("");
+              setPreviewIsTyping(false);
+
+              reader.releaseLock();
+
+              return;
+            }
+
+            if (parsed.error) {
+              throw new Error(parsed.error);
+            }
+
+          } catch (err) {
+            console.error(
+              "Preview stream parse error:",
+              err
+            );
+          }
         }
-      }, 14)
+      }
+
+
     } catch (err: any) {
-      setPreviewLoading(false)
-      setPreviewMessages([...newMessages, { role: 'assistant', content: '⚠️ Error: ' + err.message }])
+      setPreviewLoading(false);
+
+      setPreviewIsTyping(false);
+
+      setPreviewMessages([
+        ...newMessages,
+        {
+          role: "assistant",
+          content: "⚠️ Error: " + err.message,
+        },
+      ]);
     }
-  }
+  };
 
   const embedCode = `<script\n  src="${baseUrl}/embed.js"\n  data-user-id="${userId}"\n  defer>\n</script>`
 
@@ -500,7 +592,43 @@ export default function ConfigurePage() {
                           lineHeight: 1.55,
                           border: '1px solid #2a2d35'
                         }}>
-                          {previewTypingText}
+                          {previewIsTyping && previewTypingText && (
+                            <div
+                              style={{
+                                display: 'flex',
+                                justifyContent: 'flex-start',
+                              }}
+                            >
+                              <div
+                                style={{
+                                  maxWidth: '78%',
+                                  padding: '10px 14px',
+                                  borderRadius: '18px 18px 18px 4px',
+                                  background: '#1f2228',
+                                  color: '#fff',
+                                  fontSize: 14,
+                                  lineHeight: 1.7,
+                                  border: '1px solid #2a2d35',
+                                  whiteSpace: 'pre-wrap',
+                                  wordBreak: 'break-word',
+                                }}
+                              >
+                                {previewTypingText}
+
+                                <span
+                                  className="typing-cursor"
+                                  style={{
+                                    display: 'inline-block',
+                                    width: 2,
+                                    height: '1em',
+                                    background: themeConfig?.sendBtnColor || '#6366f1', marginLeft: 3,
+                                    verticalAlign: 'text-bottom',
+                                    animation: 'cursorBlink 0.7s infinite',
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          )}
                           <span style={{
                             display: 'inline-block',
                             width: 2,
@@ -527,7 +655,7 @@ export default function ConfigurePage() {
                   disabled={previewLoading || !crawlDone}
                   style={{ flex: 1, background: '#1f2228', border: '1px solid #2a2d35', borderRadius: 8, padding: '10px 14px', color: '#fff', fontSize: 13, outline: 'none' }}
                 />
-                <button onClick={() => sendPreviewMessage()} disabled={previewLoading || !previewInput.trim() || !crawlDone} style={{ background: themeConfig.sendBtnColor, color: '#000', border: 'none', borderRadius: 9999, padding: '10px 18px', fontWeight: 500, fontSize: 13, cursor: 'pointer', opacity: previewLoading ? 0.5 : 1 }}>Send</button>
+                <button onClick={() => sendPreviewMessage()} disabled={previewLoading || !previewInput.trim() || !crawlDone} style={{ background: themeConfig?.sendBtnColor || '#6366f1', color: '#000', border: 'none', borderRadius: 9999, padding: '10px 18px', fontWeight: 500, fontSize: 13, cursor: 'pointer', opacity: previewLoading ? 0.5 : 1 }}>Send</button>
               </div>
             </div>
             {previewMessages.filter(m => m.role === 'assistant' && m.content).length > 0 && (
@@ -564,6 +692,6 @@ export default function ConfigurePage() {
           </div>
         )}
       </div>
-    </div>
+    </div >
   )
 }
