@@ -13,7 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Share2, Copy, Mail, MessageSquare } from 'lucide-react';
+import { Share2, Copy, Mail, MessageSquare, Check } from 'lucide-react';
 
 type Tab = 'Crawl' | 'Embed' | 'Theme' | 'Preview' | 'Embed Code'
 type Message = { role: 'user' | 'assistant'; content: string }
@@ -41,6 +41,7 @@ export default function ConfigurePage() {
   const [activeTab, setActiveTab] = useState<Tab>('Crawl')
   const [userId, setUserId] = useState('')
   const [baseUrl, setBaseUrl] = useState('')
+  const [copiedShareUrl, setCopiedShareUrl] = useState(false)
   const logsEndRef = useRef<HTMLDivElement>(null)
   const previewBottomRef = useRef<HTMLDivElement>(null)
 
@@ -227,7 +228,8 @@ export default function ConfigurePage() {
     }
   };
 
-  const embedCode = `<script\n  src="${baseUrl}/embed.js"\n  data-user-id="${userId}"\n  defer>\n</script>`
+  const scriptUrl = `${baseUrl}/embed.js`;
+  const embedCode = `<script\n  src="${scriptUrl}"\n  data-user-id="${userId}"\n  defer>\n</script>`;
 
   const THEME_COMPONENTS = [
     { key: 'bubbleColor', label: 'Chat Bubble', desc: 'Floating button color' },
@@ -244,15 +246,44 @@ export default function ConfigurePage() {
       name: 'Copy Link',
       icon: Copy,
       action: () => {
-        navigator.clipboard.writeText(`${baseUrl}/embed.js`);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+        navigator.clipboard.writeText(scriptUrl);
+        setCopiedShareUrl(true);
+        setTimeout(() => setCopiedShareUrl(false), 2000);
       },
     },
-    { name: 'Email', icon: Mail, action: () => {
-      window.location.href = `mailto:?subject=Nocta Chatbot Snippet&body=Hi, here is the Nocta chatbot script for our website:%0A%0A${encodeURIComponent(embedCode)}`;
-    } },
-    { name: 'Message', icon: MessageSquare, action: () => {} },
+    { 
+      name: 'Email', 
+      icon: Mail, 
+      action: () => {
+        const subject = encodeURIComponent("Nocta AI Chatbot Integration Script");
+        const body = encodeURIComponent(
+          `Hi,\n\nHere is the integration script for the Nocta AI chatbot. Paste this snippet before the closing </body> tag on your website:\n\n${embedCode}\n\nDocumentation: ${baseUrl}/docs`
+        );
+        window.location.href = `mailto:?subject=${subject}&body=${body}`;
+      } 
+    },
+    { 
+      name: 'Message', 
+      icon: MessageSquare, 
+      action: async () => {
+        if (navigator.share) {
+          try {
+            await navigator.share({
+              title: 'Nocta AI Chatbot',
+              text: `Integration script for Nocta AI: ${embedCode}`,
+              url: scriptUrl,
+            });
+          } catch (err) {
+            // User cancelled or share failed
+          }
+        } else {
+          // Fallback: copy code to clipboard
+          navigator.clipboard.writeText(embedCode);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        }
+      } 
+    },
   ];
 
   return (
@@ -499,6 +530,7 @@ export default function ConfigurePage() {
                       >
                         <option.icon className="mr-2 h-4 w-4" />
                         {option.name}
+                        {option.name === 'Copy Link' && copiedShareUrl && <Check className="ml-auto h-3 w-3 text-[#36f4a4]" />}
                       </Button>
                     ))}
                   </PopoverBody>
@@ -507,16 +539,16 @@ export default function ConfigurePage() {
                     <div className="flex space-x-2">
                       <Input
                         id="share-url"
-                        value={`${baseUrl}/embed.js`}
+                        value={scriptUrl}
                         readOnly
                         className="text-[10px] h-8 bg-[#1f2228] border-[#2a2d35] text-[#36f4a4]"
                       />
                       <Button size="sm" variant="outline" className="h-8 w-8 p-0" onClick={() => {
-                        navigator.clipboard.writeText(`${baseUrl}/embed.js`);
-                        setCopied(true);
-                        setTimeout(() => setCopied(false), 2000);
+                        navigator.clipboard.writeText(scriptUrl);
+                        setCopiedShareUrl(true);
+                        setTimeout(() => setCopiedShareUrl(false), 2000);
                       }}>
-                        <Copy className="h-3 w-3" />
+                        {copiedShareUrl ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
                       </Button>
                     </div>
                   </PopoverFooter>
