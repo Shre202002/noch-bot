@@ -1,5 +1,19 @@
 'use client';
 import { useState, useEffect, useRef } from "react"
+import {
+  Popover,
+  PopoverBody,
+  PopoverContent,
+  PopoverDescription,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+  PopoverFooter,
+} from '@/components/ui/popover';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Share2, Copy, Mail, MessageSquare } from 'lucide-react';
 
 type Tab = 'Crawl' | 'Embed' | 'Theme' | 'Preview' | 'Embed Code'
 type Message = { role: 'user' | 'assistant'; content: string }
@@ -30,10 +44,8 @@ export default function ConfigurePage() {
   const logsEndRef = useRef<HTMLDivElement>(null)
   const previewBottomRef = useRef<HTMLDivElement>(null)
 
-
   const [previewTypingText, setPreviewTypingText] = useState('')
   const [previewIsTyping, setPreviewIsTyping] = useState(false)
-  // const previewIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
     fetch('/api/auth/me').then(r => r.json()).then(d => { if (d.id) setUserId(d.id) })
@@ -49,7 +61,6 @@ export default function ConfigurePage() {
   useEffect(() => { logsEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [crawlLogs])
   useEffect(() => { previewBottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [previewMessages])
 
-  // ✅ FIXED: Now handles plain JSON response instead of SSE stream
   const startCrawl = async () => {
     if (!crawlUrl.trim()) return
     setCrawling(true)
@@ -75,12 +86,10 @@ export default function ConfigurePage() {
         return
       }
 
-      // Populate logs from response
       const pages = data.pages || []
       const logs: string[] = ['🚀 Starting crawl for ' + crawlUrl.trim()]
 
       pages.forEach((p: { url: string, chars: number }, i: number) => {
-        // logs.push(`🔍 [${i + 1}] ${p.url}`)
         logs.push(`🔍 [${i + 1}] ${p.url} (${(p.chars / 1000).toFixed(1)}k chars)`)
         logs.push(`✓ ${p.url} — ${(p.chars / 1000).toFixed(1)}k chars`)
       })
@@ -141,7 +150,6 @@ export default function ConfigurePage() {
     } catch (err) { console.error('Save theme failed:', err) }
   }
 
-  // ✅ FIXED: Handles plain JSON response from chat API
   const sendPreviewMessage = async (text?: string) => {
     const userText = text || previewInput.trim();
 
@@ -178,98 +186,44 @@ export default function ConfigurePage() {
       const decoder = new TextDecoder();
 
       let streamedText = "";
-
-      // stop dots
-
-
-      // start streaming text
       setPreviewIsTyping(true);
-      // setPreviewTypingText("");
 
       while (true) {
         const { done, value } = await reader.read();
-
         if (done) break;
 
         const chunk = decoder.decode(value);
-
-        const lines = chunk
-          .split("\n")
-          .filter(line => line.startsWith("data:"));
+        const lines = chunk.split("\n").filter(line => line.startsWith("data:"));
 
         for (const line of lines) {
           try {
-
-            const parsed = JSON.parse(
-              line.replace("data: ", "")
-            );
-
-            // first token arrives
+            const parsed = JSON.parse(line.replace("data: ", ""));
             if (parsed.token) {
-
-              // remove typing dots
               setPreviewLoading(false);
-
-              // start typing state
-              if (!previewIsTyping) {
-                setPreviewIsTyping(true);
-              }
-
+              if (!previewIsTyping) setPreviewIsTyping(true);
               streamedText += parsed.token;
-
-              // smooth streaming effect
-              await new Promise(resolve =>
-                setTimeout(resolve, 12)
-              );
-
+              await new Promise(resolve => setTimeout(resolve, 12));
               setPreviewTypingText(streamedText);
             }
 
-            // stream finished
             if (parsed.done) {
-
-              setPreviewMessages([
-                ...newMessages,
-                {
-                  role: "assistant",
-                  content: streamedText,
-                },
-              ]);
-
+              setPreviewMessages([...newMessages, { role: "assistant", content: streamedText }]);
               setPreviewTypingText("");
               setPreviewIsTyping(false);
-
               reader.releaseLock();
-
               return;
             }
 
-            if (parsed.error) {
-              throw new Error(parsed.error);
-            }
-
+            if (parsed.error) throw new Error(parsed.error);
           } catch (err) {
-            console.error(
-              "Preview stream parse error:",
-              err
-            );
+            console.error("Preview stream parse error:", err);
           }
         }
       }
-
-
     } catch (err: any) {
       setPreviewLoading(false);
-
       setPreviewIsTyping(false);
-
-      setPreviewMessages([
-        ...newMessages,
-        {
-          role: "assistant",
-          content: "⚠️ Error: " + err.message,
-        },
-      ]);
+      setPreviewMessages([...newMessages, { role: "assistant", content: "⚠️ Error: " + err.message }]);
     }
   };
 
@@ -285,11 +239,28 @@ export default function ConfigurePage() {
 
   const PRESET_COLORS = ['#36f4a4', '#2563eb', '#8b5cf6', '#FF5701', '#ec4899', '#ef4444', '#eab308', '#ffffff']
 
+  const shareOptions = [
+    {
+      name: 'Copy Link',
+      icon: Copy,
+      action: () => {
+        navigator.clipboard.writeText(`${baseUrl}/embed.js`);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      },
+    },
+    { name: 'Email', icon: Mail, action: () => {
+      window.location.href = `mailto:?subject=Nocta Chatbot Snippet&body=Hi, here is the Nocta chatbot script for our website:%0A%0A${encodeURIComponent(embedCode)}`;
+    } },
+    { name: 'Message', icon: MessageSquare, action: () => {} },
+  ];
+
   return (
     <div style={{ padding: '32px 40px', maxWidth: 960, margin: '0 auto' }}>
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes typingBounce { 0%,60%,100% { transform: translateY(0); } 30% { transform: translateY(-4px); } }
+        @keyframes cursorBlink { 0%,100% { opacity: 1 } 50% { opacity: 0 } }
       `}</style>
 
       <div style={{ marginBottom: 32 }}>
@@ -297,7 +268,6 @@ export default function ConfigurePage() {
         <p style={{ fontSize: 14, color: '#7d8187' }}>Set up your AI chatbot step by step.</p>
       </div>
 
-      {/* Tab bar */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
         {[
           { tab: 'Crawl', done: crawlDone, label: '1. Crawl' },
@@ -321,8 +291,6 @@ export default function ConfigurePage() {
       </div>
 
       <div style={{ background: '#1f2228', border: '1px solid #2a2d35', borderRadius: 16, padding: 32 }}>
-
-        {/* CRAWL TAB */}
         {activeTab === 'Crawl' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
             <div>
@@ -349,20 +317,15 @@ export default function ConfigurePage() {
                 ) : crawlDone ? 'Re-crawl' : 'Start Crawl'}
               </button>
             </div>
-
             {crawlLogs.length > 0 && (
               <div style={{ background: '#0a0a0a', border: '1px solid #2a2d35', borderRadius: 12, padding: 20, maxHeight: 220, overflowY: 'auto' }}>
                 <div style={{ fontSize: 11, color: '#7d8187', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Live Log</div>
                 {crawlLogs.map((log, i) => (
-                  <div key={i} style={{
-                    fontFamily: 'monospace', fontSize: 12, padding: '2px 0',
-                    color: log.startsWith('✅') ? '#36f4a4' : log.startsWith('❌') ? '#ef4444' : i === crawlLogs.length - 1 ? '#36f4a4' : '#7d8187'
-                  }}>{log}</div>
+                  <div key={i} style={{ fontFamily: 'monospace', fontSize: 12, padding: '2px 0', color: log.startsWith('✅') ? '#36f4a4' : log.startsWith('❌') ? '#ef4444' : i === crawlLogs.length - 1 ? '#36f4a4' : '#7d8187' }}>{log}</div>
                 ))}
                 <div ref={logsEndRef} />
               </div>
             )}
-
             {crawledPages.length > 0 && (
               <div style={{ background: '#0a0a0a', border: '1px solid #2a2d35', borderRadius: 12, padding: 20 }}>
                 <div style={{ fontSize: 11, color: '#7d8187', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Crawled Pages ({crawledPages.length})</div>
@@ -376,9 +339,7 @@ export default function ConfigurePage() {
                 </div>
               </div>
             )}
-
             {crawlError && <div style={{ background: '#1a0a0a', border: '1px solid #ef4444', borderRadius: 8, padding: 16, color: '#ef4444', fontSize: 14 }}>❌ {crawlError}</div>}
-
             {embedDone && (
               <div style={{ display: 'flex', gap: 24, background: '#0d2420', border: '1px solid #36f4a430', borderRadius: 12, padding: 24 }}>
                 <div><div style={{ fontSize: 32, color: '#36f4a4', fontWeight: 400 }}>{chunkCount}</div><div style={{ fontSize: 13, color: '#7d8187' }}>Chunks indexed</div></div>
@@ -388,7 +349,6 @@ export default function ConfigurePage() {
                 </div>
               </div>
             )}
-
             {crawlDone && (
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                 <button onClick={() => setActiveTab('Theme')} style={{ background: '#36f4a4', color: '#000', border: 'none', borderRadius: 9999, padding: '12px 28px', fontWeight: 500, fontSize: 14, cursor: 'pointer' }}>Next: Detect Theme →</button>
@@ -397,35 +357,6 @@ export default function ConfigurePage() {
           </div>
         )}
 
-        {/* EMBED/VECTORIZE TAB */}
-        {activeTab === 'Embed' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-            <div>
-              <h2 style={{ fontSize: 20, color: '#fff', fontWeight: 400, marginBottom: 6 }}>Step 2 — Vectorize & Store</h2>
-              <p style={{ fontSize: 14, color: '#7d8187' }}>Your crawled content is chunked and stored as vectors in Qdrant using Gemini embeddings.</p>
-            </div>
-            {!crawlDone ? (
-              <div style={{ background: '#1f2228', border: '1px solid #eab308', borderRadius: 8, padding: 16, color: '#eab308', fontSize: 14 }}>⚠ Complete Step 1 (Crawl) first.</div>
-            ) : (
-              <>
-                {embedDone && (
-                  <div style={{ display: 'flex', gap: 24, background: '#0d2420', border: '1px solid #36f4a430', borderRadius: 12, padding: 24 }}>
-                    <div><div style={{ fontSize: 32, color: '#36f4a4' }}>{chunkCount}</div><div style={{ fontSize: 13, color: '#7d8187' }}>Chunks indexed</div></div>
-                    <div><div style={{ fontSize: 32, color: '#36f4a4' }}>{crawledPages.length}</div><div style={{ fontSize: 13, color: '#7d8187' }}>Pages vectorized</div></div>
-                    <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
-                      <div style={{ background: '#36f4a420', border: '1px solid #36f4a430', borderRadius: 8, padding: '8px 16px', color: '#36f4a4', fontSize: 13 }}>✓ Stored in Qdrant</div>
-                    </div>
-                  </div>
-                )}
-                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                  <button onClick={() => setActiveTab('Theme')} style={{ background: '#36f4a4', color: '#000', border: 'none', borderRadius: 9999, padding: '12px 28px', fontWeight: 500, fontSize: 14, cursor: 'pointer' }}>Next: Detect Theme →</button>
-                </div>
-              </>
-            )}
-          </div>
-        )}
-
-        {/* THEME TAB */}
         {activeTab === 'Theme' && (
           <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap' }}>
             <div style={{ flex: 1, minWidth: 300, display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -436,16 +367,6 @@ export default function ConfigurePage() {
               <button onClick={extractTheme} disabled={extractingTheme || !crawlUrl} style={{ background: 'transparent', border: '1px solid #36f4a4', color: '#36f4a4', borderRadius: 9999, padding: '12px 24px', fontSize: 14, cursor: 'pointer', alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 8, opacity: !crawlUrl ? 0.4 : 1 }}>
                 {extractingTheme ? (<><span style={{ width: 14, height: 14, border: '2px solid #36f4a4', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }} />Detecting...</>) : '🎨 Detect Brand Colors'}
               </button>
-              {palette.length > 0 && (
-                <div>
-                  <div style={{ fontSize: 12, color: '#7d8187', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Detected Colors</div>
-                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                    {palette.map((color, i) => (
-                      <div key={i} title={color} style={{ width: 40, height: 40, borderRadius: '50%', background: color, border: '2px solid #2a2d35' }} />
-                    ))}
-                  </div>
-                </div>
-              )}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 {THEME_COMPONENTS.map(({ key, label, desc }) => (
                   <div key={key} style={{ background: '#0a0a0a', border: '1px solid #2a2d35', borderRadius: 10, padding: 16 }}>
@@ -466,7 +387,6 @@ export default function ConfigurePage() {
                 <button onClick={() => setActiveTab('Preview')} style={{ background: '#36f4a4', color: '#000', border: 'none', borderRadius: 9999, padding: '12px 28px', fontWeight: 500, fontSize: 14, cursor: 'pointer' }}>Next: Preview →</button>
               </div>
             </div>
-            {/* Live preview */}
             <div style={{ width: 260, flexShrink: 0 }}>
               <div style={{ fontSize: 12, color: '#7d8187', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Live Preview</div>
               <div style={{ background: '#f7f8fc', borderRadius: 16, overflow: 'hidden', border: '1px solid #2a2d35' }}>
@@ -487,7 +407,6 @@ export default function ConfigurePage() {
           </div>
         )}
 
-        {/* PREVIEW TAB */}
         {activeTab === 'Preview' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             <div>
@@ -507,154 +426,35 @@ export default function ConfigurePage() {
                 </div>
               </div>
               <div style={{ height: 360, overflowY: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
-
                 {previewMessages.length === 0 && !previewLoading && !previewIsTyping ? (
-                  <div style={{
-                    flex: 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#4a4e56',
-                    fontSize: 13
-                  }}>
-                    Send a message to test your chatbot...
-                  </div>
+                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4a4e56', fontSize: 13 }}>Send a message to test your chatbot...</div>
                 ) : (
                   <>
-                    {/* ✅ Actual Messages */}
                     {previewMessages.map((msg, i) => (
-                      <div
-                        key={i}
-                        style={{
-                          display: 'flex',
-                          justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start'
-                        }}
-                      >
-                        <div style={{
-                          maxWidth: '78%',
-                          padding: '10px 14px',
-                          borderRadius: msg.role === 'user'
-                            ? '18px 18px 4px 18px'
-                            : '18px 18px 18px 4px',
-                          background: msg.role === 'user'
-                            ? themeConfig.userMsgColor
-                            : '#1f2228',
-                          color: msg.role === 'user' ? '#000' : '#fff',
-                          fontSize: 13,
-                          lineHeight: 1.55,
-                          border: msg.role === 'assistant'
-                            ? '1px solid #2a2d35'
-                            : 'none'
-                        }}>
-                          {msg.content}
-                        </div>
+                      <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                        <div style={{ maxWidth: '78%', padding: '10px 14px', borderRadius: msg.role === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px', background: msg.role === 'user' ? themeConfig.userMsgColor : '#1f2228', color: msg.role === 'user' ? '#000' : '#fff', fontSize: 13, lineHeight: 1.55, border: msg.role === 'assistant' ? '1px solid #2a2d35' : 'none' }}>{msg.content}</div>
                       </div>
                     ))}
-
-                    {/* ✅ Typing dots (ONLY while loading API) */}
                     {previewLoading && !previewIsTyping && (
                       <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                        <div style={{
-                          padding: '10px 14px',
-                          borderRadius: '18px 18px 18px 4px',
-                          background: '#1f2228',
-                          border: '1px solid #2a2d35',
-                          display: 'flex',
-                          gap: 4
-                        }}>
-                          {[0, 1, 2].map(j => (
-                            <span
-                              key={j}
-                              style={{
-                                width: 6,
-                                height: 6,
-                                borderRadius: '50%',
-                                background: '#7d8187',
-                                display: 'inline-block',
-                                animation: `typingBounce 1.2s infinite ${j * 0.2}s`
-                              }}
-                            />
-                          ))}
+                        <div style={{ padding: '10px 14px', borderRadius: '18px 18px 18px 4px', background: '#1f2228', border: '1px solid #2a2d35', display: 'flex', gap: 4 }}>
+                          {[0, 1, 2].map(j => (<span key={j} style={{ width: 6, height: 6, borderRadius: '50%', background: '#7d8187', display: 'inline-block', animation: `typingBounce 1.2s infinite ${j * 0.2}s` }} />))}
                         </div>
                       </div>
                     )}
-
-                    {/* ✅ Typewriter (ONLY after response arrives) */}
                     {previewIsTyping && (
                       <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                        <div style={{
-                          maxWidth: '78%',
-                          padding: '10px 14px',
-                          borderRadius: '18px 18px 18px 4px',
-                          background: '#1f2228',
-                          color: '#fff',
-                          fontSize: 13,
-                          lineHeight: 1.55,
-                          border: '1px solid #2a2d35'
-                        }}>
-                          {previewIsTyping && previewTypingText && (
-                            <div
-                              style={{
-                                display: 'flex',
-                                justifyContent: 'flex-start',
-                              }}
-                            >
-                              <div
-                                style={{
-                                  maxWidth: '78%',
-                                  padding: '10px 14px',
-                                  borderRadius: '18px 18px 18px 4px',
-                                  background: '#1f2228',
-                                  color: '#fff',
-                                  fontSize: 14,
-                                  lineHeight: 1.7,
-                                  border: '1px solid #2a2d35',
-                                  whiteSpace: 'pre-wrap',
-                                  wordBreak: 'break-word',
-                                }}
-                              >
-                                {previewTypingText}
-
-                                <span
-                                  className="typing-cursor"
-                                  style={{
-                                    display: 'inline-block',
-                                    width: 2,
-                                    height: '1em',
-                                    background: themeConfig?.sendBtnColor || '#6366f1', marginLeft: 3,
-                                    verticalAlign: 'text-bottom',
-                                    animation: 'cursorBlink 0.7s infinite',
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          )}
-                          <span style={{
-                            display: 'inline-block',
-                            width: 2,
-                            height: '1em',
-                            background: themeConfig.sendBtnColor,
-                            marginLeft: 2,
-                            animation: 'cursorBlink 0.7s infinite',
-                            verticalAlign: 'text-bottom'
-                          }} />
+                        <div style={{ maxWidth: '78%', padding: '10px 14px', borderRadius: '18px 18px 18px 4px', background: '#1f2228', color: '#fff', fontSize: 13, lineHeight: 1.55, border: '1px solid #2a2d35' }}>
+                          {previewTypingText}<span style={{ display: 'inline-block', width: 2, height: '1em', background: themeConfig.sendBtnColor, marginLeft: 3, verticalAlign: 'text-bottom', animation: 'cursorBlink 0.7s infinite' }} />
                         </div>
                       </div>
                     )}
                   </>
                 )}
-
                 <div ref={previewBottomRef} />
               </div>
               <div style={{ borderTop: '1px solid #2a2d35', padding: 16, display: 'flex', gap: 10, alignItems: 'center' }}>
-                <input
-                  value={previewInput}
-                  onChange={e => setPreviewInput(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && sendPreviewMessage()}
-                  placeholder="Ask a question..."
-                  disabled={previewLoading || !crawlDone}
-                  style={{ flex: 1, background: '#1f2228', border: '1px solid #2a2d35', borderRadius: 8, padding: '10px 14px', color: '#fff', fontSize: 13, outline: 'none' }}
-                />
+                <input value={previewInput} onChange={e => setPreviewInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendPreviewMessage()} placeholder="Ask a question..." disabled={previewLoading || !crawlDone} style={{ flex: 1, background: '#1f2228', border: '1px solid #2a2d35', borderRadius: 8, padding: '10px 14px', color: '#fff', fontSize: 13, outline: 'none' }} />
                 <button onClick={() => sendPreviewMessage()} disabled={previewLoading || !previewInput.trim() || !crawlDone} style={{ background: themeConfig?.sendBtnColor || '#6366f1', color: '#000', border: 'none', borderRadius: 9999, padding: '10px 18px', fontWeight: 500, fontSize: 13, cursor: 'pointer', opacity: previewLoading ? 0.5 : 1 }}>Send</button>
               </div>
             </div>
@@ -666,14 +466,66 @@ export default function ConfigurePage() {
           </div>
         )}
 
-        {/* EMBED CODE TAB */}
         {activeTab === 'Embed Code' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 640 }}>
-            <div>
-              <h2 style={{ fontSize: 20, color: '#fff', fontWeight: 400, marginBottom: 6 }}>Step 5 — Embed Your Chatbot</h2>
-              <p style={{ fontSize: 14, color: '#7d8187' }}>Paste this script tag before &lt;/body&gt; on any website.</p>
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 style={{ fontSize: 20, color: '#fff', fontWeight: 400, marginBottom: 6 }}>Step 5 — Embed Your Chatbot</h2>
+                <p style={{ fontSize: 14, color: '#7d8187' }}>Paste this script tag before &lt;/body&gt; on any website.</p>
+              </div>
+              
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="bg-transparent border-[#2a2d35] text-[#7d8187] hover:text-white hover:border-[#36f4a4] rounded-full px-6">
+                    <Share2 className="mr-2 h-4 w-4" />
+                    Share Snippet
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 bg-[#0a0a0a] border-[#2a2d35] text-white">
+                  <PopoverHeader>
+                    <PopoverTitle>Share this snippet</PopoverTitle>
+                    <PopoverDescription className="text-[#7d8187]">
+                      Distribute your chatbot integration code.
+                    </PopoverDescription>
+                  </PopoverHeader>
+                  <PopoverBody className="space-y-1 px-2 py-2">
+                    {shareOptions.map((option) => (
+                      <Button
+                        key={option.name}
+                        variant="ghost"
+                        className="w-full justify-start text-[#7d8187] hover:text-white hover:bg-[#1f2228]"
+                        size="sm"
+                        onClick={option.action}
+                      >
+                        <option.icon className="mr-2 h-4 w-4" />
+                        {option.name}
+                      </Button>
+                    ))}
+                  </PopoverBody>
+                  <PopoverFooter className="py-4">
+                    <Label htmlFor="share-url" className="text-xs text-[#7d8187] mb-2 block">Direct Script URL</Label>
+                    <div className="flex space-x-2">
+                      <Input
+                        id="share-url"
+                        value={`${baseUrl}/embed.js`}
+                        readOnly
+                        className="text-[10px] h-8 bg-[#1f2228] border-[#2a2d35] text-[#36f4a4]"
+                      />
+                      <Button size="sm" variant="outline" className="h-8 w-8 p-0" onClick={() => {
+                        navigator.clipboard.writeText(`${baseUrl}/embed.js`);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      }}>
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </PopoverFooter>
+                </PopoverContent>
+              </Popover>
             </div>
+
             {!crawlDone && <div style={{ background: '#1f2228', border: '1px solid #eab308', borderRadius: 8, padding: 16, color: '#eab308', fontSize: 14 }}>⚠ Complete Steps 1–3 before embedding.</div>}
+            
             <div style={{ background: '#0a0a0a', border: '1px solid #2a2d35', borderRadius: 12, overflow: 'hidden' }}>
               <div style={{ padding: '10px 16px', borderBottom: '1px solid #2a2d35', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: 12, color: '#7d8187', fontFamily: 'monospace' }}>HTML — paste before &lt;/body&gt;</span>
@@ -681,6 +533,7 @@ export default function ConfigurePage() {
               </div>
               <pre style={{ padding: 20, margin: 0, fontSize: 13, fontFamily: 'monospace', color: '#36f4a4', overflowX: 'auto', lineHeight: 1.8 }}>{embedCode}</pre>
             </div>
+            
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {['Copy the script tag above', 'Paste it before </body> in your website HTML', 'Save and reload — your chatbot is live instantly', 'Works on: Next.js, React, WordPress, Webflow, plain HTML'].map((step, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -692,6 +545,6 @@ export default function ConfigurePage() {
           </div>
         )}
       </div>
-    </div >
+    </div>
   )
 }
