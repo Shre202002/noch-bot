@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useRef } from "react"
 import {
@@ -507,7 +508,7 @@ export default function ConfigurePage() {
               
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="bg-transparent border-[#2a2d35] text-[#7d8187] hover:text-white hover:border-[#36f4a4] rounded-full px-6">
+                  <Button variant="outline" size="sm" className="bg-transparent border-[#2a2d35] text-[#7d8187] hover:text-white hover:border-[#36f4a4] rounded-full px-6 cursor-pointer">
                     <Share2 className="mr-2 h-4 w-4" />
                     Share Snippet
                   </Button>
@@ -524,7 +525,7 @@ export default function ConfigurePage() {
                       <Button
                         key={option.name}
                         variant="ghost"
-                        className="w-full justify-start text-[#7d8187] hover:text-white hover:bg-[#1f2228]"
+                        className="w-full justify-start text-[#7d8187] hover:text-white hover:bg-[#1f2228] cursor-pointer"
                         size="sm"
                         onClick={option.action}
                       >
@@ -543,7 +544,7 @@ export default function ConfigurePage() {
                         readOnly
                         className="text-[10px] h-8 bg-[#1f2228] border-[#2a2d35] text-[#36f4a4]"
                       />
-                      <Button size="sm" variant="outline" className="h-8 w-8 p-0" onClick={() => {
+                      <Button size="sm" variant="outline" className="h-8 w-8 p-0 cursor-pointer" onClick={() => {
                         navigator.clipboard.writeText(scriptUrl);
                         setCopiedShareUrl(true);
                         setTimeout(() => setCopiedShareUrl(false), 2000);
