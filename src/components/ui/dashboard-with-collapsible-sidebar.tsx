@@ -24,6 +24,18 @@ import {
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { LogoIcon } from "@/components/logo";
+import {
+  Popover,
+  PopoverBody,
+  PopoverContent,
+  PopoverDescription,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+  PopoverFooter,
+} from '@/components/ui/popover';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 export const NoctaDashboard = ({ children, user }: { children?: React.ReactNode, user?: any }) => {
   const [isDark, setIsDark] = useState(true);
@@ -102,7 +114,7 @@ const Sidebar = ({ user }: { user?: any }) => {
         />
         <button
            onClick={handleLogout}
-           className={`flex h-11 w-full items-center rounded-xl transition-all duration-200 text-muted-foreground hover:bg-destructive/10 hover:text-destructive group`}
+           className={`flex h-11 w-full items-center rounded-xl transition-all duration-200 text-muted-foreground hover:bg-destructive/10 hover:text-destructive group cursor-pointer`}
         >
           <div className="grid h-full w-12 place-content-center">
             <LogOut className="h-5 w-5" />
@@ -171,7 +183,7 @@ const ToggleClose = ({ open, setOpen }: any) => {
   return (
     <button
       onClick={() => setOpen(!open)}
-      className="mt-4 border-t border-border hover:bg-accent transition-colors rounded-xl overflow-hidden"
+      className="mt-4 border-t border-border hover:bg-accent transition-colors rounded-xl overflow-hidden cursor-pointer w-full"
     >
       <div className="flex items-center p-3">
         <div className="grid size-10 place-content-center">
@@ -192,6 +204,14 @@ const ToggleClose = ({ open, setOpen }: any) => {
 };
 
 const DashboardHeader = ({ isDark, setIsDark, user }: any) => {
+  const router = useRouter();
+  
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    router.push('/');
+    router.refresh();
+  };
+
   return (
     <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm flex items-center justify-between px-6 sticky top-0 z-40">
       <div>
@@ -200,25 +220,72 @@ const DashboardHeader = ({ isDark, setIsDark, user }: any) => {
         </h2>
       </div>
       <div className="flex items-center gap-3">
-        <button className="relative p-2 rounded-xl bg-accent/50 text-muted-foreground hover:text-foreground transition-colors border border-border">
+        <button className="relative p-2 rounded-xl bg-accent/50 text-muted-foreground hover:text-foreground transition-colors border border-border cursor-pointer">
           <Bell className="h-5 w-5" />
           <span className="absolute top-2 right-2 h-2 w-2 bg-primary rounded-full"></span>
         </button>
         <button
           onClick={() => setIsDark(!isDark)}
-          className="p-2 rounded-xl bg-accent/50 text-muted-foreground hover:text-foreground transition-colors border border-border"
+          className="p-2 rounded-xl bg-accent/50 text-muted-foreground hover:text-foreground transition-colors border border-border cursor-pointer"
         >
           {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
         </button>
-        <Link href="/dashboard/account" className="flex items-center gap-3 pl-2 group">
-          <div className="text-right hidden sm:block">
-             <p className="text-xs font-bold text-foreground leading-none group-hover:text-primary transition-colors">{user?.name || user?.email?.split('@')[0] || 'User'}</p>
-             <p className="text-[10px] text-muted-foreground mt-1 uppercase tracking-tighter">View Profile</p>
-          </div>
-          <div className="h-9 w-9 rounded-xl bg-primary/20 flex items-center justify-center border border-primary/20 text-primary font-bold group-hover:scale-105 transition-transform">
-             {user?.email?.charAt(0).toUpperCase() || <User className="h-5 w-5" />}
-          </div>
-        </Link>
+
+        <Popover>
+          <PopoverTrigger asChild>
+            <button className="flex items-center gap-3 pl-2 group cursor-pointer outline-none">
+              <div className="text-right hidden sm:block">
+                 <p className="text-xs font-bold text-foreground leading-none group-hover:text-primary transition-colors">{user?.name || user?.email?.split('@')[0] || 'User'}</p>
+                 <p className="text-[10px] text-muted-foreground mt-1 uppercase tracking-tighter">Account Menu</p>
+              </div>
+              <div className="h-9 w-9 rounded-xl bg-primary/20 flex items-center justify-center border border-primary/20 text-primary font-bold group-hover:scale-105 transition-transform">
+                 <Avatar className="h-full w-full rounded-xl">
+                   <AvatarImage src={user?.avatar} />
+                   <AvatarFallback className="bg-transparent text-primary font-bold">
+                     {user?.email?.charAt(0).toUpperCase()}
+                   </AvatarFallback>
+                 </Avatar>
+              </div>
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-64 bg-card border-border shadow-2xl" align="end">
+            <PopoverHeader>
+              <div className="flex items-center space-x-3">
+                <div className="h-10 w-10 rounded-xl bg-primary/20 flex items-center justify-center border border-primary/20 text-primary font-bold">
+                  {user?.email?.charAt(0).toUpperCase()}
+                </div>
+                <div className="overflow-hidden">
+                  <PopoverTitle className="truncate">{user?.name || 'User'}</PopoverTitle>
+                  <PopoverDescription className="text-[10px] truncate">{user?.email}</PopoverDescription>
+                </div>
+              </div>
+            </PopoverHeader>
+            <PopoverBody className="space-y-1 px-2 py-2">
+              <Button variant="ghost" className="w-full justify-start text-xs h-9 cursor-pointer" asChild>
+                <Link href="/dashboard/account">
+                  <User className="mr-2 h-4 w-4" />
+                  View Profile
+                </Link>
+              </Button>
+              <Button variant="ghost" className="w-full justify-start text-xs h-9 cursor-pointer" asChild>
+                <Link href="/dashboard/configure">
+                  <Settings className="mr-2 h-4 w-4" />
+                  Bot Settings
+                </Link>
+              </Button>
+            </PopoverBody>
+            <PopoverFooter className="py-2 border-t border-border">
+              <Button 
+                variant="ghost" 
+                className="w-full justify-start text-xs h-9 text-destructive hover:bg-destructive/10 hover:text-destructive cursor-pointer"
+                onClick={handleLogout}
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Sign Out
+              </Button>
+            </PopoverFooter>
+          </PopoverContent>
+        </Popover>
       </div>
     </header>
   );
