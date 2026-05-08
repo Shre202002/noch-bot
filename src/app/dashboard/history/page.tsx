@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -100,10 +99,19 @@ export default function ConversationHistoryPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isMounted, setIsMounted] = useState(false);
   const [copiedId, setCopiedId] = useState<number | null>(null);
+  
+  const previewBottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    if (isMounted) {
+      previewBottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [selectedId, isMounted]);
 
   if (!isMounted) return null;
 
@@ -146,7 +154,7 @@ export default function ConversationHistoryPage() {
                 key={session.id}
                 onClick={() => setSelectedId(session.id)}
                 className={cn(
-                  "w-full flex flex-col gap-1.5 p-4 rounded-2xl text-left transition-all group relative",
+                  "w-full flex flex-col gap-1.5 p-4 rounded-2xl text-left transition-all group relative cursor-pointer",
                   selectedId === session.id 
                     ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" 
                     : "hover:bg-accent/50 text-muted-foreground hover:text-foreground"
@@ -208,14 +216,14 @@ export default function ConversationHistoryPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="rounded-xl h-9 px-4 border-border bg-background/50 hover:bg-accent">
+            <Button variant="outline" size="sm" className="rounded-xl h-9 px-4 border-border bg-background/50 hover:bg-accent cursor-pointer">
               <Download className="mr-2 h-4 w-4" /> Export
             </Button>
-            <Button variant="ghost" size="icon" className="rounded-xl h-9 w-9 text-destructive hover:bg-destructive/10">
+            <Button variant="ghost" size="icon" className="rounded-xl h-9 w-9 text-destructive hover:bg-destructive/10 cursor-pointer">
               <Trash2 className="h-4 w-4" />
             </Button>
             <Separator orientation="vertical" className="h-6 mx-2" />
-            <Button variant="ghost" size="icon" className="rounded-xl h-9 w-9">
+            <Button variant="ghost" size="icon" className="rounded-xl h-9 w-9 cursor-pointer">
               <MoreVertical className="h-4 w-4" />
             </Button>
           </div>
@@ -253,14 +261,14 @@ export default function ConversationHistoryPage() {
                     "group relative p-4 rounded-3xl text-sm leading-relaxed shadow-sm",
                     msg.role === "user" 
                       ? "bg-primary text-primary-foreground rounded-tr-sm" 
-                      : "bg-surface text-foreground border border-border rounded-tl-sm"
+                      : "bg-secondary text-foreground border border-border rounded-tl-sm"
                   )}>
                     {msg.content}
                     
                     <button 
                       onClick={() => handleCopyMessage(msg.content, i)}
                       className={cn(
-                        "absolute top-2 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg bg-background/20 hover:bg-background/40 backdrop-blur-sm",
+                        "absolute top-2 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg bg-background/20 hover:bg-background/40 backdrop-blur-sm cursor-pointer",
                         msg.role === "user" ? "-left-10" : "-right-10"
                       )}
                     >
