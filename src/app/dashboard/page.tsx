@@ -42,8 +42,8 @@ interface DashboardData {
 }
 
 const MOCK_DATA: DashboardData = {
-  botName: "Nochq Assistant",
-  websiteUrl: "https://nochq.ai",
+  botName: "NochBot Assistant",
+  websiteUrl: "https://nochbot.ai",
   lastCrawl: "2 hours ago",
   chunksIndexed: 1248,
   messagesUsed: 12402,
@@ -125,7 +125,7 @@ const ActivityItem = ({ title, desc, time, color, delay }: any) => (
     <div className="absolute left-[11px] top-0 bottom-0 w-px bg-border last:hidden" />
     <div className={cn(
       "absolute left-0 top-1.5 h-6 w-6 rounded-full border-4 border-[#0a0a0a] z-10",
-      color === 'green' ? 'bg-[#36f4a4]' : 'bg-muted-foreground'
+      color === 'green' ? "bg-[#36f4a4]" : "bg-muted-foreground"
     )} />
     <div className="space-y-1">
       <div className="flex items-center justify-between">
@@ -196,14 +196,6 @@ export default function DashboardOverviewPage() {
             >
               Good morning, Developer.
             </motion.h1>
-            <motion.p 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="text-lg text-muted-foreground"
-            >
-              Your AI assistant is live and responding at <span className="text-foreground font-semibold">{MOCK_DATA.websiteUrl}</span>
-            </motion.p>
           </div>
 
           <motion.div 
@@ -475,7 +467,7 @@ export default function DashboardOverviewPage() {
               <div className="relative">
                 <ActivityItem 
                   title="Knowledge Synced" 
-                  desc="12 new chunks indexed from nochq.ai/docs" 
+                  desc="12 new chunks indexed from nochbot.ai/docs" 
                   time="2m ago" 
                   color="green"
                   delay={0.1}
