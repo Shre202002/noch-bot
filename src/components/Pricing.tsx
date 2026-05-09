@@ -21,7 +21,7 @@ export function Pricing() {
 				<div className="mx-auto mb-16 max-w-2xl text-center">
                     <p className="text-[11px] uppercase tracking-[0.2em] text-white/40 mb-4">Pricing</p>
 					<h2 className="text-[clamp(2.5rem,5vw,4rem)] font-normal tracking-tight text-white leading-tight">
-						Scale with <span className="text-primary italic">NOCTA</span>
+						Scale with <span className="text-primary italic">NOCHBOT</span>
 					</h2>
 					<p className="text-white/40 mt-6 text-sm md:text-base leading-relaxed">
 						Stop using rigid, expensive tools. We built our pricing around modern teams, 

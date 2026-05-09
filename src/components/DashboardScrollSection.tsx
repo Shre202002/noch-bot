@@ -26,7 +26,7 @@ export function DashboardScrollSection() {
                 <LayoutDashboard className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <h3 className="text-white font-semibold">Project: Nocta Main</h3>
+                <h3 className="text-white font-semibold">Project: NOCHBOT Main</h3>
                 <p className="text-xs text-white/40">Overview of your primary AI agent</p>
               </div>
             </div>

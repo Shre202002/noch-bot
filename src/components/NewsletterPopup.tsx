@@ -62,7 +62,7 @@ export function NewsletterPopup({ isOpen, onClose }: NewsletterPopupProps) {
                 </div>
 
                 <p className="text-sm leading-relaxed text-white/60">
-                  Join 2,000+ developers getting early access to NOCTA feature drops, embedding techniques, and agentic workflows.
+                  Join 2,000+ developers getting early access to NOCHBOT feature drops, embedding techniques, and agentic workflows.
                 </p>
 
                 <div className="flex gap-2">
