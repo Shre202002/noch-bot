@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useRef } from "react"
 import {
@@ -181,47 +180,32 @@ export default function ConfigurePage() {
       });
 
       if (!res.body) {
-        throw new Error("No response stream");
+        const data = await res.json();
+        setPreviewLoading(false);
+        setPreviewMessages([...newMessages, { role: "assistant", content: data.text || "Sorry, no response." }]);
+        return;
       }
 
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-
-      let streamedText = "";
+      // Handle typewriter effect simulated by embed.js style on the frontend logic
+      const data = await res.json();
+      setPreviewLoading(false);
       setPreviewIsTyping(true);
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value);
-        const lines = chunk.split("\n").filter(line => line.startsWith("data:"));
-
-        for (const line of lines) {
-          try {
-            const parsed = JSON.parse(line.replace("data: ", ""));
-            if (parsed.token) {
-              setPreviewLoading(false);
-              if (!previewIsTyping) setPreviewIsTyping(true);
-              streamedText += parsed.token;
-              await new Promise(resolve => setTimeout(resolve, 12));
-              setPreviewTypingText(streamedText);
-            }
-
-            if (parsed.done) {
-              setPreviewMessages([...newMessages, { role: "assistant", content: streamedText }]);
-              setPreviewTypingText("");
-              setPreviewIsTyping(false);
-              reader.releaseLock();
-              return;
-            }
-
-            if (parsed.error) throw new Error(parsed.error);
-          } catch (err) {
-            console.error("Preview stream parse error:", err);
-          }
+      let streamedText = "";
+      const fullResponse = data.text || "";
+      
+      let i = 0;
+      const interval = setInterval(() => {
+        streamedText = fullResponse.slice(0, i + 1);
+        setPreviewTypingText(streamedText);
+        i++;
+        if (i >= fullResponse.length) {
+          clearInterval(interval);
+          setPreviewMessages([...newMessages, { role: "assistant", content: fullResponse }]);
+          setPreviewTypingText("");
+          setPreviewIsTyping(false);
         }
-      }
+      }, 12);
+
     } catch (err: any) {
       setPreviewLoading(false);
       setPreviewIsTyping(false);
@@ -256,9 +240,9 @@ export default function ConfigurePage() {
       name: 'Email', 
       icon: Mail, 
       action: () => {
-        const subject = encodeURIComponent("Nocta AI Chatbot Integration Script");
+        const subject = encodeURIComponent("Nochq AI Chatbot Integration Script");
         const body = encodeURIComponent(
-          `Hi,\n\nHere is the integration script for the Nocta AI chatbot. Paste this snippet before the closing </body> tag on your website:\n\n${embedCode}\n\nDocumentation: ${baseUrl}/docs`
+          `Hi,\n\nHere is the integration script for the Nochq AI chatbot. Paste this snippet before the closing </body> tag on your website:\n\n${embedCode}\n\nDocumentation: ${baseUrl}/docs`
         );
         window.location.href = `mailto:?subject=${subject}&body=${body}`;
       } 
@@ -270,8 +254,8 @@ export default function ConfigurePage() {
         if (navigator.share) {
           try {
             await navigator.share({
-              title: 'Nocta AI Chatbot',
-              text: `Integration script for Nocta AI: ${embedCode}`,
+              title: 'Nochq AI Chatbot',
+              text: `Integration script for Nochq AI: ${embedCode}`,
               url: scriptUrl,
             });
           } catch (err) {
@@ -327,7 +311,7 @@ export default function ConfigurePage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
             <div>
               <h2 style={{ fontSize: 20, color: '#fff', fontWeight: 400, marginBottom: 6 }}>Step 1 — Crawl Your Website</h2>
-              <p style={{ fontSize: 14, color: '#7d8187' }}>Enter your website URL. Nocta will crawl up to 15 pages and extract all content.</p>
+              <p style={{ fontSize: 14, color: '#7d8187' }}>Enter your website URL. Nochq will crawl up to 15 pages and extract all content.</p>
             </div>
             <div style={{ display: 'flex', gap: 12 }}>
               <input
@@ -396,7 +380,7 @@ export default function ConfigurePage() {
                 <h2 style={{ fontSize: 20, color: '#fff', fontWeight: 400, marginBottom: 6 }}>Step 3 — Detect & Set Theme</h2>
                 <p style={{ fontSize: 14, color: '#7d8187' }}>Auto-detect your brand colors, then assign each color to chatbot components.</p>
               </div>
-              <button onClick={extractTheme} disabled={extractingTheme || !crawlUrl} style={{ background: 'transparent', border: '1px solid #36f4a4', color: '#36f4a4', borderRadius: 9999, padding: '12px 24px', fontSize: 14, cursor: 'pointer', alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 8, opacity: !crawlUrl ? 0.4 : 1 }}>
+              <button onClick={extractTheme} style={{ background: 'transparent', border: '1px solid #36f4a4', color: '#36f4a4', borderRadius: 9999, padding: '12px 24px', fontSize: 14, cursor: 'pointer', alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 8 }}>
                 {extractingTheme ? (<><span style={{ width: 14, height: 14, border: '2px solid #36f4a4', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }} />Detecting...</>) : '🎨 Detect Brand Colors'}
               </button>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

@@ -140,7 +140,7 @@ export function BentoPricing() {
 					'3 chatbots',
 					'1,000 messages/month',
 					'5 website crawls',
-                    'Remove Nocta branding',
+                    'Remove Nochq branding',
                     'Custom bot name + color',
                     'Email support (48h)'
 				]}
@@ -156,7 +156,7 @@ export function BentoPricing() {
 					'1 chatbot',
 					'100 messages/month',
 					'1 website crawl',
-                    'Nocta branding on widget',
+                    'Nochq branding on widget',
                     'Community support'
 				]}
 				className="lg:col-span-4"

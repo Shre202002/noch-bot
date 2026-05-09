@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
 
     const response = await axios.get(url, {
       timeout: 8000,
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NoctaTheme/1.0)' },
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NochqTheme/1.0)' },
     });
 
     const html = response.data as string;

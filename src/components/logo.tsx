@@ -2,7 +2,7 @@ export function Logo({ className }: { className?: string }) {
     return (
       <img
         src="/logo.png"
-        alt="Nocta"
+        alt="Nochq"
         className={className}
         style={{ height: '2em', width: 'auto' }}
       />
@@ -13,7 +13,7 @@ export function Logo({ className }: { className?: string }) {
     return (
       <img
         src="/logo.png"
-        alt="Nocta"
+        alt="Nochq"
         className={className}
         style={{ height: '1.5em', width: 'auto' }}
       />

@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useCallback } from "react";
 
-const STORAGE_KEY = "nocta:motion-pref";
-const CHANNEL = "nocta:prefs";
+const STORAGE_KEY = "nochq:motion-pref";
+const CHANNEL = "nochq:prefs";
 export type MotionPref = "auto" | "reduce" | "full";
 
 type Reason = "user" | "os" | "device" | "viewport" | "vitals" | null;

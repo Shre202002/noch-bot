@@ -16,10 +16,6 @@ export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: corsHeaders });
 }
 
-
-
-
-
 function chunkText(text: string, wordsPerChunk = 300): string[] {
   const words = text.split(/\s+/).filter(Boolean);
   const chunks: string[] = [];
@@ -91,13 +87,9 @@ export async function POST(req: NextRequest) {
       try {
         const response = await axios.get(current, {
           timeout: 8000,
-          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NoctaBot/1.0)' },
+          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NochqBot/1.0)' },
         });
         const { text, links } = extractText(response.data, current);
-        // if (text.length > 100) {
-        //   allContent.push(`--- Page: ${current} ---\n${text.slice(0, 4000)}`);
-        //   console.log(`[crawl] Crawled: ${current} (${text.length} chars)`);
-        // }
         if (text.length > 100) {
           pages.push({
             url: current,

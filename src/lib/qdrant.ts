@@ -1,4 +1,3 @@
-
 import { QdrantClient } from "@qdrant/js-client-rest";
 
 const QDRANT_URL = process.env.QDRANT_URL || "http://localhost:6333";
@@ -9,7 +8,7 @@ export const qdrant = new QdrantClient({
   apiKey: QDRANT_API_KEY,
 });
 
-export const COLLECTION = "nocta_chunks";
+export const COLLECTION = "nochq_chunks";
 export const QDRANT_COLLECTION_NAME = COLLECTION;
 
 /**
@@ -22,7 +21,7 @@ export async function ensureCollection() {
     if (!exists) {
       await qdrant.createCollection(COLLECTION, {
         vectors: {
-          size: 3072, // Dimensionality of Gemini text-embedding-004
+          size: 3072, // Dimensionality of Gemini gemini-embedding-001
           distance: "Cosine",
         },
       });

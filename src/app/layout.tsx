@@ -1,4 +1,3 @@
-
 import type { Metadata } from 'next';
 import { Inter, Syne } from 'next/font/google';
 import './globals.css';
@@ -15,8 +14,8 @@ const syne = Syne({
 });
 
 export const metadata: Metadata = {
-  title: 'NOCTA - Add AI to your website in 60 seconds',
-  description: 'Full-stack multi-tenant SaaS AI chatbot platform',
+  title: 'Nochq | AI Chatbot Headquarters',
+  description: 'Nochq — Deploy your own branded AI chatbot, trained on your data. Multi-tenant. Instant. Powered by Groq LLaMA.',
 };
 
 export default function RootLayout({

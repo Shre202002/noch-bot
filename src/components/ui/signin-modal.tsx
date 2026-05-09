@@ -72,7 +72,7 @@ export default function SigninModal({ trigger }: { trigger?: React.ReactNode }) 
           </div>
           <DialogHeader>
             <DialogTitle className="sm:text-center text-xl text-white">
-              Sign in to Nocta
+              Sign in to Nochq
             </DialogTitle>
             <DialogDescription className="sm:text-center text-zinc-400">
               Welcome back! Please enter your details.

@@ -3,6 +3,11 @@ import Groq from "groq-sdk";
 import { readKnowledge } from "@/lib/storage";
 import { embedText } from "@/lib/embeddings";
 import { qdrant, ensureCollection, COLLECTION } from "@/lib/qdrant";
+import {
+  createOrFindConversation,
+  saveMessage,
+  updateConversationStats,
+} from "@/lib/conversations";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,8 +20,18 @@ export async function OPTIONS() {
 }
 
 export async function POST(req: NextRequest) {
+  const startTime = Date.now();
+
   try {
-    const { messages, userId } = await req.json();
+    const body = await req.json();
+    const {
+      messages,
+      userId,
+      sessionId,
+      visitorId = "anonymous",
+      sourceUrl = "",
+      metadata = {},
+    } = body;
 
     if (!userId) {
       return NextResponse.json(
@@ -27,33 +42,52 @@ export async function POST(req: NextRequest) {
 
     const userMessage = messages[messages.length - 1]?.content || "";
 
-    // Load knowledge config (system prompt, bot name, etc.)
-    const knowledge = await readKnowledge(userId);
-    const systemPrompt = knowledge?.systemPrompt || "You are a helpful assistant.";
+    // Derive website from sourceUrl
+    const website = sourceUrl
+      ? (() => { try { return new URL(sourceUrl).hostname; } catch { return sourceUrl; } })()
+      : "unknown";
 
-    // RAG: embed the query and search Qdrant for relevant chunks
+    const effectiveSessionId = sessionId || `auto_${userId}_${Date.now()}`;
+
+    // ── Step 1: Save user message to MongoDB ─────────────────
+    let conversationId: string | null = null;
+    try {
+      conversationId = await createOrFindConversation(
+        userId,
+        effectiveSessionId,
+        visitorId,
+        website
+      );
+      await saveMessage({
+        userId,
+        conversationId,
+        sessionId: effectiveSessionId,
+        role: "user",
+        content: userMessage,
+        sourceUrl,
+        metadata,
+      });
+      await updateConversationStats(conversationId);
+    } catch (err) {
+      console.error("[chat] DB write failed:", err);
+    }
+
+    // ── Step 2: Load knowledge config ────────────────────────
+    const knowledge = await readKnowledge(userId);
+
+    // ── Step 3: RAG — embed + Qdrant search ──────────────────
     let contextText = "";
     try {
       await ensureCollection();
       const queryVector = await embedText(userMessage);
       console.log("Query vector length:", queryVector.length);
-      const info = await qdrant.getCollection(COLLECTION);
-      console.log(info);
+
       const searchResult = await qdrant.search(COLLECTION, {
-        // vector: {
-        //   name: "default",
-        //   vector: queryVector,
-        // },
         vector: queryVector,
         limit: 5,
         with_payload: true,
         filter: {
-          must: [
-            {
-              key: "userId",
-              match: { value: userId },
-            },
-          ],
+          must: [{ key: "userId", match: { value: userId } }],
         },
       });
 
@@ -64,13 +98,14 @@ export async function POST(req: NextRequest) {
           .join("\n\n");
       }
     } catch (err) {
-      console.warn("[chat] RAG search failed, continuing without context:", err);
+      console.warn("[chat] RAG search failed:", err);
     }
 
     console.log("🔍 RAG context length:", contextText.length);
+
+    // ── Step 4: Build system prompt ───────────────────────────
     const finalSystemPrompt = contextText
-      ? `
-You are the AI assistant for this website.
+      ? `You are the AI assistant for this website.
 
 Your role is to help users understand the website, products, services, and business using ONLY the information provided below.
 
@@ -79,8 +114,7 @@ STRICT RULES:
 - Never invent information
 - Never mention OpenAI, ChatGPT, Claude, Anthropic, Gemini, or AI platforms
 - Never describe yourself as a generic AI assistant
-- If the answer is not available in the website information, say:
-  "I couldn't find that information on this website."
+- If the answer is not available in the website information, say: "I couldn't find that information on this website."
 
 RESPONSE STYLE:
 - Keep responses concise and professional
@@ -92,33 +126,14 @@ RESPONSE STYLE:
 - Avoid sounding robotic or overly enthusiastic
 
 WEBSITE INFORMATION:
-${contextText}
-`
-      : `
-You are the AI assistant for this website.
-
+${contextText}`
+      : `You are the AI assistant for this website.
 You currently do not have enough website information available.
+Politely respond: "I don't have enough website information yet to answer that."
+Suggest the user contact the website owner directly for more information.`;
 
-Politely respond:
-"I don't have enough website information yet to answer that."
-
-Suggest the user contact the website owner directly for more information.
-`;
+    // ── Step 5: Groq — plain JSON (no SSE) ───────────────────
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-
-    const stream = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      messages: [
-        {
-          role: "system",
-          content: finalSystemPrompt,
-        },
-        ...messages,
-      ],
-      stream: true,
-      temperature: 0.4,
-      max_tokens: 700,
-    });
 
     const completion = await groq.chat.completions.create({
       model: "llama-3.3-70b-versatile",
@@ -129,60 +144,39 @@ Suggest the user contact the website owner directly for more information.
           content: m.content,
         })),
       ],
-      max_tokens: 1024,
-      temperature: 0.7,
+      temperature: 0.4,
+      max_tokens: 700,
     });
 
+    const text =
+      completion.choices[0]?.message?.content ||
+      "Sorry, I could not generate a response.";
 
-    const encoder = new TextEncoder();
+    const responseTimeMs = Date.now() - startTime;
 
-    const readable = new ReadableStream({
-      async start(controller) {
-        try {
-          for await (const chunk of stream) {
-            const token = chunk.choices?.[0]?.delta?.content || "";
+    // ── Step 6: Save assistant message to MongoDB ─────────────
+    if (conversationId) {
+      try {
+        await saveMessage({
+          userId,
+          conversationId,
+          sessionId: effectiveSessionId,
+          role: "assistant",
+          content: text,
+          responseTimeMs,
+          sourceUrl,
+          metadata,
+        });
+        await updateConversationStats(conversationId);
+      } catch (err) {
+        console.error("[chat] save assistant message failed:", err);
+      }
+    }
 
-            if (token) {
-              controller.enqueue(
-                encoder.encode(
-                  `data: ${JSON.stringify({ token })}\n\n`
-                )
-              );
-            }
-          }
-
-          controller.enqueue(
-            encoder.encode(
-              `data: ${JSON.stringify({ done: true })}\n\n`
-            )
-          );
-
-        } catch (err: any) {
-          controller.enqueue(
-            encoder.encode(
-              `data: ${JSON.stringify({
-                error: err.message || "Streaming failed"
-              })}\n\n`
-            )
-          );
-        }
-
-        controller.close();
-      },
-    });
-
-    return new Response(readable, {
-      headers: {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        Connection: "keep-alive",
-        "Access-Control-Allow-Origin": "*",
-      },
-    });
-
-    const text = completion.choices[0]?.message?.content || "Sorry, I could not generate a response.";
-
-    return NextResponse.json({ text }, { headers: corsHeaders });
+    return NextResponse.json(
+      { text, conversationId, sessionId: effectiveSessionId },
+      { headers: corsHeaders }
+    );
   } catch (err: any) {
     console.error("[chat] error:", err);
     return NextResponse.json(

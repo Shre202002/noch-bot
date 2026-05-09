@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-const STORAGE_KEY = "nocta:theme";
-const CHANNEL = "nocta:prefs";
+const STORAGE_KEY = "nochq:theme";
+const CHANNEL = "nochq:prefs";
 
 export type Theme = "neon" | "monochrome";
 const DEFAULT: Theme = "neon";

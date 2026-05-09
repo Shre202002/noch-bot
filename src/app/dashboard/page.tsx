@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -43,8 +42,8 @@ interface DashboardData {
 }
 
 const MOCK_DATA: DashboardData = {
-  botName: "Nocta Assistant",
-  websiteUrl: "https://nocta.ai",
+  botName: "Nochq Assistant",
+  websiteUrl: "https://nochq.ai",
   lastCrawl: "2 hours ago",
   chunksIndexed: 1248,
   messagesUsed: 12402,
@@ -476,7 +475,7 @@ export default function DashboardOverviewPage() {
               <div className="relative">
                 <ActivityItem 
                   title="Knowledge Synced" 
-                  desc="12 new chunks indexed from nocta.ai/docs" 
+                  desc="12 new chunks indexed from nochq.ai/docs" 
                   time="2m ago" 
                   color="green"
                   delay={0.1}

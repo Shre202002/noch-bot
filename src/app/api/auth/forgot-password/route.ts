@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
 
     if (!account) {
       return NextResponse.json(
-        { success: false, message: 'This email is not registered with Nocta.' },
+        { success: false, message: 'This email is not registered with Nochq.' },
         { status: 400 }
       )
     }

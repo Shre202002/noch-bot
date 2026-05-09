@@ -82,7 +82,7 @@ export default function SignupModal({ trigger }: { trigger?: React.ReactNode }) 
           </div>
           <DialogHeader>
             <DialogTitle className="sm:text-center text-xl text-white">
-              Sign up to Nocta
+              Sign up to Nochq
             </DialogTitle>
             <DialogDescription className="sm:text-center text-zinc-400">
               We just need a few details to get you started.

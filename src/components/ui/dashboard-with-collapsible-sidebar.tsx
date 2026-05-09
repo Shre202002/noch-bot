@@ -1,4 +1,3 @@
-
 "use client"
 import React, { useState, useEffect } from "react";
 import {
@@ -168,7 +167,7 @@ const TitleSection = ({ open, user }: { open: boolean, user?: any }) => {
         {open && (
           <div className="flex-1 overflow-hidden">
              <span className="block text-sm font-bold tracking-tight uppercase truncate">
-               NOCTA
+               NOCHQ
              </span>
              <span className="block text-[10px] text-muted-foreground uppercase font-semibold">
                {user?.plan || 'Free'} Plan
