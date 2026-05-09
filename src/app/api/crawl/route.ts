@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
       try {
         const response = await axios.get(current, {
           timeout: 8000,
-          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NochqBot/1.0)' },
+          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NochBot/1.0)' },
         });
         const { text, links } = extractText(response.data, current);
         if (text.length > 100) {

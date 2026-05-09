@@ -8,7 +8,7 @@ export const qdrant = new QdrantClient({
   apiKey: QDRANT_API_KEY,
 });
 
-export const COLLECTION = "nochq_chunks";
+export const COLLECTION = "nochbot_chunks";
 export const QDRANT_COLLECTION_NAME = COLLECTION;
 
 /**

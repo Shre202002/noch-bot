@@ -124,7 +124,7 @@ function BotChat() {
         {avatar(34)}
         <span style={{ color: "#fff", fontWeight: 600, fontSize: 14 }}>{botName}</span>
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
-          <div style={{ width: 8, height: 8, borderRadius: "50%", background: loading || isTyping ? "#fbbf24" : "#4ade80", transition: "background 0.3s" }} />
+          <div style={{ width: 8, height: 8, borderRadius: "50%", background: loading || isTyping ? "#nbbf24" : "#4ade80", transition: "background 0.3s" }} />
           <span style={{ color: "rgba(255,255,255,0.8)", fontSize: 12 }}>{loading ? "Thinking..." : isTyping ? "Typing..." : "Online"}</span>
         </div>
       </div>

@@ -38,7 +38,6 @@ const menuItems: MenuItem[] = [
 export function Nav() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [hoveredItem, setHoveredItem] = useState<number | null>(null);
   
   const { scrollY } = useScroll();
 
@@ -94,7 +93,7 @@ export function Nav() {
           <Link href="/" className="flex items-center gap-2 group">
             <Logo />
             <span className="text-[18px] font-bold tracking-[-0.03em] text-white uppercase group-hover:opacity-80 transition-opacity">
-              NOCHQ
+              NOCHBOT
             </span>
           </Link>
           
@@ -118,7 +117,7 @@ export function Nav() {
               href="/register" 
               className="rounded-full bg-white px-5 py-2 text-xs font-semibold text-[#080b10] hover:opacity-90 transition-opacity"
             >
-              Try Nochq
+              Try NochBot
             </Link>
           </div>
 
@@ -182,7 +181,7 @@ export function Nav() {
               <div className="w-full max-w-sm bg-card border border-white/10 rounded-3xl p-8 shadow-2xl pointer-events-auto">
                 <div className="mb-8 flex flex-col items-center gap-2">
                   <Logo />
-                  <span className="text-sm font-bold tracking-widest text-white/40 uppercase">NOCHQ Menu</span>
+                  <span className="text-sm font-bold tracking-widest text-white/40 uppercase">NOCHBOT Menu</span>
                 </div>
 
                 <div className="space-y-3">

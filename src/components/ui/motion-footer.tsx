@@ -275,7 +275,7 @@ export function CinematicFooter() {
             ref={giantTextRef}
             className="footer-giant-bg-text absolute -bottom-[5vh] left-1/2 -translate-x-1/2 whitespace-nowrap z-0 pointer-events-none select-none"
           >
-            NOCHQ
+            NOCHBOT
           </div>
 
           <div className="absolute top-12 left-0 w-full overflow-hidden border-y border-border/50 bg-background/60 backdrop-blur-md py-4 z-10 -rotate-2 scale-110 shadow-2xl">
@@ -326,14 +326,14 @@ export function CinematicFooter() {
 
           <div className="relative z-20 w-full pb-8 px-6 md:px-12 flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="text-muted-foreground text-[10px] md:text-xs font-semibold tracking-widest uppercase order-2 md:order-1">
-              © 2025 Nochq. All rights reserved.
+              © 2025 NochBot. All rights reserved.
             </div>
 
             <div className="footer-glass-pill px-6 py-3 rounded-full flex items-center gap-2 order-1 md:order-2 cursor-default border-border/50">
               <span className="text-muted-foreground text-[10px] md:text-xs font-bold uppercase tracking-widest">Crafted with</span>
               <span className="animate-footer-heartbeat text-sm md:text-base text-destructive">❤</span>
               <span className="text-muted-foreground text-[10px] md:text-xs font-bold uppercase tracking-widest">by</span>
-              <span className="text-foreground font-black text-xs md:text-sm tracking-normal ml-1">Nochq Team</span>
+              <span className="text-foreground font-black text-xs md:text-sm tracking-normal ml-1">NochBot Team</span>
             </div>
 
             <MagneticButton

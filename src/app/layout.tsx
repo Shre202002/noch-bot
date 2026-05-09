@@ -14,8 +14,8 @@ const syne = Syne({
 });
 
 export const metadata: Metadata = {
-  title: 'Nochq | AI Chatbot Headquarters',
-  description: 'Nochq — Deploy your own branded AI chatbot, trained on your data. Multi-tenant. Instant. Powered by Groq LLaMA.',
+  title: 'NochBot | AI Chatbot Platform',
+  description: 'NochBot — Deploy your own branded AI chatbot, trained on your data. Multi-tenant. Instant. Powered by Groq LLaMA.',
 };
 
 export default function RootLayout({

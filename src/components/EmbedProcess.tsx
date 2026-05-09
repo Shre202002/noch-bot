@@ -55,7 +55,7 @@ const steps = [
         <div>
           <span className="text-fuchsia-400">{"<script"}</span>{" "}
           <span className="text-emerald-400">src</span>=
-          <span className="text-amber-300">"nocta.io/v1.js"</span>
+          <span className="text-amber-300">"nochbot.io/v1.js"</span>
         </div>
         <div className="pl-4">
           <span className="text-emerald-400">data-bot</span>=
@@ -99,7 +99,7 @@ export function EmbedProcess() {
             From signup to<br />live in 4 minutes.
           </h2>
           <p className="mt-6 text-base text-white/40">
-            Watch how a NOCTA chatbot goes from blank slate to answering customers — visualized.
+            Watch how a NOCHBOT chatbot goes from blank slate to answering customers — visualized.
           </p>
         </div>
 

@@ -40,7 +40,7 @@ export function Hero() {
           className="mb-10 inline-flex items-center gap-2 rounded-full border border-white/7 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.12em] text-white/40 backdrop-blur"
         >
           <span className="h-1.5 w-1.5 rounded-full bg-white" />
-          Announcing NOCHQ 1.0
+          Announcing NOCHBOT 1.0
         </motion.div>
 
         <motion.h1
@@ -49,7 +49,7 @@ export function Hero() {
           transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
           className={`${showComplexEffects ? 'hero-wordmark' : 'hero-wordmark-static'} select-none text-[clamp(4rem,18vw,16rem)] font-bold leading-[0.85] tracking-[-0.04em]`}
         >
-          NOCHQ
+          NOCHBOT
         </motion.h1>
 
         <motion.p
@@ -71,7 +71,7 @@ export function Hero() {
             href="/register"
             className="w-full sm:w-auto rounded-full bg-white px-8 py-3 text-sm font-medium text-[#080b10] hover:opacity-90 transition-opacity"
           >
-            Try Nochq
+            Try NochBot
           </Link>
           <Link
             href="#features"
