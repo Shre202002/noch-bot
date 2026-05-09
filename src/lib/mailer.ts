@@ -44,6 +44,42 @@ export async function sendOtpEmail(
     console.log('[mailer] OTP email sent to:', to)
   } catch (err) {
     console.error('[mailer] Failed to send email:', err)
-    throw err  // re-throw so API route catches it and returns 500
+    throw err
+  }
+}
+
+export async function sendContactEmail(data: {
+  name: string;
+  email: string;
+  phone: string;
+  message: string;
+}): Promise<void> {
+  try {
+    await transporter.sendMail({
+      from: `"NochBot Contact" <${process.env.GMAIL_USER}>`,
+      to: 'sriyanshgupta24@gmail.com',
+      subject: `New Contact Form Submission from ${data.name}`,
+      html: `
+        <div style="font-family:sans-serif;max-width:600px;margin:auto;padding:32px;background:#0a0a0a;color:#fff;border-radius:12px;border:1px solid #2a2d35;">
+          <h2 style="margin:0 0 16px;color:#36f4a4;font-size:20px;border-bottom:1px solid #2a2d35;padding-bottom:12px;">New Contact Submission</h2>
+          <div style="margin-bottom:20px;">
+            <p style="margin:0 0 8px;"><strong style="color:#7d8187;font-size:12px;text-transform:uppercase;">Name:</strong><br/>${data.name}</p>
+            <p style="margin:0 0 8px;"><strong style="color:#7d8187;font-size:12px;text-transform:uppercase;">Email:</strong><br/>${data.email}</p>
+            <p style="margin:0 0 8px;"><strong style="color:#7d8187;font-size:12px;text-transform:uppercase;">Phone:</strong><br/>${data.phone}</p>
+          </div>
+          <div style="background:#1f2228;padding:20px;border-radius:8px;border:1px solid #2a2d35;">
+            <strong style="color:#7d8187;font-size:12px;text-transform:uppercase;display:block;margin-bottom:8px;">Message:</strong>
+            <p style="margin:0;line-height:1.6;color:#e5e7eb;">${data.message}</p>
+          </div>
+          <p style="color:#4a4e56;font-size:11px;margin-top:24px;text-align:center;">
+            This message was sent via the NochBot Landing Page contact form.
+          </p>
+        </div>
+      `,
+    })
+    console.log('[mailer] Contact email sent')
+  } catch (err) {
+    console.error('[mailer] Failed to send contact email:', err)
+    throw err
   }
 }

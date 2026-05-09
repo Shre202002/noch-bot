@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, Suspense } from 'react';
@@ -13,8 +12,8 @@ import Featured_05 from '@/components/ui/globe-feature-section';
 import { NewsletterPopup } from '@/components/NewsletterPopup';
 import { CinematicFooter } from '@/components/ui/motion-footer';
 import { AnimatedNavFramer } from '@/components/ui/navigation-menu';
+import { ContactSection } from '@/components/ContactSection';
 import { useToast } from '@/hooks/use-toast';
-import { CheckCircle2 } from 'lucide-react';
 
 function PageContent() {
   const [isNewsletterOpen, setIsNewsletterOpen] = useState(false);
@@ -47,6 +46,8 @@ function PageContent() {
           <Featured_05 onJoinClick={() => setIsNewsletterOpen(true)} />
 
           <Pricing />
+
+          <ContactSection />
         </main>
       </div>
 
