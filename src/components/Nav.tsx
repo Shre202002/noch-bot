@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from "react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence, useScroll, useMotionValueEvent } from "framer-motion";
 import { Menu, X, Zap, Layout, Users, CreditCard, LogIn } from "lucide-react";
 import Link from "next/link";
@@ -38,9 +38,30 @@ const menuItems: MenuItem[] = [
 export function Nav() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  
+  const [user, setUser] = useState<any>(null);
   const { scrollY } = useScroll();
+  useEffect(() => {
 
+    async function loadUser() {
+
+      try {
+
+        const res =
+          await fetch("/api/auth/me");
+
+        if (!res.ok) return;
+
+        const data = await res.json();
+
+        setUser(data.user);
+
+      } catch { }
+
+    }
+
+    loadUser();
+
+  }, []);
   useMotionValueEvent(scrollY, "change", (latest) => {
     setIsScrolled(latest > 100);
   });
@@ -93,32 +114,79 @@ export function Nav() {
           <Link href="/" className="flex items-center gap-2 group">
             <Logo />
             <span className="text-[18px] font-bold tracking-[-0.03em] text-white uppercase group-hover:opacity-80 transition-opacity">
-              NOCHBOT
+              NochBot
             </span>
           </Link>
-          
+
           <div className="hidden md:flex items-center gap-8">
             {menuItems.map((item) => (
-              <Link 
-                key={item.id} 
+              <Link
+                key={item.id}
                 href={item.url}
                 className="text-[13px] text-white/40 transition-colors hover:text-white flex items-center gap-2"
               >
                 {item.title}
               </Link>
             ))}
-            <Link 
+            {/* <Link
               href="/login"
               className="text-[13px] text-white/40 transition-colors hover:text-white"
             >
               Sign in
             </Link>
-            <Link 
-              href="/register" 
+            <Link
+              href="/register"
               className="rounded-full bg-white px-5 py-2 text-xs font-semibold text-[#080b10] hover:opacity-90 transition-opacity"
             >
               Try NochBot
-            </Link>
+            </Link> */}
+            {user ? (
+
+              <div className="flex items-center gap-3">
+
+                <Link
+                  href="/dashboard"
+                  className="text-[13px] text-white/60 hover:text-white transition-colors"
+                >
+                  Dashboard
+                </Link>
+
+                <button
+                  onClick={async () => {
+
+                    await fetch("/api/auth/logout", {
+                      method: "POST",
+                    });
+
+                    window.location.reload();
+
+                  }}
+                  className="rounded-full border border-white/10 px-4 py-2 text-xs text-white/70 hover:bg-white/10 transition-all"
+                >
+                  Logout
+                </button>
+
+              </div>
+
+            ) : (
+
+              <>
+                <Link
+                  href="/login"
+                  className="text-[13px] text-white/40 transition-colors hover:text-white"
+                >
+                  Sign in
+                </Link>
+
+                <Link
+                  href="/register"
+                  className="rounded-full bg-white px-5 py-2 text-xs font-semibold text-[#080b10] hover:opacity-90 transition-opacity"
+                >
+                  Try NochBot
+                </Link>
+              </>
+
+            )}
           </div>
 
           {/* Mobile simple trigger (for top state) */}
@@ -181,7 +249,7 @@ export function Nav() {
               <div className="w-full max-w-sm bg-card border border-white/10 rounded-3xl p-8 shadow-2xl pointer-events-auto">
                 <div className="mb-8 flex flex-col items-center gap-2">
                   <Logo />
-                  <span className="text-sm font-bold tracking-widest text-white/40 uppercase">NOCHBOT Menu</span>
+                  <span className="text-sm font-bold tracking-widest text-white/40 uppercase">NochBot Menu</span>
                 </div>
 
                 <div className="space-y-3">
@@ -199,7 +267,7 @@ export function Nav() {
                       </Link>
                     </motion.div>
                   ))}
-                  
+
                   <motion.div variants={itemVariants} className="pt-4 grid grid-cols-2 gap-3">
                     <Link
                       href="/login"
