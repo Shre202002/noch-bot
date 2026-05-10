@@ -1,5 +1,5 @@
-# Firebase Studio
-
-This is a NextJS starter in Firebase Studio.
-
-To get started, take a look at src/app/page.tsx.
+![Live](https://img.shields.io/badge/Live-nochbot.space-FF5701?style=for-the-badge)
+![Next.js](https://img.shields.io/badge/Next.js_15-black?style=for-the-badge&logo=next.js)
+![Groq](https://img.shields.io/badge/Groq_LLaMA-FF5701?style=for-the-badge)
+![MongoDB](https://img.shields.io/badge/MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white)
+![Vercel](https://img.shields.io/badge/Deployed-Vercel-000000?style=for-the-badge&logo=vercel)
