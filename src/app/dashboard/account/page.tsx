@@ -21,8 +21,8 @@ interface AccountData {
 }
 
 const PLAN_CONFIG = {
-  free:    { label: "Free",    color: "bg-muted text-muted-foreground border-border",         limit: "1,000 messages/mo"  },
-  starter: { label: "Starter", color: "bg-blue-500/10 text-blue-400 border-blue-400/20",      limit: "10,000 messages/mo" },
+  free:    { label: "Free",    color: "bg-muted text-muted-foreground border-border",         limit: "100 messages/mo"  },
+  starter: { label: "Starter", color: "bg-blue-500/10 text-blue-400 border-blue-400/20",      limit: "5,000 messages/mo" },
   pro:     { label: "Pro",     color: "bg-[#36f4a4]/10 text-[#36f4a4] border-[#36f4a4]/20",  limit: "50,000 messages/mo" },
 };
 
