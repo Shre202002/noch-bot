@@ -10,7 +10,7 @@ export function Navbar() {
         </Link> */}
         <Link href="/" className="flex items-center">
           <img
-            src="/Nochbot1.svg"
+            src="/Noch-bot-logo.svg"
             alt="Nochbot"
             className="h-10 w-auto"
           />

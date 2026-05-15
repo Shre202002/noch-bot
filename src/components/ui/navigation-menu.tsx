@@ -118,7 +118,7 @@ export function AnimatedNavFramer() {
           variants={logoVariants}
           className="flex-shrink-0 flex items-center font-semibold pl-4 pr-1 sm:pr-3"
         >
-          <img src="/Nochbot1.svg" alt="Nochbot" className="h-10 w-auto" />
+          <img src="/Noch-bot-logo.svg" alt="NochBot" className="h-10 w-auto" />
         </motion.div>
         
         <motion.div
