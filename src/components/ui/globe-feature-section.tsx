@@ -29,7 +29,7 @@ export default function Featured_05({ onJoinClick }: Featured_05Props) {
             </p>
             <h2 className="text-4xl md:text-5xl lg:text-6xl font-normal tracking-tight text-white leading-[1.05]">
               Deploy{" "}
-              <span className="text-[#7c6fff] font-medium">AI Agents</span>
+              <span className="text-[#36f4a4] font-medium">AI Agents</span>
             </h2>
             <p className="mt-5 text-xl md:text-2xl lg:text-3xl font-normal text-white/35 leading-snug max-w-lg">
               Powering millions of conversations across every continent in real-time.
