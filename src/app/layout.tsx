@@ -3,6 +3,7 @@ import { Inter, Syne } from 'next/font/google';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { Analytics } from "@vercel/analytics/next"
+import { SpeedInsights } from "@vercel/speed-insights/next"
 import { CookieConsent } from '@/components/CookieConsent';
 
 const inter = Inter({ 
@@ -32,6 +33,7 @@ export default function RootLayout({
         <CookieConsent />
         <Toaster />
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );

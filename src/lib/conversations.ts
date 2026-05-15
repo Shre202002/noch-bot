@@ -104,7 +104,6 @@ export async function getConversationHistory(
             );
             return {
                 ...conv,
-                // _id: conv._id!.toString(),
                 _id: String(conv._id),
                 userId: conv.userId,
                 sessionId: conv.sessionId,
@@ -126,44 +125,11 @@ export async function getConversationHistory(
 }
 
 // ── Get full message thread for a conversation ────────────────────
-// export async function getMessageThread(conversationId: string, userId: string) {
-//   const db = await getDb();
-
-//   const conv = await db
-//     .collection('conversations')
-//     .findOne({ _id: new ObjectId(conversationId), userId });
-
-//   if (!conv) return null;
-
-//   const messages = await db
-//     .collection('messages')
-//     .find({ conversationId })
-//     .sort({ createdAt: 1 })
-//     .toArray();
-
-//   return {
-//     conversation: { ...conv, _id: conv._id.toString() },
-//     messages: messages.map((m) => ({ ...m, _id: m._id.toString() })),
-//   };
-// }
-
-
 export async function getMessageThread(
     conversationId: string,
     userId: string
 ) {
     const db = await getDb();
-
-    console.log("conversationId:", conversationId);
-    console.log("userId:", userId);
-
-    const testConversation = await db
-        .collection("conversations")
-        .findOne({
-            _id: new ObjectId(conversationId),
-        });
-
-    console.log("testConversation:", testConversation);
 
     const conversation = await db
         .collection("conversations")
@@ -210,6 +176,7 @@ export async function getAnalytics(userId: string) {
         avgResponseTime,
         conversationsByWebsite,
         activeToday,
+        deviceBreakdown,
     ] = await Promise.all([
         // Total conversations
         convColl.countDocuments({ userId }),
@@ -281,6 +248,14 @@ export async function getAnalytics(userId: string) {
 
         // Active visitors today
         convColl.countDocuments({ userId, lastMessageAt: { $gte: todayStart } }),
+
+        // Device Breakdown
+        msgColl
+            .aggregate([
+                { $match: { userId, role: 'user', 'metadata.device': { $exists: true } } },
+                { $group: { _id: '$metadata.device', count: { $sum: 1 } } }
+            ])
+            .toArray(),
     ]);
 
     // Fill missing days with 0
@@ -308,6 +283,10 @@ export async function getAnalytics(userId: string) {
             website: w._id || 'unknown',
             count: w.count,
         })),
+        deviceBreakdown: (deviceBreakdown as any[]).reduce((acc, curr) => {
+            acc[curr._id] = curr.count;
+            return acc;
+        }, {}),
         avgMessagesPerConversation:
             totalConversations > 0
                 ? Math.round((totalMessages / totalConversations) * 10) / 10
