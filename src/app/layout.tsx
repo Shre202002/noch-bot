@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     default: "NochBot | AI Chatbot Platform",
     template: "%s | NochBot",
   },
-  description: "Deploy branded AI chatbots trained on your own website and data in seconds. NochBot offers high-performance RAG, real-time analytics, and seamless embedding.",
+  description: "NochBot — Deploy your own branded AI chatbot, trained on your data. Multi-tenant. Instant. Powered by Groq LLaMA.",
   keywords: [
     "AI chatbot",
     "SaaS chatbot",
@@ -38,6 +38,11 @@ export const metadata: Metadata = {
   publisher: "NochBot",
   alternates: {
     canonical: "/",
+  },
+  icons: {
+    icon: "/noch-bot-logo-svg.svg",
+    shortcut: "/noch-bot-logo-svg.svg",
+    apple: "/noch-bot-logo-svg.svg",
   },
   robots: {
     index: true,
@@ -59,7 +64,7 @@ export const metadata: Metadata = {
     description: "Turn your website content into an intelligent AI assistant. Embed NochBot in minutes and provide instant support to your visitors.",
     images: [
       {
-        url: "/og-image.png",
+        url: "/Noch-bot-logo.svg",
         width: 1200,
         height: 630,
         alt: "NochBot AI Platform Preview",
@@ -70,7 +75,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "NochBot | AI Chatbot for Every Business",
     description: "Instant AI support for your website visitors. Trained on your data.",
-    images: ["/og-image.png"],
+    images: ["/Noch-bot-logo.svg"],
   },
   manifest: "/site.webmanifest",
 };
