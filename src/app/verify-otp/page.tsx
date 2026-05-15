@@ -88,7 +88,7 @@ function VerifyOtpContent() {
         setOtp(new Array(6).fill(''));
         inputRefs.current[0]?.focus();
       } else {
-        sessionStorage.setItem('nocta_reset_token', data.resetToken);
+        sessionStorage.setItem('nochbot_reset_token', data.resetToken);
         router.push('/reset-password');
       }
     } catch (err) {

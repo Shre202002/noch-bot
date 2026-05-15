@@ -22,7 +22,7 @@ function ResetPasswordContent() {
 
       const data = await res.json();
       if (res.ok) {
-        sessionStorage.setItem('nocta_reset_token', data.resetToken);
+        sessionStorage.setItem('nochbot_reset_token', data.resetToken);
         return true;
       }
       return false;
@@ -32,7 +32,7 @@ function ResetPasswordContent() {
   };
 
   const handleSubmitPassword = async (password: string): Promise<void> => {
-    const resetToken = sessionStorage.getItem('nocta_reset_token');
+    const resetToken = sessionStorage.getItem('nochbot_reset_token');
     try {
       const res = await fetch('/api/auth/reset-password', {
         method: 'POST',
@@ -41,7 +41,7 @@ function ResetPasswordContent() {
       });
 
       if (res.ok) {
-        sessionStorage.removeItem('nocta_reset_token');
+        sessionStorage.removeItem('nochbot_reset_token');
         router.push('/?reset=success');
       } else {
         const data = await res.json();

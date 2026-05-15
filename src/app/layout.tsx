@@ -40,9 +40,9 @@ export const metadata: Metadata = {
     canonical: "/",
   },
   icons: {
-    icon: "/noch-bot-logo-svg.svg",
-    shortcut: "/noch-bot-logo-svg.svg",
-    apple: "/noch-bot-logo-svg.svg",
+    icon: "/Noch-bot-logo.svg",
+    shortcut: "/Noch-bot-logo.svg",
+    apple: "/Noch-bot-logo.svg",
   },
   robots: {
     index: true,

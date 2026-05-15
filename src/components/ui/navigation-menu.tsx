@@ -118,7 +118,7 @@ export function AnimatedNavFramer() {
           variants={logoVariants}
           className="flex-shrink-0 flex items-center font-semibold pl-4 pr-1 sm:pr-3"
         >
-          <img src="/noch-bot-logo-svg.svg" alt="NochBot" className="h-10 w-auto" />
+          <img src="/Noch-bot-logo.svg" alt="NochBot" className="h-10 w-auto" />
         </motion.div>
         
         <motion.div
@@ -150,7 +150,7 @@ export function AnimatedNavFramer() {
           <motion.div variants={itemVariants} onClick={(e) => e.stopPropagation()} className="ml-1">
              <SignupModal trigger={
                <button className="text-[10px] sm:text-sm font-bold text-white bg-primary/20 hover:bg-primary/30 border border-primary/20 rounded-full px-3 py-1 whitespace-nowrap cursor-pointer">
-                 Try Nocta
+                 Try NochBot
                </button>
              } />
           </motion.div>

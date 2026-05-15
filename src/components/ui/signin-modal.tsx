@@ -71,7 +71,7 @@ export default function SigninModal({ trigger }: { trigger?: React.ReactNode }) 
             className="flex size-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5"
             aria-hidden="true"
           >
-            <img src="/noch-bot-logo-svg.svg" alt="logo" className="h-6 w-auto" />
+            <img src="/Noch-bot-logo.svg" alt="NochBot" className="h-6 w-auto" />
           </div>
           <DialogHeader>
             <DialogTitle className="sm:text-center text-xl text-white">

@@ -4,14 +4,10 @@ export function Navbar() {
   return (
     <header className="fixed top-0 left-0 right-0 z-50 h-14">
       <div className="mx-auto flex h-full max-w-[1400px] items-center justify-between px-6">
-        {/* <Link href="/" className="flex items-center gap-2">
-          <Logo />
-          <span className="text-sm font-medium tracking-tight">Nocta</span>
-        </Link> */}
         <Link href="/" className="flex items-center">
           <img
-            src="/noch-bot-logo-svg.svg"
-            alt="Nochbot"
+            src="/Noch-bot-logo.svg"
+            alt="NochBot"
             className="h-10 w-auto"
           />
         </Link>
