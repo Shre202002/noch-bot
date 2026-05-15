@@ -1,47 +1,68 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getUserIdFromCookie } from '@/lib/auth';
-import { writeKnowledge } from '@/lib/storage';
-import { readKnowledge } from '@/lib/storage';
+import { NextRequest, NextResponse } from "next/server";
+import { getUserIdFromCookie } from "@/lib/auth";
+import { readKnowledge, writeKnowledge } from "@/lib/storage";
 
-// export async function POST(req: NextRequest) {
-//   try {
-//     const userId = await getUserIdFromCookie();
-//     if (!userId) {
-//       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-//     }
+export const dynamic = "force-dynamic";
 
-//     const { theme } = await req.json();
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+  "Cache-Control": "no-store, no-cache, must-revalidate",
+};
 
-//     if (!theme || typeof theme !== 'object') {
-//       return NextResponse.json({ error: 'Invalid theme data' }, { status: 400 });
-//     }
-
-//     await writeKnowledge(userId, { theme });
-
-//     return NextResponse.json({ success: true });
-//   } catch (err: any) {
-//     console.error('[theme] error:', err);
-//     return NextResponse.json({ error: 'Failed to save theme' }, { status: 500 });
-//   }
-// }
+export async function OPTIONS() {
+  return new Response(null, { status: 204, headers: corsHeaders });
+}
 
 export async function GET(req: NextRequest) {
-  try {
-    const userId = req.nextUrl.searchParams.get("userId");
+  const userId = req.nextUrl.searchParams.get("userId");
+  if (!userId)
+    return NextResponse.json(
+      { error: "No userId" },
+      { status: 400, headers: corsHeaders }
+    );
 
-    if (!userId) {
-      return NextResponse.json({ error: "Missing userId" }, { status: 400 });
-    }
+  const knowledge = await readKnowledge(userId);
 
-    const knowledge = await readKnowledge(userId);
+  // Priority: theme object → botColor fallback → null
+  let theme = knowledge?.theme || null;
 
-    if (!knowledge?.theme) {
-      return NextResponse.json({ theme: null });
-    }
-
-    return NextResponse.json({ theme: knowledge.theme });
-  } catch (err: any) {
-    console.error("[theme GET] error:", err);
-    return NextResponse.json({ error: "Failed to fetch theme" }, { status: 500 });
+  if (!theme && knowledge?.botColor) {
+    theme = {
+      bubbleColor: knowledge.botColor,
+      headerColor: knowledge.botColor,
+      userMsgColor: knowledge.botColor,
+      sendBtnColor: knowledge.botColor,
+      accentColor: knowledge.botColor,
+    };
   }
+
+  console.log(`🎨 Theme GET for ${userId}:`, theme);
+
+  return NextResponse.json(
+    { theme },
+    { headers: corsHeaders }
+  );
+}
+
+export async function POST(req: NextRequest) {
+  const userId = await getUserIdFromCookie();
+  if (!userId)
+    return NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401, headers: corsHeaders }
+    );
+
+  const { theme } = await req.json();
+
+  // Partial update — sirf theme field update karo
+  await writeKnowledge(userId, { theme });
+
+  console.log(`🎨 Theme saved for ${userId}:`, theme);
+
+  return NextResponse.json(
+    { success: true },
+    { headers: corsHeaders }
+  );
 }
