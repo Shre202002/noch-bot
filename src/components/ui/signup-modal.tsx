@@ -2,6 +2,8 @@
 
 import { useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -13,6 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import TocDialog from './terms-conditions';
 import { useToast } from '@/hooks/use-toast';
 
@@ -24,6 +27,7 @@ export default function SignupModal({ trigger }: { trigger?: React.ReactNode }) 
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -129,7 +133,36 @@ export default function SignupModal({ trigger }: { trigger?: React.ReactNode }) 
               />
             </div>
           </div>
-          <Button type="submit" className="w-full font-bold bg-white text-black hover:bg-zinc-200 h-11" disabled={loading}>
+
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-start gap-3 py-2"
+          >
+            <Checkbox 
+              id={`${id}-terms`} 
+              checked={acceptedTerms} 
+              onCheckedChange={(checked) => setAcceptedTerms(checked as boolean)}
+              className="mt-0.5"
+            />
+            <div className="grid gap-1 leading-none">
+              <Label
+                htmlFor={`${id}-terms`}
+                className="text-xs font-medium text-zinc-400 cursor-pointer select-none leading-normal"
+              >
+                I agree to the terms and conditions
+              </Label>
+              <p className="text-[10px] text-zinc-500 leading-normal">
+                By continuing, you acknowledge that AI-generated responses may contain inaccuracies.
+              </p>
+            </div>
+          </motion.div>
+
+          <Button 
+            type="submit" 
+            className="w-full font-bold bg-white text-black hover:bg-zinc-200 h-11 transition-opacity" 
+            disabled={loading || !acceptedTerms}
+          >
             {loading ? 'Creating account...' : 'Sign up'}
           </Button>
         </form>
@@ -162,10 +195,17 @@ export default function SignupModal({ trigger }: { trigger?: React.ReactNode }) 
           </a>
         </Button>
 
-        <p className="text-zinc-500 text-center text-[10px] uppercase tracking-wider mt-4">
-          By signing up you agree to our{' '}
-          <TocDialog />
-        </p>
+        <div className="mt-4 space-y-4">
+          <p className="text-zinc-500 text-center text-[10px] uppercase tracking-wider">
+            By signing up you agree to our{' '}
+            <TocDialog />
+          </p>
+          <div className="flex justify-center gap-4 text-[10px] uppercase tracking-widest font-bold text-zinc-500">
+            <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
+            <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
+            <Link href="/docs" className="hover:text-white transition-colors">Docs</Link>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   );
