@@ -1,3 +1,13 @@
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Terms of Service",
+  description: "The official terms and conditions for using the NochBot AI platform.",
+  alternates: {
+    canonical: "/terms",
+  },
+};
+
 export default function TermsPage() {
     return (
       <main className="min-h-screen bg-black text-white px-6 py-20">

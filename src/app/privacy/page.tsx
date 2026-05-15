@@ -1,3 +1,13 @@
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Privacy Policy",
+  description: "Learn how NochBot handles your data, ensures security, and complies with privacy regulations.",
+  alternates: {
+    canonical: "/privacy",
+  },
+};
+
 export default function PrivacyPage() {
     return (
       <main className="min-h-screen bg-black text-white px-6 py-20">
