@@ -4,7 +4,7 @@ import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { Analytics } from "@vercel/analytics/next"
 import { SpeedInsights } from "@vercel/speed-insights/next"
-import { CookieConsent } from '@/components/CookieConsent';
+import { CookieBanner } from '@/components/CookieBanner';
 
 const inter = Inter({ 
   subsets: ['latin'], 
@@ -30,7 +30,7 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <body className={`${inter.variable} ${syne.variable} font-body antialiased bg-black text-white`}>
         {children}
-        <CookieConsent />
+        <CookieBanner />
         <Toaster />
         <Analytics />
         <SpeedInsights />

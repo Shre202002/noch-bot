@@ -5,13 +5,15 @@ import { motion } from "framer-motion";
 import {
   MessageSquare, Database, Globe, Activity,
   TrendingUp, Clock, Users, Zap,
-  Smartphone, Monitor, Tablet, ArrowUpRight
+  Smartphone, Monitor, Tablet, ArrowUpRight,
+  ShieldCheck, MousePointer2
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid,
+  BarChart, Bar, Cell, PieChart, Pie
 } from "recharts";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +32,10 @@ interface AnalyticsData {
   topQuestions: { question: string; count: number }[];
   conversationsByWebsite: { website: string; count: number }[];
   deviceBreakdown: Record<string, number>;
+  // New behavioral analytics fields
+  totalEvents: number;
+  topEvents: { name: string; count: number }[];
+  funnel: Record<string, number>;
 }
 
 const StatCard = ({ title, value, label, icon: Icon, color, delay }: any) => {
@@ -65,7 +71,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
     <div className="bg-[#111111] border border-border rounded-xl p-3 shadow-2xl backdrop-blur-md">
-      <p className="text-[10px] uppercase font-bold text-muted-foreground mb-2">{new Date(label).toLocaleDateString('en', { month: 'short', day: 'numeric' })}</p>
+      <p className="text-[10px] uppercase font-bold text-muted-foreground mb-2">{label}</p>
       <div className="flex items-center gap-2">
         <div className="w-2 h-2 rounded-full bg-[#36f4a4]" />
         <p className="text-foreground font-bold text-sm">{payload[0].value} messages</p>
@@ -81,14 +87,17 @@ export default function AnalyticsPage() {
   useEffect(() => {
     fetch("/api/analytics")
       .then((r) => r.json())
-      .then((d) => { setData(d); setLoading(false); })
+      .then((d) => { 
+        setData(d); 
+        setLoading(false); 
+      })
       .catch(() => setLoading(false));
   }, []);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 rounded-full border-2 border-[#36f4a4] border-t-transparent animate-spin" />
+      <div className="flex items-center justify-center h-screen">
+        <div className="w-8 h-8 rounded-full border-2 border-white border-t-transparent animate-spin" />
       </div>
     );
   }
@@ -107,10 +116,15 @@ export default function AnalyticsPage() {
     );
   }
 
-  const formatMs = (ms: number) =>
-    ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`;
-
+  const formatMs = (ms: number) => ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`;
   const totalDevices = Object.values(data.deviceBreakdown).reduce((a, b) => a + b, 0) || 1;
+
+  // Funnel steps mapping
+  const funnelData = [
+    { name: "Crawl Started", value: data.funnel?.crawl_started || 0 },
+    { name: "Crawl Done", value: data.funnel?.crawl_completed || 0 },
+    { name: "First Chat", value: data.totalConversations || 0 },
+  ];
 
   return (
     <div className="space-y-8 pb-20 max-w-7xl mx-auto">
@@ -122,13 +136,13 @@ export default function AnalyticsPage() {
             Intelligence
           </motion.h1>
           <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="text-muted-foreground text-sm mt-1">
-            Real-time performance metrics for <span className="text-foreground font-medium">{data.botName}</span>
+            Real-time behavioral insights for <span className="text-foreground font-medium">{data.botName}</span>
           </motion.p>
         </div>
         <div className="flex items-center gap-3">
-          <Badge variant="outline" className="text-[#36f4a4] border-[#36f4a4]/30 bg-[#36f4a4]/5 px-4 py-1 rounded-full">
-            <div className="w-1.5 h-1.5 rounded-full bg-[#36f4a4] mr-2 animate-pulse" />
-            Live Monitoring
+          <Badge variant="outline" className="text-primary border-primary/30 bg-primary/5 px-4 py-1 rounded-full">
+            <div className="w-1.5 h-1.5 rounded-full bg-primary mr-2 animate-pulse" />
+            Live Data Feed
           </Badge>
         </div>
       </div>
@@ -136,21 +150,21 @@ export default function AnalyticsPage() {
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <StatCard title="Conversations" value={data.totalConversations.toLocaleString()} label={`${data.recentConversations} new this week`} icon={MessageSquare} color="blue" delay={0.1} />
-        <StatCard title="Messages" value={data.totalMessages.toLocaleString()} label={`${data.avgMessagesPerConversation} avg per chat`} icon={TrendingUp} color="purple" delay={0.2} />
-        <StatCard title="Latency" value={formatMs(data.avgResponseTimeMs)} label="Avg response generation" icon={Clock} color="orange" delay={0.3} />
+        <StatCard title="Total Activity" value={data.totalEvents.toLocaleString()} label="User interactions" icon={MousePointer2} color="purple" delay={0.2} />
+        <StatCard title="Latency" value={formatMs(data.avgResponseTimeMs)} label="Avg AI generation" icon={Clock} color="orange" delay={0.3} />
         <StatCard title="Active Sessions" value={data.activeToday.toLocaleString()} label="Unique visitors today" icon={Users} color="green" delay={0.4} />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
 
-        {/* Messages Chart */}
+        {/* Engagement Activity Area Chart */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="xl:col-span-2">
           <Card className="border-border bg-card/50 overflow-hidden">
             <CardContent className="p-0">
               <div className="p-6 border-b border-border flex items-center justify-between">
                 <div>
-                  <h3 className="font-bold text-sm">Engagement Activity</h3>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Volume — Last 7 Days</p>
+                  <h3 className="font-bold text-sm text-white">Engagement Activity</h3>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Message Volume — Last 7 Days</p>
                 </div>
                 <Activity className="h-4 w-4 text-muted-foreground" />
               </div>
@@ -159,8 +173,8 @@ export default function AnalyticsPage() {
                   <AreaChart data={data.messagesLast7Days}>
                     <defs>
                       <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#36f4a4" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#36f4a4" stopOpacity={0}/>
+                        <stop offset="5%" stopColor="white" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="white" stopOpacity={0}/>
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
@@ -173,11 +187,11 @@ export default function AnalyticsPage() {
                       dy={10}
                     />
                     <YAxis tick={{ fontSize: 11, fill: '#666' }} axisLine={false} tickLine={false} allowDecimals={false} />
-                    <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#36f4a4', strokeWidth: 1 }} />
+                    <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'white', strokeWidth: 1 }} />
                     <Area 
                         type="monotone" 
                         dataKey="count" 
-                        stroke="#36f4a4" 
+                        stroke="white" 
                         strokeWidth={2}
                         fillOpacity={1} 
                         fill="url(#colorCount)" 
@@ -190,39 +204,52 @@ export default function AnalyticsPage() {
           </Card>
         </motion.div>
 
-        {/* Right Column */}
+        {/* Behavioral Summary Bar Chart */}
         <div className="space-y-6">
-
-          {/* Device Distribution */}
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+            <Card className="border-border bg-card/50 overflow-hidden">
+              <CardContent className="p-6 space-y-6">
+                <h3 className="font-bold text-sm text-white uppercase tracking-widest">Behavioral Top Events</h3>
+                <div className="space-y-4">
+                  {data.topEvents.slice(0, 5).map((event, i) => (
+                    <div key={i} className="space-y-1.5">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-muted-foreground truncate">{event.name.replace(/_/g, ' ')}</span>
+                        <span className="font-black text-white">{event.count}</span>
+                      </div>
+                      <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                        <motion.div 
+                          initial={{ width: 0 }} 
+                          animate={{ width: `${Math.round((event.count / data.topEvents[0].count) * 100)}%` }} 
+                          className="h-full bg-white rounded-full" 
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          {/* Funnel Visual */}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
             <Card className="border-border bg-card/50">
               <CardContent className="p-6 space-y-4">
-                <h3 className="font-bold text-sm uppercase tracking-widest text-muted-foreground">Visitor Devices</h3>
-                <div className="space-y-4">
-                  {[
-                    { label: 'Desktop', key: 'desktop', icon: Monitor },
-                    { label: 'Mobile', key: 'mobile', icon: Smartphone },
-                    { label: 'Tablet', key: 'tablet', icon: Tablet },
-                  ].map((device) => {
-                    const count = data.deviceBreakdown[device.key] || 0;
-                    const pct = Math.round((count / totalDevices) * 100);
+                <h3 className="font-bold text-sm text-white uppercase tracking-widest">Activation Funnel</h3>
+                <div className="flex flex-col gap-3">
+                  {funnelData.map((step, i) => {
+                    const pct = Math.round((step.value / (funnelData[0].value || 1)) * 100);
                     return (
-                      <div key={device.key} className="space-y-1.5">
-                        <div className="flex justify-between items-center text-xs">
-                          <div className="flex items-center gap-2">
-                            <device.icon className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span className="font-medium text-foreground">{device.label}</span>
-                          </div>
-                          <span className="font-black">{pct}%</span>
+                      <div key={i} className="relative p-3 rounded-xl border border-white/5 bg-white/[0.02] flex items-center justify-between">
+                        <div className="z-10 flex flex-col">
+                           <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">Step {i+1}</span>
+                           <span className="text-xs font-medium text-white">{step.name}</span>
                         </div>
-                        <div className="h-1.5 bg-accent/30 rounded-full overflow-hidden">
-                          <motion.div 
-                            initial={{ width: 0 }} 
-                            animate={{ width: `${pct}%` }} 
-                            transition={{ duration: 1, delay: 0.5 }}
-                            className="h-full bg-primary rounded-full" 
-                          />
+                        <div className="z-10 text-right">
+                           <span className="text-sm font-black text-white">{step.value}</span>
+                           <span className="text-[9px] text-muted-foreground block">{pct}%</span>
                         </div>
+                        <div className="absolute inset-y-0 left-0 bg-white/5 rounded-l-xl transition-all duration-1000" style={{ width: `${pct}%` }} />
                       </div>
                     );
                   })}
@@ -230,69 +257,60 @@ export default function AnalyticsPage() {
               </CardContent>
             </Card>
           </motion.div>
-
-          {/* Websites Breakdown */}
-          {data.conversationsByWebsite.length > 0 && (
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
-              <Card className="border-border bg-card/50">
-                <CardContent className="p-6 space-y-4">
-                  <h3 className="font-bold text-sm uppercase tracking-widest text-muted-foreground">Top Domains</h3>
-                  <div className="space-y-3">
-                    {data.conversationsByWebsite.map((w, i) => {
-                      const max = data.conversationsByWebsite[0].count;
-                      const pct = Math.round((w.count / max) * 100);
-                      return (
-                        <div key={i} className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-accent/30 flex items-center justify-center text-[10px] font-black text-muted-foreground">
-                                {i+1}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <div className="flex justify-between text-xs mb-1">
-                                    <span className="text-foreground font-medium truncate">{w.website}</span>
-                                    <span className="text-muted-foreground">{w.count} chats</span>
-                                </div>
-                                <div className="h-1 bg-accent/30 rounded-full overflow-hidden">
-                                    <div className="h-full bg-[#36f4a4]/40" style={{ width: `${pct}%` }} />
-                                </div>
-                            </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
         </div>
       </div>
 
-      {/* Top Questions */}
-      {data.topQuestions.length > 0 && (
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
-          <Card className="border-border bg-card/50">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                 <h3 className="font-bold text-sm flex items-center gap-2">
-                   <Zap className="h-4 w-4 text-[#36f4a4]" />
-                   Frequent Inquiries
-                 </h3>
-                 <Badge variant="outline" className="text-[10px] text-muted-foreground">Intelligence Insights</Badge>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {data.topQuestions.map((q, i) => (
-                  <div key={i} className="flex items-start gap-4 p-4 rounded-2xl bg-accent/10 border border-border/50 hover:border-primary/30 transition-colors">
-                    <span className="text-xs font-black text-muted-foreground/40 w-6 shrink-0 mt-0.5">#{i + 1}</span>
-                    <div className="flex-1 space-y-1">
-                        <p className="text-sm text-foreground font-medium leading-relaxed italic">"{q.question}"</p>
-                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">Asked {q.count} times</p>
+      {/* Bottom Insights Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Device Distribution */}
+        <Card className="border-border bg-card/50">
+          <CardContent className="p-6">
+            <h3 className="font-bold text-sm mb-8 flex items-center gap-2">
+              <Smartphone className="h-4 w-4 text-blue-400" />
+              Visitor Ecosystem
+            </h3>
+            <div className="grid grid-cols-3 gap-8">
+              {[
+                { label: 'Desktop', key: 'desktop', icon: Monitor },
+                { label: 'Mobile', key: 'mobile', icon: Smartphone },
+                { label: 'Tablet', key: 'tablet', icon: Tablet },
+              ].map((device) => {
+                const count = data.deviceBreakdown[device.key] || 0;
+                const pct = Math.round((count / totalDevices) * 100);
+                return (
+                  <div key={device.key} className="flex flex-col items-center gap-3 text-center">
+                    <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center border border-white/5">
+                      <device.icon className="h-6 w-6 text-white/40" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{device.label}</p>
+                      <p className="text-lg font-black text-white">{pct}%</p>
                     </div>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-      )}
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Top Questions */}
+        <Card className="border-border bg-card/50">
+          <CardContent className="p-6">
+            <h3 className="font-bold text-sm mb-6 flex items-center gap-2">
+              <Zap className="h-4 w-4 text-orange-400" />
+              Top Intent Extraction
+            </h3>
+            <div className="space-y-2">
+              {data.topQuestions.slice(0, 4).map((q, i) => (
+                <div key={i} className="flex items-center justify-between p-3 rounded-xl border border-white/5 bg-white/[0.02]">
+                  <span className="text-xs text-white/60 truncate italic flex-1 pr-4">"{q.question}"</span>
+                  <Badge variant="secondary" className="bg-white/10 text-white border-0 text-[10px]">{q.count} times</Badge>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
