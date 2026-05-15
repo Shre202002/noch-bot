@@ -161,8 +161,9 @@ const TitleSection = ({ open, user }: { open: boolean, user?: any }) => {
   return (
     <div className="mb-4">
       <div className="flex items-center gap-3 p-2">
-        <div className="grid size-10 shrink-0 place-content-center rounded-xl bg-white shadow-sm overflow-hidden">
-           <LogoIcon className="h-6 w-auto" />
+        <div className="grid size-10 shrink-0 place-content-center rounded-xl bg-white shadow-sm overflow-hidden relative">
+           <div className="absolute inset-0 bg-[radial-gradient(circle,rgba(255,255,255,0.2)_0%,transparent_70%)]" />
+           <LogoIcon className="h-6 w-auto relative z-10" />
         </div>
         {open && (
           <div className="flex-1 overflow-hidden">

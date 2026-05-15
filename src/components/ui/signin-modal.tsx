@@ -68,7 +68,7 @@ export default function SigninModal({ trigger }: { trigger?: React.ReactNode }) 
       <DialogContent className="sm:max-w-md bg-black border-white/10 text-white">
         <div className="flex flex-col items-center gap-2">
           <div
-            className="flex size-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5"
+            className="flex size-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-[radial-gradient(circle,rgba(255,255,255,0.15)_0%,rgba(255,255,255,0.05)_100%)] shadow-[0_0_15px_rgba(255,255,255,0.05)]"
             aria-hidden="true"
           >
             <img src="/Noch-bot-logo.svg" alt="NochBot" className="h-6 w-auto" />
