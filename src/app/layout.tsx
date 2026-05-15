@@ -3,6 +3,7 @@ import { Inter, Syne } from 'next/font/google';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { Analytics } from "@vercel/analytics/next"
+import { CookieConsent } from '@/components/CookieConsent';
 
 const inter = Inter({ 
   subsets: ['latin'], 
@@ -28,6 +29,7 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <body className={`${inter.variable} ${syne.variable} font-body antialiased bg-black text-white`}>
         {children}
+        <CookieConsent />
         <Toaster />
         <Analytics />
       </body>
