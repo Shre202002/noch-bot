@@ -40,9 +40,9 @@ export const metadata: Metadata = {
     canonical: "/",
   },
   icons: {
-    icon: "/Noch-bot-logo.svg",
-    shortcut: "/Noch-bot-logo.svg",
-    apple: "/Noch-bot-logo.svg",
+    icon: "/nohbot.png",
+    shortcut: "/nohbot.png",
+    apple: "/nohbot.png",
   },
   robots: {
     index: true,
@@ -64,7 +64,7 @@ export const metadata: Metadata = {
     description: "Turn your website content into an intelligent AI assistant. Embed NochBot in minutes and provide instant support to your visitors.",
     images: [
       {
-        url: "/Noch-bot-logo.svg",
+        url: "/nohbot.png",
         width: 1200,
         height: 630,
         alt: "NochBot AI Platform Preview",
@@ -75,7 +75,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "NochBot | AI Chatbot for Every Business",
     description: "Instant AI support for your website visitors. Trained on your data.",
-    images: ["/Noch-bot-logo.svg"],
+    images: ["/nohbot.png"],
   },
   manifest: "/site.webmanifest",
 };
