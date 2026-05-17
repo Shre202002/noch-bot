@@ -7,8 +7,6 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
 };
-const [analytics, knowledge, account] = await Promise.all([...])
-
 
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: corsHeaders });
@@ -39,7 +37,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true }, { headers: corsHeaders });
   } catch (err: any) {
     console.error("[analytics/track] error:", err.message);
-    // Still return 200 to prevent client-side errors from retrying/breaking
     return NextResponse.json({ success: false }, { status: 200, headers: corsHeaders });
   }
 }
