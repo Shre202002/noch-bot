@@ -87,12 +87,14 @@ export default function AnalyticsPage() {
   useEffect(() => {
     fetch("/api/analytics")
       .then((r) => r.json())
-      .then((d) => { 
-        setData(d); 
-        setLoading(false); 
+      .then((d) => {
+        setData(d);
+        setLoading(false);
       })
       .catch(() => setLoading(false));
   }, []);
+
+
 
   if (loading) {
     return (
@@ -116,13 +118,19 @@ export default function AnalyticsPage() {
     );
   }
 
+  const totalEvents = data.totalEvents ?? 0;
+  const topEvents = data.topEvents ?? [];
+  const funnel = data.funnel ?? {};
+  const topQuestions = data.topQuestions ?? [];
+  const deviceBreakdown = data.deviceBreakdown ?? {};
+  const messagesLast7Days = data.messagesLast7Days ?? [];
   const formatMs = (ms: number) => ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`;
   const totalDevices = Object.values(data.deviceBreakdown).reduce((a, b) => a + b, 0) || 1;
 
   // Funnel steps mapping
   const funnelData = [
-    { name: "Crawl Started", value: data.funnel?.crawl_started || 0 },
-    { name: "Crawl Done", value: data.funnel?.crawl_completed || 0 },
+    { name: "Crawl Started", value: funnel?.crawl_started || 0 },
+    { name: "Crawl Done", value: funnel?.crawl_completed || 0 },
     { name: "First Chat", value: data.totalConversations || 0 },
   ];
 
@@ -150,7 +158,7 @@ export default function AnalyticsPage() {
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <StatCard title="Conversations" value={data.totalConversations.toLocaleString()} label={`${data.recentConversations} new this week`} icon={MessageSquare} color="blue" delay={0.1} />
-        <StatCard title="Total Activity" value={data.totalEvents.toLocaleString()} label="User interactions" icon={MousePointer2} color="purple" delay={0.2} />
+        <StatCard title="Total Activity" value={(totalEvents ?? 0).toLocaleString()} label="User interactions" icon={MousePointer2} color="purple" delay={0.2} />
         <StatCard title="Latency" value={formatMs(data.avgResponseTimeMs)} label="Avg AI generation" icon={Clock} color="orange" delay={0.3} />
         <StatCard title="Active Sessions" value={data.activeToday.toLocaleString()} label="Unique visitors today" icon={Users} color="green" delay={0.4} />
       </div>
@@ -170,11 +178,11 @@ export default function AnalyticsPage() {
               </div>
               <div className="p-6 pt-10">
                 <ResponsiveContainer width="100%" height={300}>
-                  <AreaChart data={data.messagesLast7Days}>
+                  <AreaChart data={messagesLast7Days}>
                     <defs>
                       <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="white" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="white" stopOpacity={0}/>
+                        <stop offset="5%" stopColor="white" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="white" stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
@@ -188,14 +196,14 @@ export default function AnalyticsPage() {
                     />
                     <YAxis tick={{ fontSize: 11, fill: '#666' }} axisLine={false} tickLine={false} allowDecimals={false} />
                     <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'white', strokeWidth: 1 }} />
-                    <Area 
-                        type="monotone" 
-                        dataKey="count" 
-                        stroke="white" 
-                        strokeWidth={2}
-                        fillOpacity={1} 
-                        fill="url(#colorCount)" 
-                        animationDuration={2000}
+                    <Area
+                      type="monotone"
+                      dataKey="count"
+                      stroke="white"
+                      strokeWidth={2}
+                      fillOpacity={1}
+                      fill="url(#colorCount)"
+                      animationDuration={2000}
                     />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -211,17 +219,17 @@ export default function AnalyticsPage() {
               <CardContent className="p-6 space-y-6">
                 <h3 className="font-bold text-sm text-white uppercase tracking-widest">Behavioral Top Events</h3>
                 <div className="space-y-4">
-                  {data.topEvents.slice(0, 5).map((event, i) => (
+                  {topEvents.slice(0, 5).map((event, i) => (
                     <div key={i} className="space-y-1.5">
                       <div className="flex justify-between items-center text-xs">
                         <span className="text-muted-foreground truncate">{event.name.replace(/_/g, ' ')}</span>
                         <span className="font-black text-white">{event.count}</span>
                       </div>
                       <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-                        <motion.div 
-                          initial={{ width: 0 }} 
-                          animate={{ width: `${Math.round((event.count / data.topEvents[0].count) * 100)}%` }} 
-                          className="h-full bg-white rounded-full" 
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${Math.round((event.count / topEvents[0].count) * 100)}%` }}
+                          className="h-full bg-white rounded-full"
                         />
                       </div>
                     </div>
@@ -242,12 +250,12 @@ export default function AnalyticsPage() {
                     return (
                       <div key={i} className="relative p-3 rounded-xl border border-white/5 bg-white/[0.02] flex items-center justify-between">
                         <div className="z-10 flex flex-col">
-                           <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">Step {i+1}</span>
-                           <span className="text-xs font-medium text-white">{step.name}</span>
+                          <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">Step {i + 1}</span>
+                          <span className="text-xs font-medium text-white">{step.name}</span>
                         </div>
                         <div className="z-10 text-right">
-                           <span className="text-sm font-black text-white">{step.value}</span>
-                           <span className="text-[9px] text-muted-foreground block">{pct}%</span>
+                          <span className="text-sm font-black text-white">{step.value}</span>
+                          <span className="text-[9px] text-muted-foreground block">{pct}%</span>
                         </div>
                         <div className="absolute inset-y-0 left-0 bg-white/5 rounded-l-xl transition-all duration-1000" style={{ width: `${pct}%` }} />
                       </div>
@@ -275,7 +283,7 @@ export default function AnalyticsPage() {
                 { label: 'Mobile', key: 'mobile', icon: Smartphone },
                 { label: 'Tablet', key: 'tablet', icon: Tablet },
               ].map((device) => {
-                const count = data.deviceBreakdown[device.key] || 0;
+                const count = deviceBreakdown[device.key] || 0;
                 const pct = Math.round((count / totalDevices) * 100);
                 return (
                   <div key={device.key} className="flex flex-col items-center gap-3 text-center">
@@ -301,7 +309,7 @@ export default function AnalyticsPage() {
               Top Intent Extraction
             </h3>
             <div className="space-y-2">
-              {data.topQuestions.slice(0, 4).map((q, i) => (
+              {topQuestions.slice(0, 4).map((q, i) => (
                 <div key={i} className="flex items-center justify-between p-3 rounded-xl border border-white/5 bg-white/[0.02]">
                   <span className="text-xs text-white/60 truncate italic flex-1 pr-4">"{q.question}"</span>
                   <Badge variant="secondary" className="bg-white/10 text-white border-0 text-[10px]">{q.count} times</Badge>
