@@ -7,7 +7,7 @@ export function Logo({ className }: { className?: string }) {
         <img
           src="/nohbot.png"
           alt="NochBot"
-          className="relative z-10"
+          className="relative z-10 bg-transparent"
           style={{ height: '2em', width: 'auto' }}
         />
       </div>
@@ -21,7 +21,7 @@ export function Logo({ className }: { className?: string }) {
         <img
           src="/nohbot.png"
           alt="NochBot"
-          className="relative z-10"
+          className="relative z-10 bg-transparent"
           style={{ height: '1.5em', width: 'auto' }}
         />
       </div>

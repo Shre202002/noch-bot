@@ -13,9 +13,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Share2, Copy, Mail, MessageSquare, Check } from 'lucide-react';
+import { Share2, Copy, Mail, MessageSquare, Check, Database, Globe, Zap, Palette } from 'lucide-react';
 
-type Tab = 'Crawl' | 'Embed' | 'Theme' | 'Preview' | 'Embed Code'
+type Tab = 'Crawl' | 'Vectorize' | 'Theme' | 'Preview' | 'Embed Code'
 type Message = { role: 'user' | 'assistant'; content: string }
 
 export default function ConfigurePage() {
@@ -287,7 +287,7 @@ export default function ConfigurePage() {
       <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
         {[
           { tab: 'Crawl', done: crawlDone, label: '1. Crawl' },
-          { tab: 'Embed', done: embedDone, label: '2. Vectorize' },
+          { tab: 'Vectorize', done: embedDone, label: '2. Vectorize' },
           { tab: 'Theme', done: themeSaved, label: '3. Theme' },
           { tab: 'Preview', done: previewMessages.length > 0, label: '4. Preview' },
           { tab: 'Embed Code', done: false, label: '5. Embed' },
@@ -356,18 +356,62 @@ export default function ConfigurePage() {
               </div>
             )}
             {crawlError && <div style={{ background: '#1a0a0a', border: '1px solid #ef4444', borderRadius: 8, padding: 16, color: '#ef4444', fontSize: 14 }}>❌ {crawlError}</div>}
-            {embedDone && (
-              <div style={{ display: 'flex', gap: 24, background: '#0d2420', border: '1px solid #36f4a430', borderRadius: 12, padding: 24 }}>
-                <div><div style={{ fontSize: 32, color: '#36f4a4', fontWeight: 400 }}>{chunkCount}</div><div style={{ fontSize: 13, color: '#7d8187' }}>Chunks indexed</div></div>
-                <div><div style={{ fontSize: 32, color: '#36f4a4', fontWeight: 400 }}>{crawledPages.length}</div><div style={{ fontSize: 13, color: '#7d8187' }}>Pages vectorized</div></div>
-                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
-                  <div style={{ background: '#36f4a420', border: '1px solid #36f4a430', borderRadius: 8, padding: '8px 16px', color: '#36f4a4', fontSize: 13 }}>✓ Stored in Qdrant</div>
-                </div>
-              </div>
-            )}
             {crawlDone && (
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <button onClick={() => setActiveTab('Theme')} style={{ background: '#36f4a4', color: '#000', border: 'none', borderRadius: 9999, padding: '12px 28px', fontWeight: 500, fontSize: 14, cursor: 'pointer' }}>Next: Detect Theme →</button>
+                <button onClick={() => setActiveTab('Vectorize')} style={{ background: '#36f4a4', color: '#000', border: 'none', borderRadius: 9999, padding: '12px 28px', fontWeight: 500, fontSize: 14, cursor: 'pointer' }}>Next: Review Vectors →</button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'Vectorize' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+            <div>
+              <h2 style={{ fontSize: 20, color: '#fff', fontWeight: 400, marginBottom: 6 }}>Step 2 — Vector Database Status</h2>
+              <p style={{ fontSize: 14, color: '#7d8187' }}>Your website content has been chunked and converted into high-dimensional vectors for AI retrieval.</p>
+            </div>
+
+            {!embedDone ? (
+              <div style={{ background: '#0a0a0a', border: '1px solid #2a2d35', borderRadius: 12, padding: 32, textAlign: 'center' }}>
+                <Database className="h-12 w-12 text-[#4a4e56] mx-auto mb-4" />
+                <p style={{ color: '#7d8187', fontSize: 14 }}>No vector data found. Please complete the Crawl step first.</p>
+                <button onClick={() => setActiveTab('Crawl')} style={{ marginTop: 16, background: 'transparent', border: '1px solid #36f4a4', color: '#36f4a4', borderRadius: 9999, padding: '8px 20px', fontSize: 13, cursor: 'pointer' }}>Go to Crawl</button>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                <div style={{ display: 'flex', gap: 24, background: '#0d2420', border: '1px solid #36f4a430', borderRadius: 12, padding: 32 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 11, color: '#36f4a4', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8, fontWeight: 600 }}>Chunks Indexed</div>
+                    <div style={{ fontSize: 48, color: '#fff', fontWeight: 300, lineHeight: 1 }}>{chunkCount}</div>
+                    <div style={{ fontSize: 13, color: '#7d8187', marginTop: 8 }}>Individual knowledge units</div>
+                  </div>
+                  <div style={{ width: 1, background: '#36f4a420' }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 11, color: '#36f4a4', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8, fontWeight: 600 }}>Pages Processed</div>
+                    <div style={{ fontSize: 48, color: '#fff', fontWeight: 300, lineHeight: 1 }}>{crawledPages.length || (crawlDone ? '...' : 0)}</div>
+                    <div style={{ fontSize: 13, color: '#7d8187', marginTop: 8 }}>Unique URLs vectorized</div>
+                  </div>
+                  <div style={{ marginLeft: 'auto', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-end', gap: 12 }}>
+                    <div style={{ background: '#36f4a4', color: '#000', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <Zap className="h-3 w-3 fill-current" /> Stored in Qdrant
+                    </div>
+                    <span style={{ fontSize: 11, color: '#7d8187' }}>Distance Metric: Cosine</span>
+                  </div>
+                </div>
+
+                <div style={{ background: '#0a0a0a', border: '1px solid #2a2d35', borderRadius: 12, padding: 20 }}>
+                  <h3 style={{ fontSize: 13, color: '#fff', marginBottom: 12, fontWeight: 500 }}>Database Optimization</h3>
+                  <p style={{ fontSize: 13, color: '#7d8187', lineHeight: 1.6 }}>
+                    Your data is currently indexed in our primary <strong>NochBot</strong> collection. 
+                    This ensures sub-100ms retrieval times during chat sessions. 
+                    If you update your website, we recommend re-crawling to sync the latest content.
+                  </p>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+                  <button onClick={() => setActiveTab('Crawl')} style={{ color: '#7d8187', background: 'transparent', border: 'none', fontSize: 14, cursor: 'pointer', textDecoration: 'underline' }}>Re-crawl website</button>
+                  <button onClick={() => setActiveTab('Theme')} style={{ background: '#36f4a4', color: '#000', border: 'none', borderRadius: 9999, padding: '12px 28px', fontWeight: 500, fontSize: 14, cursor: 'pointer' }}>Next: Detect Theme →</button>
+                </div>
               </div>
             )}
           </div>
