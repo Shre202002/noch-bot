@@ -5,6 +5,12 @@ import { useEffect, useRef } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import VideoPlayer from "@/components/ui/video-player";
 
 // Register ScrollTrigger safely for React
 if (typeof window !== "undefined") {
@@ -184,7 +190,7 @@ const MagneticButton = React.forwardRef<HTMLElement, MagneticButtonProps>(
           if (typeof forwardedRef === "function") forwardedRef(node);
           else if (forwardedRef) (forwardedRef as any).current = node;
         }}
-        className={cn("cursor-pointer", className)}
+        className={cn("cursor-pointer outline-none", className)}
         {...props}
       >
         {children}
@@ -302,12 +308,19 @@ export function CinematicFooter() {
                   Get Started Now
                 </MagneticButton>
                 
-                <MagneticButton as="a" href="#features" className="footer-glass-pill px-10 py-5 rounded-full text-foreground font-bold text-sm md:text-base flex items-center gap-3 group">
-                  <svg className="w-6 h-6 text-muted-foreground group-hover:text-foreground transition-colors" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5v-9l6 4.5-6 4.5z"/>
-                  </svg>
-                  Watch Demo
-                </MagneticButton>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <MagneticButton className="footer-glass-pill px-10 py-5 rounded-full text-foreground font-bold text-sm md:text-base flex items-center gap-3 group">
+                      <svg className="w-6 h-6 text-muted-foreground group-hover:text-foreground transition-colors" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5v-9l6 4.5-6 4.5z"/>
+                      </svg>
+                      Watch Demo
+                    </MagneticButton>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-4xl p-0 overflow-hidden border-white/10 bg-black/90 shadow-2xl">
+                    <VideoPlayer src="/Final_Video.mp4" />
+                  </DialogContent>
+                </Dialog>
               </div>
 
               <div className="flex flex-wrap justify-center gap-3 md:gap-6 w-full mt-2">
