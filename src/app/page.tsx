@@ -13,6 +13,7 @@ import { NewsletterPopup } from '@/components/NewsletterPopup';
 import { CinematicFooter } from '@/components/ui/motion-footer';
 import { AnimatedNavFramer } from '@/components/ui/navigation-menu';
 import { ContactSection } from '@/components/ContactSection';
+import { GitHubActivity } from '@/components/GitHubActivity';
 import { useToast } from '@/hooks/use-toast';
 
 function PageContent() {
@@ -46,6 +47,8 @@ function PageContent() {
           <Featured_05 onJoinClick={() => setIsNewsletterOpen(true)} />
 
           <Pricing />
+
+          <GitHubActivity />
 
           <ContactSection />
         </main>
