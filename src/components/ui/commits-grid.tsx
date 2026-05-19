@@ -1,3 +1,4 @@
+
 "use client" 
 
 import * as React from "react"
@@ -63,16 +64,17 @@ export const CommitsGrid = ({ text }: { text: string }) => {
 
   const getRandomColor = () => {
     const commitColors = [
-      "#48d55d",
-      "#016d32",
-      "#0d4429"
+      "#48d55d", // Light green
+      "#26a641", // Mid green
+      "#006d32", // Strong green
+      "#0e4429", // Dark green
     ];
     const randomIndex = Math.floor(Math.random() * commitColors.length);
     return commitColors[randomIndex];
   };
 
   const getRandomDelay = () => `${(Math.random() * 0.6).toFixed(1)}s`;
-  const getRandomFlash = () => Math.random() < 0.3;
+  const getRandomFlash = () => Math.random() < 0.2;
 
   return (
     <section
@@ -88,9 +90,16 @@ export const CommitsGrid = ({ text }: { text: string }) => {
         // Defer randomness to avoid hydration mismatch
         const shouldFlash = mounted ? (!isHighlighted && getRandomFlash()) : false;
         
+        // Generate a random shade for the cell color
+        const cellColor = React.useMemo(() => {
+          if (!mounted) return "";
+          return getRandomColor();
+        }, [mounted, index]);
+
         const style = mounted ? {
           animationDelay: getRandomDelay(),
-          "--highlight": getRandomColor(),
+          "--highlight": cellColor,
+          backgroundColor: isHighlighted ? cellColor : undefined,
         } as CSSProperties : {};
 
         return (
