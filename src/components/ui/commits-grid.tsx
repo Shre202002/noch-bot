@@ -5,6 +5,12 @@ import { cn } from "@/lib/utils";
 import type { CSSProperties } from "react";
 
 export const CommitsGrid = ({ text }: { text: string }) => {
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const cleanString = (str: string): string => {
     const upperStr = str.toUpperCase();
 
@@ -66,7 +72,7 @@ export const CommitsGrid = ({ text }: { text: string }) => {
   };
 
   const getRandomDelay = () => `${(Math.random() * 0.6).toFixed(1)}s`;
-  const getRandomFlash = () => +(Math.random() < 0.3);
+  const getRandomFlash = () => Math.random() < 0.3;
 
   return (
     <section
@@ -78,7 +84,14 @@ export const CommitsGrid = ({ text }: { text: string }) => {
     >
       {Array.from({ length: gridWidth * gridHeight }).map((_, index) => {
         const isHighlighted = highlightedCells.includes(index);
-        const shouldFlash = !isHighlighted && getRandomFlash();
+        
+        // Defer randomness to avoid hydration mismatch
+        const shouldFlash = mounted ? (!isHighlighted && getRandomFlash()) : false;
+        
+        const style = mounted ? {
+          animationDelay: getRandomDelay(),
+          "--highlight": getRandomColor(),
+        } as CSSProperties : {};
 
         return (
           <div
@@ -89,12 +102,7 @@ export const CommitsGrid = ({ text }: { text: string }) => {
               shouldFlash ? "animate-flash" : "",
               !isHighlighted && !shouldFlash ? "bg-card" : ""
             )}
-            style={
-              {
-                animationDelay: getRandomDelay(),
-                "--highlight": getRandomColor(),
-              } as CSSProperties
-            }
+            style={style}
           />
         );
       })}
