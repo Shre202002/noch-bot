@@ -8,6 +8,9 @@ import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
 import VideoPlayer from "@/components/ui/video-player";
@@ -318,6 +321,12 @@ export function CinematicFooter() {
                     </MagneticButton>
                   </DialogTrigger>
                   <DialogContent className="max-w-4xl p-0 overflow-hidden border-white/10 bg-black/90 shadow-2xl">
+                    <DialogHeader className="sr-only">
+                      <DialogTitle>NochBot Demo Video</DialogTitle>
+                      <DialogDescription>
+                        Watch our introductory video to learn how NochBot can transform your website into an intelligent AI-powered experience.
+                      </DialogDescription>
+                    </DialogHeader>
                     <VideoPlayer src="/Final_Video.mp4" />
                   </DialogContent>
                 </Dialog>
