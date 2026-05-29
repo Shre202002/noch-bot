@@ -1,4 +1,3 @@
-
 "use client" 
 
 import * as React from "react"
@@ -7,10 +6,7 @@ import type { CSSProperties } from "react";
 
 export const CommitsGrid = ({ text }: { text: string }) => {
   const [mounted, setMounted] = React.useState(false);
-
-  React.useEffect(() => {
-    setMounted(true);
-  }, []);
+  const [randomStyles, setRandomStyles] = React.useState<Record<number, { delay: string, color: string, flash: boolean }>>({});
 
   const cleanString = (str: string): string => {
     const upperStr = str.toUpperCase();
@@ -76,6 +72,20 @@ export const CommitsGrid = ({ text }: { text: string }) => {
   const getRandomDelay = () => `${(Math.random() * 0.6).toFixed(1)}s`;
   const getRandomFlash = () => Math.random() < 0.2;
 
+  React.useEffect(() => {
+    const styles: Record<number, { delay: string, color: string, flash: boolean }> = {};
+    const totalCells = gridWidth * gridHeight;
+    for (let i = 0; i < totalCells; i++) {
+      styles[i] = {
+        delay: getRandomDelay(),
+        color: getRandomColor(),
+        flash: getRandomFlash(),
+      };
+    }
+    setRandomStyles(styles);
+    setMounted(true);
+  }, [gridWidth, gridHeight]);
+
   return (
     <section
       className="w-full max-w-xl bg-card border grid p-1.5 sm:p-3 gap-0.5 sm:gap-1 rounded-[10px] sm:rounded-[15px]"
@@ -86,21 +96,8 @@ export const CommitsGrid = ({ text }: { text: string }) => {
     >
       {Array.from({ length: gridWidth * gridHeight }).map((_, index) => {
         const isHighlighted = highlightedCells.includes(index);
-        
-        // Defer randomness to avoid hydration mismatch
-        const shouldFlash = mounted ? (!isHighlighted && getRandomFlash()) : false;
-        
-        // Generate a random shade for the cell color
-        const cellColor = React.useMemo(() => {
-          if (!mounted) return "";
-          return getRandomColor();
-        }, [mounted, index]);
-
-        const style = mounted ? {
-          animationDelay: getRandomDelay(),
-          "--highlight": cellColor,
-          backgroundColor: isHighlighted ? cellColor : undefined,
-        } as CSSProperties : {};
+        const styleData = randomStyles[index];
+        const shouldFlash = mounted && !isHighlighted && styleData?.flash;
 
         return (
           <div
@@ -111,7 +108,13 @@ export const CommitsGrid = ({ text }: { text: string }) => {
               shouldFlash ? "animate-flash" : "",
               !isHighlighted && !shouldFlash ? "bg-card" : ""
             )}
-            style={style}
+            style={
+              mounted && styleData ? {
+                animationDelay: styleData.delay,
+                "--highlight": styleData.color,
+                backgroundColor: isHighlighted ? styleData.color : undefined,
+              } as CSSProperties : {}
+            }
           />
         );
       })}
