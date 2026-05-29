@@ -20,6 +20,7 @@ import { LogoIcon } from "./logo";
 const items = [
   { title: "Overview", url: "/dashboard", icon: LayoutDashboard },
   { title: "Bot Config", url: "/dashboard/configure", icon: Settings },
+  { title: "PDF RAG",    url: "/dashboard/pdf",       icon: FileText },
   { title: "Embed Codes", url: "/dashboard/embed", icon: Code2 },
   { title: "Analytics", url: "/dashboard/analytics", icon: BarChart3 },
   { title: "Account", url: "/dashboard/account", icon: User },
