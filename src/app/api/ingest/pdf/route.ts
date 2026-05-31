@@ -1,145 +1,238 @@
-// src/app/api/ingest/pdf/route.ts
-// POST multipart/form-data with field "file" (PDF) + optional "label"
-// Parses → chunks → embeds (Gemini) → upserts to nochbot_pdf_chunks
-
 import { NextRequest, NextResponse } from 'next/server';
 import { getUserIdFromCookie } from '@/lib/auth';
 import { embedText } from '@/lib/embeddings';
 import { qdrant } from '@/lib/qdrant';
 import { ensurePdfCollection, PDF_COLLECTION } from '@/lib/qdrantPdf';
 import { parsePDF, chunkText, numericId } from '@/lib/pdfParser';
+import { getDb } from '@/lib/db';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, DELETE, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
 };
+
+function json(
+  body: Record<string, unknown>,
+  init?: { status?: number; headers?: Record<string, string> }
+) {
+  return NextResponse.json(body, {
+    status: init?.status,
+    headers: {
+      ...corsHeaders,
+      ...(init?.headers || {}),
+    },
+  });
+}
 
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: corsHeaders });
 }
 
+// GET /api/ingest/pdf
+export async function GET() {
+  try {
+    const userId = await getUserIdFromCookie();
+
+    if (!userId) {
+      return json({ error: 'Not authenticated.' }, { status: 401 });
+    }
+
+    const db = await getDb();
+
+    const files = await db
+      .collection('pdf_files')
+      .find({ userId })
+      .sort({ uploadedAt: -1 })
+      .toArray();
+
+    return json({
+      files: files.map((f) => ({
+        fileId: f.fileId,
+        label: f.label,
+        fileName: f.filename,
+        chunkCount: f.chunkCount,
+        uploadedAt: f.uploadedAt,
+      })),
+    });
+  } catch (err: unknown) {
+    console.error('[pdf-ingest:get]', err);
+
+    return json(
+      {
+        error: err instanceof Error ? err.message : 'Failed to load PDFs.',
+      },
+      { status: 500 }
+    );
+  }
+}
+
+// POST /api/ingest/pdf
 export async function POST(req: NextRequest) {
   try {
     const userId = await getUserIdFromCookie();
+
     if (!userId) {
-      return NextResponse.json(
-        { error: 'Not authenticated.' },
-        { status: 401, headers: corsHeaders }
-      );
+      return json({ error: 'Not authenticated.' }, { status: 401 });
     }
 
-    // ── Parse multipart form ──────────────────────────────────
     const formData = await req.formData();
-    const file = formData.get('file') as File | null;
-    const label = (formData.get('label') as string | null) || '';
+    const file = formData.get('file');
+    const labelValue = formData.get('label');
 
-    if (!file) {
-      return NextResponse.json(
+    if (!(file instanceof File)) {
+      return json(
         { error: 'No file uploaded. Send a PDF as form field "file".' },
-        { status: 400, headers: corsHeaders }
+        { status: 400 }
       );
     }
 
-    if (file.type !== 'application/pdf') {
-      return NextResponse.json(
+    const label = typeof labelValue === 'string' ? labelValue.trim() : '';
+
+    if (file.type && file.type !== 'application/pdf') {
+      return json(
         { error: 'Only PDF files are supported.' },
-        { status: 415, headers: corsHeaders }
+        { status: 415 }
       );
     }
 
     const MAX_MB = 10;
+
     if (file.size > MAX_MB * 1024 * 1024) {
-      return NextResponse.json(
+      return json(
         { error: `File too large. Max ${MAX_MB} MB.` },
-        { status: 413, headers: corsHeaders }
+        { status: 413 }
       );
     }
 
-    // ── Parse PDF ─────────────────────────────────────────────
     const buffer = Buffer.from(await file.arrayBuffer());
-    const { text, pages, filename } = await parsePDF(buffer, file.name);
+    const { text, pageCount } = await parsePDF(buffer);
+    const filename = file.name || 'uploaded.pdf';
 
     if (!text || text.trim().length < 50) {
-      return NextResponse.json(
-        { error: 'Could not extract text from this PDF. It may be scanned/image-only.' },
-        { status: 422, headers: corsHeaders }
+      return json(
+        {
+          error:
+            'Could not extract text from this PDF. It may be scanned/image-only.',
+        },
+        { status: 422 }
       );
     }
 
-    console.log(`[pdf-ingest] "${filename}" — ${pages} pages, ${text.length} chars`);
+    console.log(
+      `[pdf-ingest] "${filename}" - ${pageCount} pages, ${text.length} chars`
+    );
 
-    // ── Chunk ─────────────────────────────────────────────────
-    const chunks = chunkText(text);
-    console.log(`[pdf-ingest] ${chunks.length} chunks`);
+    const markdown = textToMarkdown(text);
+    const rawChunks = chunkText(markdown).filter((chunk) =>
+      chunk.text.trim()
+    );
 
-    // ── Ensure Qdrant collection exists ───────────────────────
+    if (rawChunks.length === 0) {
+      return json(
+        { error: 'Could not create text chunks from this PDF.' },
+        { status: 422 }
+      );
+    }
+
+    console.log(`[pdf-ingest] ${rawChunks.length} chunks`);
+
     await ensurePdfCollection();
 
-    // Stable file ID derived from userId + filename + upload time
-    const fileId = `${userId}-${filename}-${Date.now()}`;
+    const fileId = `${userId}-${Date.now()}`;
+    const uploadedAt = new Date().toISOString();
 
-    // ── Embed + Upsert ────────────────────────────────────────
     const points = [];
-    for (let i = 0; i < chunks.length; i++) {
-      const chunk = chunks[i];
-      const vector = await embedText(chunk);
+
+    for (const chunk of rawChunks) {
+      const chunkTextValue = chunk.text.trim();
+      const vector = await embedText(chunkTextValue);
+
       points.push({
-        id: numericId(`pdf-${fileId}-${i}-${chunk.slice(0, 30)}`),
+        id: numericId(
+          `pdf-${fileId}-${chunk.chunkIndex}-${chunkTextValue.slice(0, 30)}`
+        ),
         vector,
         payload: {
           userId,
           fileId,
           filename,
           label: label || filename,
-          text: chunk,
-          chunkIndex: i,
+          text: chunkTextValue,
+          chunkIndex: chunk.chunkIndex,
+          totalChunks: chunk.totalChunks,
           docType: 'pdf',
-          pages,
-          uploadedAt: new Date().toISOString(),
+          pageCount,
+          uploadedAt,
         },
       });
-      console.log(`[pdf-ingest] Embedded chunk ${i + 1}/${chunks.length}`);
-      // Respect Gemini rate limits — same pattern as crawl/route.ts
-      await new Promise((r) => setTimeout(r, 300));
+
+      console.log(
+        `[pdf-ingest] Embedded chunk ${chunk.chunkIndex + 1}/${chunk.totalChunks}`
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, 300));
     }
 
-    await qdrant.upsert(PDF_COLLECTION, { wait: true, points });
+    await qdrant.upsert(PDF_COLLECTION, {
+      wait: true,
+      points,
+    });
+
     console.log(`[pdf-ingest] Upserted ${points.length} vectors`);
 
-    return NextResponse.json(
+    const db = await getDb();
+
+    await db.collection('pdf_files').insertOne({
+      userId,
+      fileId,
+      filename,
+      label: label || filename,
+      chunkCount: points.length,
+      pageCount,
+      markdown: markdown.slice(0, 5000),
+      uploadedAt,
+    });
+
+    return json({
+      success: true,
+      fileId,
+      filename,
+      pageCount,
+      chunkCount: points.length,
+      characters: text.length,
+    });
+  } catch (err: unknown) {
+    console.error('[pdf-ingest:post]', err);
+
+    return json(
       {
-        success: true,
-        fileId,
-        filename,
-        pages,
-        chunks: points.length,
-        characters: text.length,
+        error: err instanceof Error ? err.message : 'PDF ingestion failed.',
       },
-      { headers: corsHeaders }
-    );
-  } catch (err: any) {
-    console.error('[pdf-ingest] Fatal error:', err?.message);
-    return NextResponse.json(
-      { error: err?.message || 'PDF ingestion failed.' },
-      { status: 500, headers: corsHeaders }
+      { status: 500 }
     );
   }
 }
 
-// DELETE /api/ingest/pdf?fileId=xxx  — remove a PDF's vectors
+// DELETE /api/ingest/pdf?fileId=xxx
 export async function DELETE(req: NextRequest) {
   try {
     const userId = await getUserIdFromCookie();
+
     if (!userId) {
-      return NextResponse.json({ error: 'Not authenticated.' }, { status: 401, headers: corsHeaders });
+      return json({ error: 'Not authenticated.' }, { status: 401 });
     }
 
-    const { searchParams } = new URL(req.url);
-    const fileId = searchParams.get('fileId');
+    const fileId = new URL(req.url).searchParams.get('fileId');
 
     if (!fileId) {
-      return NextResponse.json({ error: 'fileId query param required.' }, { status: 400, headers: corsHeaders });
+      return json(
+        { error: 'fileId query param required.' },
+        { status: 400 }
+      );
     }
 
     await qdrant.delete(PDF_COLLECTION, {
@@ -151,8 +244,57 @@ export async function DELETE(req: NextRequest) {
       },
     });
 
-    return NextResponse.json({ success: true, deleted: fileId }, { headers: corsHeaders });
-  } catch (err: any) {
-    return NextResponse.json({ error: err?.message || 'Delete failed.' }, { status: 500, headers: corsHeaders });
+    const db = await getDb();
+
+    await db.collection('pdf_files').deleteOne({
+      fileId,
+      userId,
+    });
+
+    return json({
+      success: true,
+      deleted: fileId,
+    });
+  } catch (err: unknown) {
+    console.error('[pdf-ingest:delete]', err);
+
+    return json(
+      {
+        error: err instanceof Error ? err.message : 'Delete failed.',
+      },
+      { status: 500 }
+    );
   }
+}
+
+function textToMarkdown(raw: string): string {
+  return raw
+    .split('\n')
+    .map((line) => {
+      const t = line.trim();
+
+      if (!t) return '';
+
+      if (
+        t === t.toUpperCase() &&
+        t.length > 3 &&
+        t.length < 80 &&
+        /[A-Z]/.test(t)
+      ) {
+        return `## ${t}`;
+      }
+
+      if (/^[•·▪▸\-–]\s/.test(t)) {
+        return `- ${t.slice(2).trim()}`;
+      }
+
+      if (/^\d+\.\s/.test(t)) {
+        return t;
+      }
+
+      return t;
+    })
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }

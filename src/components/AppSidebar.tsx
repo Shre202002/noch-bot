@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Settings, Code2, BarChart3, User } from "lucide-react";
+import { LayoutDashboard, Settings, Code2, BarChart3, User, FileText } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -18,12 +18,12 @@ import {
 import { LogoIcon } from "./logo";
 
 const items = [
-  { title: "Overview", url: "/dashboard", icon: LayoutDashboard },
+  { title: "Overview",   url: "/dashboard",           icon: LayoutDashboard },
   { title: "Bot Config", url: "/dashboard/configure", icon: Settings },
   { title: "PDF RAG",    url: "/dashboard/pdf",       icon: FileText },
-  { title: "Embed Codes", url: "/dashboard/embed", icon: Code2 },
-  { title: "Analytics", url: "/dashboard/analytics", icon: BarChart3 },
-  { title: "Account", url: "/dashboard/account", icon: User },
+  { title: "Embed Codes",url: "/dashboard/embed",     icon: Code2 },
+  { title: "Analytics",  url: "/dashboard/analytics", icon: BarChart3 },
+  { title: "Account",    url: "/dashboard/account",   icon: User },
 ];
 
 export function AppSidebar() {
@@ -36,9 +36,14 @@ export function AppSidebar() {
       <SidebarHeader className="p-4">
         <Link href="/" className="flex items-center gap-2 bg-transparen">
           <LogoIcon className="h-6 w-6 bg-transparen" />
-          {!collapsed && <span className="text-lg font-bold text-sidebar-foreground uppercase tracking-tight">NOCHQ</span>}
+          {!collapsed && (
+            <span className="text-lg font-bold text-sidebar-foreground uppercase tracking-tight">
+              NOCHQ
+            </span>
+          )}
         </Link>
       </SidebarHeader>
+
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>Dashboard</SidebarGroupLabel>

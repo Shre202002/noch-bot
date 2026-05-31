@@ -1,5 +1,4 @@
 'use client';
-
 import { useState, useEffect, useRef } from 'react';
 import {
   FileText, Upload, Trash2, Link2, Copy, Check, ExternalLink,
@@ -22,26 +21,22 @@ type ShareLink = {
 };
 
 export default function PdfPage() {
-  // upload state
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [pdfLabel, setPdfLabel] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState('');
   const [uploadError, setUploadError] = useState('');
 
-  // list state
   const [uploadedPdfs, setUploadedPdfs] = useState<PdfFile[]>([]);
   const [selectedPdfId, setSelectedPdfId] = useState<string | null>(null);
   const [deletingPdfId, setDeletingPdfId] = useState<string | null>(null);
 
-  // chat state
   const [pdfChatMessages, setPdfChatMessages] = useState<Message[]>([]);
   const [pdfChatInput, setPdfChatInput] = useState('');
   const [pdfChatLoading, setPdfChatLoading] = useState(false);
   const [pdfChatTypingText, setPdfChatTypingText] = useState('');
   const [pdfChatIsTyping, setPdfChatIsTyping] = useState(false);
 
-  // share state
   const [shareLinks, setShareLinks] = useState<Record<string, ShareLink>>({});
   const [generatingLink, setGeneratingLink] = useState<string | null>(null);
   const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
@@ -55,7 +50,7 @@ export default function PdfPage() {
     fetch('/api/ingest/pdf')
       .then(r => r.json())
       .then(d => { if (d.files) setUploadedPdfs(d.files); })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   useEffect(() => {
@@ -73,14 +68,33 @@ export default function PdfPage() {
       formData.append('file', pdfFile);
       if (pdfLabel.trim()) formData.append('label', pdfLabel.trim());
 
-      const res = await fetch('/api/ingest/pdf', { method: 'POST', body: formData });
-      const data = await res.json();
+      const res = await fetch('/api/ingest/pdf', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const raw = await res.text();
+
+      let data: any;
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        throw new Error(raw || `Upload failed with status ${res.status}`);
+      }
 
       if (!res.ok || data.error) {
-        setUploadError(data.error || 'Upload failed');
+        setUploadError(data.error || `Upload failed with status ${res.status}`);
+        setUploadProgress('');
         return;
       }
 
+      if (!res.ok || data.error) {
+        setUploadError(data.error || 'Upload failed');
+        setUploadProgress('');
+        return;
+      }
+
+      // FIX: response field is chunkCount (not chunks)
       setUploadProgress(`✅ Done! ${data.chunkCount} chunks embedded.`);
 
       const listRes = await fetch('/api/ingest/pdf');
@@ -95,6 +109,7 @@ export default function PdfPage() {
       setTimeout(() => setUploadProgress(''), 4000);
     } catch (err: unknown) {
       setUploadError(err instanceof Error ? err.message : 'Unknown error');
+      setUploadProgress('');
     } finally {
       setUploading(false);
     }
@@ -137,14 +152,13 @@ export default function PdfPage() {
         body: JSON.stringify({
           message: userText,
           fileId: selectedPdfId ?? undefined,
-          history: newMessages.slice(0, -1),
         }),
       });
       const data = await res.json();
       setPdfChatLoading(false);
       setPdfChatIsTyping(true);
 
-      const fullResponse: string = data.text ?? data.answer ?? '';
+      const fullResponse: string = data.answer ?? data.text ?? '⚠️ No response.';
       let i = 0;
       const interval = setInterval(() => {
         setPdfChatTypingText(fullResponse.slice(0, i + 1));
@@ -169,14 +183,20 @@ export default function PdfPage() {
     setGeneratingLink(fileId);
     try {
       const pdf = uploadedPdfs.find(f => f.fileId === fileId);
-      const res = await fetch('/api/pdf-share', {
+      // FIX: correct API route is /api/pdf-links (not /api/pdf-share)
+      const res = await fetch('/api/pdf-links', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fileId, label: pdf?.label || pdf?.fileName || 'PDF Chat' }),
+        body: JSON.stringify({
+          fileId,
+          filename: pdf?.fileName || 'document.pdf',
+          label: pdf?.label || pdf?.fileName || 'PDF Chat',
+        }),
       });
       const data = await res.json();
       if (data.slug) {
-        const shareUrl = `${baseUrl}/pdf/${data.slug}`;
+        // FIX: correct public path is /pdf-chat/[slug]
+        const shareUrl = `${baseUrl}/pdf-chat/${data.slug}`;
         setShareLinks(prev => ({
           ...prev,
           [fileId]: { slug: data.slug, label: pdf?.label ?? '', url: shareUrl },
@@ -221,10 +241,9 @@ export default function PdfPage() {
         </p>
       </div>
 
-      {/* ── Three-column layout ── */}
       <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: 20, alignItems: 'start' }}>
 
-        {/* LEFT COLUMN */}
+        {/* LEFT — Upload + PDF list */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, animation: 'fadeIn 0.2s ease' }}>
 
           {/* Upload card */}
@@ -249,18 +268,11 @@ export default function PdfPage() {
                 background: pdfFile ? '#0d2420' : 'transparent',
               }}
             >
-              <FileText
-                className="h-7 w-7 mx-auto mb-2"
-                style={{ color: pdfFile ? '#36f4a4' : '#4a4e56' }}
-              />
+              <FileText className="h-7 w-7 mx-auto mb-2" style={{ color: pdfFile ? '#36f4a4' : '#4a4e56' }} />
               {pdfFile ? (
                 <>
-                  <div style={{ fontSize: 13, color: '#36f4a4', fontWeight: 500, wordBreak: 'break-all' }}>
-                    {pdfFile.name}
-                  </div>
-                  <div style={{ fontSize: 11, color: '#7d8187', marginTop: 3 }}>
-                    {(pdfFile.size / 1024 / 1024).toFixed(2)} MB · click to change
-                  </div>
+                  <div style={{ fontSize: 13, color: '#36f4a4', fontWeight: 500, wordBreak: 'break-all' }}>{pdfFile.name}</div>
+                  <div style={{ fontSize: 11, color: '#7d8187', marginTop: 3 }}>{(pdfFile.size / 1024 / 1024).toFixed(2)} MB · click to change</div>
                 </>
               ) : (
                 <>
@@ -268,35 +280,30 @@ export default function PdfPage() {
                   <div style={{ fontSize: 11, color: '#4a4e56', marginTop: 3 }}>Max 10 MB · PDF only</div>
                 </>
               )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="application/pdf"
-                style={{ display: 'none' }}
-                onChange={e => { const f = e.target.files?.[0]; if (f) setPdfFile(f); }}
-              />
+              <input ref={fileInputRef} type="file" accept="application/pdf" style={{ display: 'none' }}
+                onChange={e => { const f = e.target.files?.[0]; if (f) setPdfFile(f); }} />
             </div>
 
-            <input
-              value={pdfLabel}
-              onChange={e => setPdfLabel(e.target.value)}
-              placeholder="Label (optional)"
-              style={{
-                background: '#0a0a0a', border: '1px solid #2a2d35', borderRadius: 8,
-                padding: '9px 12px', color: '#fff', fontSize: 13, outline: 'none', width: '100%',
-                boxSizing: 'border-box',
-              }}
-            />
+            <input value={pdfLabel} onChange={e => setPdfLabel(e.target.value)} placeholder="Label (optional)"
+              style={{ background: '#0a0a0a', border: '1px solid #2a2d35', borderRadius: 8, padding: '9px 12px', color: '#fff', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box' }} />
 
             <button
+              type="button"
               onClick={handlePdfUpload}
               disabled={!pdfFile || uploading}
               style={{
                 background: !pdfFile || uploading ? '#2a2d35' : '#36f4a4',
                 color: !pdfFile || uploading ? '#7d8187' : '#000',
-                border: 'none', borderRadius: 9999, padding: '10px 0',
-                fontWeight: 600, fontSize: 13, cursor: !pdfFile || uploading ? 'not-allowed' : 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                border: 'none',
+                borderRadius: 9999,
+                padding: '10px 0',
+                fontWeight: 600,
+                fontSize: 13,
+                cursor: !pdfFile || uploading ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
               }}
             >
               {uploading
@@ -305,11 +312,7 @@ export default function PdfPage() {
             </button>
 
             {uploadProgress && (
-              <div style={{
-                fontFamily: 'monospace', fontSize: 12,
-                color: uploadProgress.startsWith('✅') ? '#36f4a4' : '#7d8187',
-                padding: '8px 10px', background: '#0a0a0a', borderRadius: 8, border: '1px solid #2a2d35',
-              }}>
+              <div style={{ fontFamily: 'monospace', fontSize: 12, color: uploadProgress.startsWith('✅') ? '#36f4a4' : '#7d8187', padding: '8px 10px', background: '#0a0a0a', borderRadius: 8, border: '1px solid #2a2d35' }}>
                 {uploadProgress}
               </div>
             )}
@@ -327,46 +330,25 @@ export default function PdfPage() {
             </div>
 
             {uploadedPdfs.length === 0 ? (
-              <div style={{
-                background: '#1f2228', border: '1px solid #2a2d35', borderRadius: 12,
-                padding: '28px 16px', textAlign: 'center', color: '#4a4e56', fontSize: 13,
-              }}>
+              <div style={{ background: '#1f2228', border: '1px solid #2a2d35', borderRadius: 12, padding: '28px 16px', textAlign: 'center', color: '#4a4e56', fontSize: 13 }}>
                 No PDFs yet
               </div>
             ) : (
               uploadedPdfs.map(pdf => (
-                <div
-                  key={pdf.fileId}
-                  className="pdf-card"
+                <div key={pdf.fileId} className="pdf-card"
                   onClick={() => { setSelectedPdfId(pdf.fileId); setPdfChatMessages([]); }}
-                  style={{
-                    background: selectedPdfId === pdf.fileId ? '#0d2420' : '#1f2228',
-                    border: `1px solid ${selectedPdfId === pdf.fileId ? '#36f4a4' : '#2a2d35'}`,
-                    borderRadius: 12, padding: 14, cursor: 'pointer', transition: 'all 0.15s',
-                  }}
-                >
-                  {/* Title row */}
+                  style={{ background: selectedPdfId === pdf.fileId ? '#0d2420' : '#1f2228', border: `1px solid ${selectedPdfId === pdf.fileId ? '#36f4a4' : '#2a2d35'}`, borderRadius: 12, padding: 14, cursor: 'pointer', transition: 'all 0.15s' }}>
+
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                      <FileText
-                        className="h-4 w-4 flex-shrink-0"
-                        style={{ color: selectedPdfId === pdf.fileId ? '#36f4a4' : '#7d8187' }}
-                      />
+                      <FileText className="h-4 w-4 flex-shrink-0" style={{ color: selectedPdfId === pdf.fileId ? '#36f4a4' : '#7d8187' }} />
                       <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 13, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {pdf.label || pdf.fileName}
-                        </div>
-                        <div style={{ fontSize: 11, color: '#7d8187', marginTop: 2 }}>
-                          {pdf.chunkCount} chunks
-                        </div>
+                        <div style={{ fontSize: 13, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pdf.label || pdf.fileName}</div>
+                        <div style={{ fontSize: 11, color: '#7d8187', marginTop: 2 }}>{pdf.chunkCount} chunks</div>
                       </div>
                     </div>
-                    <button
-                      className="del-btn"
-                      onClick={e => { e.stopPropagation(); deletePdf(pdf.fileId); }}
-                      disabled={deletingPdfId === pdf.fileId}
-                      style={{ background: 'transparent', border: 'none', color: '#4a4e56', cursor: 'pointer', padding: 4, flexShrink: 0 }}
-                    >
+                    <button className="del-btn" onClick={e => { e.stopPropagation(); deletePdf(pdf.fileId); }} disabled={deletingPdfId === pdf.fileId}
+                      style={{ background: 'transparent', border: 'none', color: '#4a4e56', cursor: 'pointer', padding: 4, flexShrink: 0 }}>
                       {deletingPdfId === pdf.fileId
                         ? <span style={{ width: 12, height: 12, border: '1.5px solid #7d8187', borderTopColor: '#ef4444', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }} />
                         : <Trash2 className="h-3.5 w-3.5" />}
@@ -374,48 +356,23 @@ export default function PdfPage() {
                   </div>
 
                   {/* Share row */}
-                  <div
-                    style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #2a2d35' }}
-                    onClick={e => e.stopPropagation()}
-                  >
+                  <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #2a2d35' }} onClick={e => e.stopPropagation()}>
                     {shareLinks[pdf.fileId] ? (
                       <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                        <div style={{
-                          flex: 1, fontSize: 11, color: '#36f4a4', overflow: 'hidden',
-                          textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'monospace',
-                        }}>
+                        <div style={{ flex: 1, fontSize: 11, color: '#36f4a4', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>
                           {shareLinks[pdf.fileId].url}
                         </div>
-                        <button
-                          onClick={() => copyShareLink(pdf.fileId)}
-                          title="Copy link"
-                          style={{ background: 'transparent', border: 'none', color: copiedLinkId === pdf.fileId ? '#36f4a4' : '#7d8187', cursor: 'pointer', padding: 2, flexShrink: 0 }}
-                        >
-                          {copiedLinkId === pdf.fileId
-                            ? <Check className="h-3.5 w-3.5" />
-                            : <Copy className="h-3.5 w-3.5" />}
+                        <button onClick={() => copyShareLink(pdf.fileId)} title="Copy link"
+                          style={{ background: 'transparent', border: 'none', color: copiedLinkId === pdf.fileId ? '#36f4a4' : '#7d8187', cursor: 'pointer', padding: 2, flexShrink: 0 }}>
+                          {copiedLinkId === pdf.fileId ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                         </button>
-                        <a
-                          href={shareLinks[pdf.fileId].url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{ color: '#7d8187', display: 'flex' }}
-                        >
+                        <a href={shareLinks[pdf.fileId].url} target="_blank" rel="noopener noreferrer" style={{ color: '#7d8187', display: 'flex' }}>
                           <ExternalLink className="h-3.5 w-3.5" />
                         </a>
                       </div>
                     ) : (
-                      <button
-                        onClick={() => generateShareLink(pdf.fileId)}
-                        disabled={generatingLink === pdf.fileId}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: 6,
-                          background: 'transparent', border: '1px solid #2a2d35',
-                          borderRadius: 9999, padding: '4px 10px',
-                          color: '#7d8187', fontSize: 11, cursor: 'pointer',
-                          width: '100%', justifyContent: 'center',
-                        }}
-                      >
+                      <button onClick={() => generateShareLink(pdf.fileId)} disabled={generatingLink === pdf.fileId}
+                        style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', border: '1px solid #2a2d35', borderRadius: 9999, padding: '4px 10px', color: '#7d8187', fontSize: 11, cursor: 'pointer', width: '100%', justifyContent: 'center' }}>
                         {generatingLink === pdf.fileId
                           ? <><span style={{ width: 10, height: 10, border: '1.5px solid #7d8187', borderTopColor: '#36f4a4', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }} /> Generating...</>
                           : <><Link2 className="h-3 w-3" /> Generate Share Link</>}
@@ -428,26 +385,16 @@ export default function PdfPage() {
           </div>
         </div>
 
-        {/* RIGHT COLUMN — Chat */}
+        {/* RIGHT — Chat */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, animation: 'fadeIn 0.25s ease' }}>
           <div style={{ fontSize: 11, color: '#7d8187', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
             Test Chat{selectedPdf ? ` — ${selectedPdf.label || selectedPdf.fileName}` : ''}
           </div>
 
-          <div style={{
-            background: '#1f2228', border: '1px solid #2a2d35', borderRadius: 14,
-            overflow: 'hidden', display: 'flex', flexDirection: 'column', height: 560,
-          }}>
+          <div style={{ background: '#1f2228', border: '1px solid #2a2d35', borderRadius: 14, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: 560 }}>
             {/* Chat header */}
-            <div style={{
-              background: '#161a1f', borderBottom: '1px solid #2a2d35',
-              padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 12,
-            }}>
-              <div style={{
-                width: 34, height: 34, borderRadius: 10,
-                background: '#36f4a420', border: '1px solid #36f4a430',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
+            <div style={{ background: '#161a1f', borderBottom: '1px solid #2a2d35', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ width: 34, height: 34, borderRadius: 10, background: '#36f4a420', border: '1px solid #36f4a430', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <FileText className="h-4 w-4 text-[#36f4a4]" />
               </div>
               <div>
@@ -455,42 +402,26 @@ export default function PdfPage() {
                   {selectedPdf ? (selectedPdf.label || selectedPdf.fileName) : 'PDF Assistant'}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#7d8187' }}>
-                  <div style={{
-                    width: 6, height: 6, borderRadius: '50%',
-                    background: selectedPdfId ? '#36f4a4' : '#4a4e56',
-                  }} />
+                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: selectedPdfId ? '#36f4a4' : '#4a4e56' }} />
                   {selectedPdfId ? 'Ready' : 'No PDF selected'}
                 </div>
               </div>
             </div>
 
             {/* Messages */}
-            <div style={{
-              flex: 1, overflowY: 'auto', padding: '20px 20px 10px',
-              display: 'flex', flexDirection: 'column', gap: 12,
-            }}>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '20px 20px 10px', display: 'flex', flexDirection: 'column', gap: 12 }}>
               {!selectedPdfId ? (
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, color: '#4a4e56' }}>
                   <FileText className="h-12 w-12" style={{ opacity: 0.3 }} />
-                  <div style={{ fontSize: 14, textAlign: 'center' }}>
-                    Select a PDF from the left<br />to start chatting with it
-                  </div>
+                  <div style={{ fontSize: 14, textAlign: 'center' }}>Select a PDF from the left<br />to start chatting with it</div>
                 </div>
               ) : pdfChatMessages.length === 0 && !pdfChatLoading && !pdfChatIsTyping ? (
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, color: '#4a4e56' }}>
                   <div style={{ fontSize: 13 }}>Ask anything about this PDF...</div>
-                  {/* Suggestion chips */}
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginTop: 8 }}>
                     {['Summarize this document', 'What are the key points?', 'List the main topics'].map(s => (
-                      <button
-                        key={s}
-                        onClick={() => { setPdfChatInput(s); }}
-                        style={{
-                          background: '#2a2d35', border: '1px solid #3a3d45',
-                          borderRadius: 9999, padding: '6px 14px', color: '#7d8187',
-                          fontSize: 12, cursor: 'pointer',
-                        }}
-                      >
+                      <button key={s} onClick={() => setPdfChatInput(s)}
+                        style={{ background: '#2a2d35', border: '1px solid #3a3d45', borderRadius: 9999, padding: '6px 14px', color: '#7d8187', fontSize: 12, cursor: 'pointer' }}>
                         {s}
                       </button>
                     ))}
@@ -500,29 +431,18 @@ export default function PdfPage() {
                 <>
                   {pdfChatMessages.map((msg, i) => (
                     <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
-                      <div style={{
-                        maxWidth: '78%', padding: '10px 14px',
-                        borderRadius: msg.role === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-                        background: msg.role === 'user' ? '#36f4a4' : '#0a0a0a',
-                        color: msg.role === 'user' ? '#000' : '#e8eaed',
-                        fontSize: 13, lineHeight: 1.6,
-                        border: msg.role === 'assistant' ? '1px solid #2a2d35' : 'none',
-                      }}>
+                      <div style={{ maxWidth: '78%', padding: '10px 14px', borderRadius: msg.role === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px', background: msg.role === 'user' ? '#36f4a4' : '#0a0a0a', color: msg.role === 'user' ? '#000' : '#e8eaed', fontSize: 13, lineHeight: 1.6, border: msg.role === 'assistant' ? '1px solid #2a2d35' : 'none' }}>
                         {msg.content}
                       </div>
                     </div>
                   ))}
-
                   {pdfChatLoading && !pdfChatIsTyping && (
                     <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
                       <div style={{ padding: '10px 14px', borderRadius: '18px 18px 18px 4px', background: '#0a0a0a', border: '1px solid #2a2d35', display: 'flex', gap: 4 }}>
-                        {[0, 1, 2].map(j => (
-                          <span key={j} style={{ width: 6, height: 6, borderRadius: '50%', background: '#7d8187', display: 'inline-block', animation: `typingBounce 1.2s infinite ${j * 0.2}s` }} />
-                        ))}
+                        {[0, 1, 2].map(j => <span key={j} style={{ width: 6, height: 6, borderRadius: '50%', background: '#7d8187', display: 'inline-block', animation: `typingBounce 1.2s infinite ${j * 0.2}s` }} />)}
                       </div>
                     </div>
                   )}
-
                   {pdfChatIsTyping && (
                     <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
                       <div style={{ maxWidth: '78%', padding: '10px 14px', borderRadius: '18px 18px 18px 4px', background: '#0a0a0a', color: '#e8eaed', fontSize: 13, lineHeight: 1.6, border: '1px solid #2a2d35' }}>
@@ -538,28 +458,12 @@ export default function PdfPage() {
 
             {/* Input */}
             <div style={{ borderTop: '1px solid #2a2d35', padding: 16, display: 'flex', gap: 10 }}>
-              <input
-                value={pdfChatInput}
-                onChange={e => setPdfChatInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && sendPdfChatMessage()}
+              <input value={pdfChatInput} onChange={e => setPdfChatInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendPdfChatMessage()}
                 placeholder={selectedPdfId ? 'Ask about the PDF...' : 'Select a PDF first'}
                 disabled={!selectedPdfId || pdfChatLoading}
-                style={{
-                  flex: 1, background: '#0a0a0a', border: '1px solid #2a2d35',
-                  borderRadius: 10, padding: '11px 14px', color: '#fff', fontSize: 13, outline: 'none',
-                }}
-              />
-              <button
-                onClick={sendPdfChatMessage}
-                disabled={!selectedPdfId || !pdfChatInput.trim() || pdfChatLoading}
-                style={{
-                  background: '#36f4a4', color: '#000', border: 'none',
-                  borderRadius: 10, padding: '11px 22px', fontWeight: 600, fontSize: 13,
-                  cursor: !selectedPdfId || pdfChatLoading ? 'not-allowed' : 'pointer',
-                  opacity: !selectedPdfId || pdfChatLoading ? 0.4 : 1,
-                  transition: 'opacity 0.15s',
-                }}
-              >
+                style={{ flex: 1, background: '#0a0a0a', border: '1px solid #2a2d35', borderRadius: 10, padding: '11px 14px', color: '#fff', fontSize: 13, outline: 'none' }} />
+              <button onClick={sendPdfChatMessage} disabled={!selectedPdfId || !pdfChatInput.trim() || pdfChatLoading}
+                style={{ background: '#36f4a4', color: '#000', border: 'none', borderRadius: 10, padding: '11px 22px', fontWeight: 600, fontSize: 13, cursor: !selectedPdfId || pdfChatLoading ? 'not-allowed' : 'pointer', opacity: !selectedPdfId || pdfChatLoading ? 0.4 : 1, transition: 'opacity 0.15s' }}>
                 Send
               </button>
             </div>
@@ -571,12 +475,9 @@ export default function PdfPage() {
               ['📤 Upload', 'PDF parsed into 300-word chunks'],
               ['🧠 Embed', 'Gemini vectors → Qdrant'],
               ['💬 Chat', 'Top-6 chunks retrieved → Groq answers'],
-              ['🔗 Share', 'Public /pdf/[slug] URL'],
+              ['🔗 Share', 'Public /pdf-chat/[slug] URL'],
             ].map(([title, desc]) => (
-              <div key={title} style={{
-                flex: 1, minWidth: 120, background: '#1f2228', border: '1px solid #2a2d35',
-                borderRadius: 10, padding: '10px 14px',
-              }}>
+              <div key={title} style={{ flex: 1, minWidth: 120, background: '#1f2228', border: '1px solid #2a2d35', borderRadius: 10, padding: '10px 14px' }}>
                 <div style={{ fontSize: 12, color: '#36f4a4', fontWeight: 600, marginBottom: 3 }}>{title}</div>
                 <div style={{ fontSize: 11, color: '#7d8187', lineHeight: 1.4 }}>{desc}</div>
               </div>

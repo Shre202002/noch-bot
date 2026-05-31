@@ -1,12 +1,3 @@
-/**
- * @fileOverview PDF parsing utility using pdf-parse.
- */
-
-// pdf-parse is CommonJS and has no ESM default export.
-// Using require() avoids the "Export default doesn't exist" Turbopack error.
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdfParse = require('pdf-parse');
-
 export interface ParsedPDF {
   text: string;
   pageCount: number;
@@ -21,17 +12,20 @@ export interface PDFChunk {
 
 /** Parse a PDF Buffer into raw text + metadata */
 export async function parsePDF(buffer: Buffer): Promise<ParsedPDF> {
-  const result = await pdfParse(buffer, { max: 0 }); // max:0 = parse all pages
+  const { extractText } = await import('unpdf');
+
+  const uint8 = new Uint8Array(buffer);
+  const { text, totalPages } = await extractText(uint8, { mergePages: true });
+
   return {
-    text: result.text,
-    pageCount: result.numpages,
-    info: result.info ?? {},
+    text: typeof text === 'string' ? text : text.join('\n'),
+    pageCount: totalPages,
+    info: {},
   };
 }
 
 /** Split text into ~300-word overlapping chunks */
 export function chunkText(text: string, wordsPerChunk = 300, overlapWords = 30): PDFChunk[] {
-  // Normalise whitespace
   const words = text.replace(/\s+/g, ' ').trim().split(' ').filter(Boolean);
 
   if (words.length === 0) return [];
@@ -41,17 +35,15 @@ export function chunkText(text: string, wordsPerChunk = 300, overlapWords = 30):
 
   while (start < words.length) {
     const end = Math.min(start + wordsPerChunk, words.length);
-    const chunkWords = words.slice(start, end);
     chunks.push({
-      text: chunkWords.join(' '),
+      text: words.slice(start, end).join(' '),
       chunkIndex: chunks.length,
-      totalChunks: 0, // filled in below
+      totalChunks: 0,
     });
     if (end >= words.length) break;
     start += wordsPerChunk - overlapWords;
   }
 
-  // Back-fill totalChunks
   const total = chunks.length;
   chunks.forEach(c => { c.totalChunks = total; });
 
