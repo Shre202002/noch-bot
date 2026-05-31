@@ -19,7 +19,8 @@ import {
   HelpCircle,
   User,
   LogOut,
-  Code2
+  Code2,
+  FileText,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -79,14 +80,15 @@ const Sidebar = ({ user }: { user?: any }) => {
     { icon: Bot, title: "Bot Config", href: "/dashboard/configure" },
     { icon: Code2, title: "Embed Codes", href: "/dashboard/embed" },
     { icon: BarChart3, title: "Analytics", href: "/dashboard/analytics" },
+    { icon: FileText, title: "PDF RAG", href: "/dashboard/pdf" },  // ← ADD
+    { icon: TrendingUp, title: "PDF Analytics", href: "/dashboard/pdf-analytics" },
     { icon: MessageSquare, title: "History", href: "/dashboard/history", notifs: 4 },
   ];
 
   return (
     <nav
-      className={`sticky top-0 h-screen shrink-0 border-r border-border transition-all duration-300 ease-in-out hidden md:flex flex-col ${
-        open ? 'w-64' : 'w-20'
-      } bg-card p-4 shadow-sm z-50`}
+      className={`sticky top-0 h-screen shrink-0 border-r border-border transition-all duration-300 ease-in-out hidden md:flex flex-col ${open ? 'w-64' : 'w-20'
+        } bg-card p-4 shadow-sm z-50`}
     >
       <TitleSection open={open} user={user} />
 
@@ -113,8 +115,8 @@ const Sidebar = ({ user }: { user?: any }) => {
           open={open}
         />
         <button
-           onClick={handleLogout}
-           className={`flex h-11 w-full items-center rounded-xl transition-all duration-200 text-muted-foreground hover:bg-destructive/10 hover:text-destructive group cursor-pointer`}
+          onClick={handleLogout}
+          className={`flex h-11 w-full items-center rounded-xl transition-all duration-200 text-muted-foreground hover:bg-destructive/10 hover:text-destructive group cursor-pointer`}
         >
           <div className="grid h-full w-12 place-content-center">
             <LogOut className="h-5 w-5" />
@@ -132,16 +134,15 @@ const SidebarOption = ({ Icon, title, href, selected, open, notifs }: any) => {
   return (
     <Link
       href={href}
-      className={`relative flex h-11 w-full items-center rounded-xl transition-all duration-200 ${
-        selected 
-          ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" 
-          : "text-muted-foreground hover:bg-accent hover:text-foreground"
-      }`}
+      className={`relative flex h-11 w-full items-center rounded-xl transition-all duration-200 ${selected
+        ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
+        : "text-muted-foreground hover:bg-accent hover:text-foreground"
+        }`}
     >
       <div className="grid h-full w-12 place-content-center">
         <Icon className="h-5 w-5" />
       </div>
-      
+
       {open && (
         <span className="text-sm font-medium whitespace-nowrap">
           {title}
@@ -162,17 +163,17 @@ const TitleSection = ({ open, user }: { open: boolean, user?: any }) => {
     <div className="mb-4">
       <div className="flex items-center gap-3 p-2">
         <div className="grid size-10 shrink-0 place-content-center rounded-xl bg-white shadow-sm overflow-hidden relative">
-           <div className="absolute inset-0 bg-[radial-gradient(circle,rgba(255,255,255,0.2)_0%,transparent_70%)]" />
-           <LogoIcon className="h-6 w-auto relative z-10" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle,rgba(255,255,255,0.2)_0%,transparent_70%)]" />
+          <LogoIcon className="h-6 w-auto relative z-10" />
         </div>
         {open && (
           <div className="flex-1 overflow-hidden">
-             <span className="block text-sm font-bold tracking-tight uppercase truncate">
-               NOCHBOT
-             </span>
-             <span className="block text-[10px] text-muted-foreground uppercase font-semibold">
-               {user?.plan || 'Free'} Plan
-             </span>
+            <span className="block text-sm font-bold tracking-tight uppercase truncate">
+              NOCHBOT
+            </span>
+            <span className="block text-[10px] text-muted-foreground uppercase font-semibold">
+              {user?.plan || 'Free'} Plan
+            </span>
           </div>
         )}
       </div>
@@ -189,9 +190,8 @@ const ToggleClose = ({ open, setOpen }: any) => {
       <div className="flex items-center p-3">
         <div className="grid size-10 place-content-center">
           <ChevronsRight
-            className={`h-4 w-4 transition-transform duration-300 text-muted-foreground ${
-              open ? "rotate-180" : ""
-            }`}
+            className={`h-4 w-4 transition-transform duration-300 text-muted-foreground ${open ? "rotate-180" : ""
+              }`}
           />
         </div>
         {open && (
@@ -206,7 +206,7 @@ const ToggleClose = ({ open, setOpen }: any) => {
 
 const DashboardHeader = ({ isDark, setIsDark, user }: any) => {
   const router = useRouter();
-  
+
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
     router.push('/');
@@ -236,16 +236,16 @@ const DashboardHeader = ({ isDark, setIsDark, user }: any) => {
           <PopoverTrigger asChild>
             <button className="flex items-center gap-3 pl-2 group cursor-pointer outline-none">
               <div className="text-right hidden sm:block">
-                 <p className="text-xs font-bold text-foreground leading-none group-hover:text-primary transition-colors">{user?.name || user?.email?.split('@')[0] || 'User'}</p>
-                 <p className="text-[10px] text-muted-foreground mt-1 uppercase tracking-tighter">Account Menu</p>
+                <p className="text-xs font-bold text-foreground leading-none group-hover:text-primary transition-colors">{user?.name || user?.email?.split('@')[0] || 'User'}</p>
+                <p className="text-[10px] text-muted-foreground mt-1 uppercase tracking-tighter">Account Menu</p>
               </div>
               <div className="h-9 w-9 rounded-xl bg-primary/20 flex items-center justify-center border border-primary/20 text-primary font-bold group-hover:scale-105 transition-transform">
-                 <Avatar className="h-full w-full rounded-xl">
-                   <AvatarImage src={user?.avatar} />
-                   <AvatarFallback className="bg-transparent text-primary font-bold">
-                     {user?.email?.charAt(0).toUpperCase()}
-                   </AvatarFallback>
-                 </Avatar>
+                <Avatar className="h-full w-full rounded-xl">
+                  <AvatarImage src={user?.avatar} />
+                  <AvatarFallback className="bg-transparent text-primary font-bold">
+                    {user?.email?.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
               </div>
             </button>
           </PopoverTrigger>
@@ -276,8 +276,8 @@ const DashboardHeader = ({ isDark, setIsDark, user }: any) => {
               </Button>
             </PopoverBody>
             <PopoverFooter className="py-2 border-t border-border">
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 className="w-full justify-start text-xs h-9 text-destructive hover:bg-destructive/10 hover:text-destructive cursor-pointer"
                 onClick={handleLogout}
               >

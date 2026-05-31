@@ -4,6 +4,9 @@ import {
   FileText, Upload, Trash2, Link2, Copy, Check, ExternalLink,
 } from 'lucide-react';
 
+// ADD this after the lucide-react import
+import ReactMarkdown from 'react-markdown';
+
 type Message = { role: 'user' | 'assistant'; content: string };
 
 type PdfFile = {
@@ -44,18 +47,57 @@ export default function PdfPage() {
   const [baseUrl, setBaseUrl] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pdfChatBottomRef = useRef<HTMLDivElement>(null);
+  const [autoScroll, setAutoScroll] = useState(true);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const [abortController, setAbortController] = useState<AbortController | null>(null);
+  // 1. Auto-scroll when content changes
+  useEffect(() => {
+    if (autoScroll) {
+      pdfChatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [pdfChatMessages, pdfChatTypingText, pdfChatIsTyping, autoScroll]);
+
+  // 2. Detect manual scroll up/down
+  useEffect(() => {
+    const container = chatContainerRef.current;
+    if (!container) return;
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      setAutoScroll(scrollHeight - scrollTop - clientHeight < 80);
+    };
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // 3. Re-enable auto-scroll when new generation starts
+  useEffect(() => {
+    if (pdfChatLoading) setAutoScroll(true);
+  }, [pdfChatLoading]);
+
+  // ── Fetch PDFs on mount + when user navigates back ──────────────────────────
+  const fetchPdfs = async () => {
+    try {
+      const res = await fetch('/api/ingest/pdf');
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.files) setUploadedPdfs(data.files);
+    } catch {
+      // silent fail
+    }
+  };
 
   useEffect(() => {
     setBaseUrl(window.location.origin);
-    fetch('/api/ingest/pdf')
-      .then(r => r.json())
-      .then(d => { if (d.files) setUploadedPdfs(d.files); })
-      .catch(() => { });
+    fetchPdfs();
   }, []);
 
   useEffect(() => {
-    pdfChatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [pdfChatMessages, pdfChatIsTyping]);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') fetchPdfs();
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
 
   // ── Upload ──────────────────────────────────────────────────────────────────
   const handlePdfUpload = async () => {
@@ -144,6 +186,10 @@ export default function PdfPage() {
     setPdfChatMessages(newMessages);
     setPdfChatInput('');
     setPdfChatLoading(true);
+    setAutoScroll(true);
+
+    const controller = new AbortController();
+    setAbortController(controller);
 
     try {
       const res = await fetch('/api/chat/pdf', {
@@ -153,26 +199,51 @@ export default function PdfPage() {
           message: userText,
           fileId: selectedPdfId ?? undefined,
         }),
+        signal: controller.signal,  // ← attach abort signal
       });
+
       const data = await res.json();
       setPdfChatLoading(false);
       setPdfChatIsTyping(true);
 
       const fullResponse: string = data.answer ?? data.text ?? '⚠️ No response.';
       let i = 0;
+
       const interval = setInterval(() => {
+        // Check if aborted mid-typing
+        if (controller.signal.aborted) {
+          clearInterval(interval);
+          // Save whatever was typed so far as the final message
+          setPdfChatMessages(prev => [
+            ...prev,
+            { role: 'assistant', content: fullResponse.slice(0, i) + ' ▋' },
+          ]);
+          setPdfChatTypingText('');
+          setPdfChatIsTyping(false);
+          return;
+        }
+
         setPdfChatTypingText(fullResponse.slice(0, i + 1));
         i++;
+
         if (i >= fullResponse.length) {
           clearInterval(interval);
           setPdfChatMessages([...newMessages, { role: 'assistant', content: fullResponse }]);
           setPdfChatTypingText('');
           setPdfChatIsTyping(false);
+          setAbortController(null);
         }
       }, 12);
+
     } catch (err: unknown) {
       setPdfChatLoading(false);
       setPdfChatIsTyping(false);
+      setAbortController(null);
+
+      // Don't show error if user intentionally stopped
+      if (err instanceof Error && err.name === 'AbortError') {
+        return;
+      }
       const msg = err instanceof Error ? err.message : 'Unknown error';
       setPdfChatMessages([...newMessages, { role: 'assistant', content: '⚠️ Error: ' + msg }]);
     }
@@ -217,6 +288,59 @@ export default function PdfPage() {
 
   const selectedPdf = uploadedPdfs.find(f => f.fileId === selectedPdfId);
 
+  // ADD this just before: return (
+  const mdComponents = {
+    h2: ({ children }: any) => (
+      <h2 style={{ fontSize: 15, fontWeight: 700, color: '#36f4a4', margin: '12px 0 6px 0' }}>{children}</h2>
+    ),
+    h3: ({ children }: any) => (
+      <h3 style={{ fontSize: 13, fontWeight: 600, color: '#a8f0d0', margin: '10px 0 4px 0' }}>{children}</h3>
+    ),
+    p: ({ children }: any) => (
+      <p style={{ margin: '4px 0', lineHeight: 1.7 }}>{children}</p>
+    ),
+    strong: ({ children }: any) => (
+      <strong style={{ color: '#fff', fontWeight: 700 }}>{children}</strong>
+    ),
+    ul: ({ children }: any) => (
+      <ul style={{ paddingLeft: 18, margin: '6px 0' }}>{children}</ul>
+    ),
+    ol: ({ children }: any) => (
+      <ol style={{ paddingLeft: 18, margin: '6px 0' }}>{children}</ol>
+    ),
+    li: ({ children }: any) => (
+      <li style={{ margin: '3px 0', lineHeight: 1.6 }}>{children}</li>
+    ),
+    table: ({ children }: any) => (
+      <div style={{ overflowX: 'auto', margin: '10px 0' }}>
+        <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 12 }}>{children}</table>
+      </div>
+    ),
+    thead: ({ children }: any) => (
+      <thead style={{ background: '#36f4a420' }}>{children}</thead>
+    ),
+    th: ({ children }: any) => (
+      <th style={{ border: '1px solid #36f4a440', padding: '6px 10px', color: '#36f4a4', fontWeight: 600, textAlign: 'left' }}>{children}</th>
+    ),
+    td: ({ children }: any) => (
+      <td style={{ border: '1px solid #2a2d35', padding: '6px 10px', color: '#e8eaed' }}>{children}</td>
+    ),
+    blockquote: ({ children }: any) => (
+      <blockquote style={{ borderLeft: '3px solid #36f4a4', paddingLeft: 12, margin: '8px 0', color: '#a8f0d0', fontStyle: 'italic' }}>{children}</blockquote>
+    ),
+    code: ({ children }: any) => (
+      <code style={{ background: '#0a0a0a', border: '1px solid #2a2d35', borderRadius: 4, padding: '1px 6px', fontSize: 12, color: '#36f4a4', fontFamily: 'monospace' }}>{children}</code>
+    ),
+    hr: () => (
+      <hr style={{ border: 'none', borderTop: '1px solid #2a2d35', margin: '10px 0' }} />
+    ),
+  };
+
+  const stopResponse = () => {
+    abortController?.abort();
+    setAbortController(null);
+    setPdfChatLoading(false);
+  };
   return (
     <div style={{ padding: '32px 40px', maxWidth: 1100, margin: '0 auto' }}>
       <style>{`
@@ -409,50 +533,54 @@ export default function PdfPage() {
             </div>
 
             {/* Messages */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '20px 20px 10px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {!selectedPdfId ? (
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, color: '#4a4e56' }}>
-                  <FileText className="h-12 w-12" style={{ opacity: 0.3 }} />
-                  <div style={{ fontSize: 14, textAlign: 'center' }}>Select a PDF from the left<br />to start chatting with it</div>
-                </div>
-              ) : pdfChatMessages.length === 0 && !pdfChatLoading && !pdfChatIsTyping ? (
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, color: '#4a4e56' }}>
-                  <div style={{ fontSize: 13 }}>Ask anything about this PDF...</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginTop: 8 }}>
-                    {['Summarize this document', 'What are the key points?', 'List the main topics'].map(s => (
-                      <button key={s} onClick={() => setPdfChatInput(s)}
-                        style={{ background: '#2a2d35', border: '1px solid #3a3d45', borderRadius: 9999, padding: '6px 14px', color: '#7d8187', fontSize: 12, cursor: 'pointer' }}>
-                        {s}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <>
-                  {pdfChatMessages.map((msg, i) => (
-                    <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
-                      <div style={{ maxWidth: '78%', padding: '10px 14px', borderRadius: msg.role === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px', background: msg.role === 'user' ? '#36f4a4' : '#0a0a0a', color: msg.role === 'user' ? '#000' : '#e8eaed', fontSize: 13, lineHeight: 1.6, border: msg.role === 'assistant' ? '1px solid #2a2d35' : 'none' }}>
-                        {msg.content}
-                      </div>
-                    </div>
+            <div
+              ref={chatContainerRef}
+              style={{ flex: 1, overflowY: 'auto', padding: '20px 20px 10px', display: 'flex', flexDirection: 'column', gap: 12 }}
+            >              {!selectedPdfId ? (
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, color: '#4a4e56' }}>
+                <FileText className="h-12 w-12" style={{ opacity: 0.3 }} />
+                <div style={{ fontSize: 14, textAlign: 'center' }}>Select a PDF from the left<br />to start chatting with it</div>
+              </div>
+            ) : pdfChatMessages.length === 0 && !pdfChatLoading && !pdfChatIsTyping ? (
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, color: '#4a4e56' }}>
+                <div style={{ fontSize: 13 }}>Ask anything about this PDF...</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginTop: 8 }}>
+                  {['Summarize this document', 'What are the key points?', 'List the main topics'].map(s => (
+                    <button key={s} onClick={() => setPdfChatInput(s)}
+                      style={{ background: '#2a2d35', border: '1px solid #3a3d45', borderRadius: 9999, padding: '6px 14px', color: '#7d8187', fontSize: 12, cursor: 'pointer' }}>
+                      {s}
+                    </button>
                   ))}
-                  {pdfChatLoading && !pdfChatIsTyping && (
-                    <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                      <div style={{ padding: '10px 14px', borderRadius: '18px 18px 18px 4px', background: '#0a0a0a', border: '1px solid #2a2d35', display: 'flex', gap: 4 }}>
-                        {[0, 1, 2].map(j => <span key={j} style={{ width: 6, height: 6, borderRadius: '50%', background: '#7d8187', display: 'inline-block', animation: `typingBounce 1.2s infinite ${j * 0.2}s` }} />)}
-                      </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                {pdfChatMessages.map((msg, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                    <div style={{ maxWidth: '78%', padding: '10px 14px', borderRadius: msg.role === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px', background: msg.role === 'user' ? '#36f4a4' : '#0a0a0a', color: msg.role === 'user' ? '#000' : '#e8eaed', fontSize: 13, lineHeight: 1.6, border: msg.role === 'assistant' ? '1px solid #2a2d35' : 'none' }}>
+                      {msg.role === 'user' ? msg.content : (
+                        <ReactMarkdown components={mdComponents}>{msg.content}</ReactMarkdown>
+                      )}
                     </div>
-                  )}
-                  {pdfChatIsTyping && (
-                    <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                      <div style={{ maxWidth: '78%', padding: '10px 14px', borderRadius: '18px 18px 18px 4px', background: '#0a0a0a', color: '#e8eaed', fontSize: 13, lineHeight: 1.6, border: '1px solid #2a2d35' }}>
-                        {pdfChatTypingText}
-                        <span style={{ display: 'inline-block', width: 2, height: '1em', background: '#36f4a4', marginLeft: 3, verticalAlign: 'text-bottom', animation: 'cursorBlink 0.7s infinite' }} />
-                      </div>
+                  </div>
+                ))}
+                {pdfChatLoading && !pdfChatIsTyping && (
+                  <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                    <div style={{ padding: '10px 14px', borderRadius: '18px 18px 18px 4px', background: '#0a0a0a', border: '1px solid #2a2d35', display: 'flex', gap: 4 }}>
+                      {[0, 1, 2].map(j => <span key={j} style={{ width: 6, height: 6, borderRadius: '50%', background: '#7d8187', display: 'inline-block', animation: `typingBounce 1.2s infinite ${j * 0.2}s` }} />)}
                     </div>
-                  )}
-                </>
-              )}
+                  </div>
+                )}
+                {pdfChatIsTyping && (
+                  <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                    <div style={{ maxWidth: '78%', padding: '10px 14px', borderRadius: '18px 18px 18px 4px', background: '#0a0a0a', color: '#e8eaed', fontSize: 13, lineHeight: 1.6, border: '1px solid #2a2d35' }}>
+                      <ReactMarkdown components={mdComponents}>{pdfChatTypingText}</ReactMarkdown>
+                      <span style={{ display: 'inline-block', width: 2, height: '1em', background: '#36f4a4', marginLeft: 3, verticalAlign: 'text-bottom', animation: 'cursorBlink 0.7s infinite' }} />
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
               <div ref={pdfChatBottomRef} />
             </div>
 
@@ -462,10 +590,53 @@ export default function PdfPage() {
                 placeholder={selectedPdfId ? 'Ask about the PDF...' : 'Select a PDF first'}
                 disabled={!selectedPdfId || pdfChatLoading}
                 style={{ flex: 1, background: '#0a0a0a', border: '1px solid #2a2d35', borderRadius: 10, padding: '11px 14px', color: '#fff', fontSize: 13, outline: 'none' }} />
-              <button onClick={sendPdfChatMessage} disabled={!selectedPdfId || !pdfChatInput.trim() || pdfChatLoading}
-                style={{ background: '#36f4a4', color: '#000', border: 'none', borderRadius: 10, padding: '11px 22px', fontWeight: 600, fontSize: 13, cursor: !selectedPdfId || pdfChatLoading ? 'not-allowed' : 'pointer', opacity: !selectedPdfId || pdfChatLoading ? 0.4 : 1, transition: 'opacity 0.15s' }}>
-                Send
-              </button>
+              {pdfChatLoading || pdfChatIsTyping ? (
+                <button
+                  onClick={stopResponse}
+                  style={{
+                    background: '#1f2228',
+                    color: '#ef4444',
+                    border: '1px solid #ef444460',
+                    borderRadius: 10,
+                    padding: '11px 22px',
+                    fontWeight: 600,
+                    fontSize: 13,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  <span style={{
+                    width: 10,
+                    height: 10,
+                    background: '#ef4444',
+                    borderRadius: 2,
+                    display: 'inline-block',
+                  }} />
+                  Stop
+                </button>
+              ) : (
+                <button
+                  onClick={sendPdfChatMessage}
+                  disabled={!selectedPdfId || !pdfChatInput.trim()}
+                  style={{
+                    background: '#36f4a4',
+                    color: '#000',
+                    border: 'none',
+                    borderRadius: 10,
+                    padding: '11px 22px',
+                    fontWeight: 600,
+                    fontSize: 13,
+                    cursor: !selectedPdfId || !pdfChatInput.trim() ? 'not-allowed' : 'pointer',
+                    opacity: !selectedPdfId || !pdfChatInput.trim() ? 0.4 : 1,
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  Send
+                </button>
+              )}
             </div>
           </div>
 
