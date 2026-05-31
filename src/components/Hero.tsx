@@ -7,6 +7,8 @@ import { AuroraBackground } from './AuroraBackground';
 import { useMotion } from '@/hooks/use-reduced-motion';
 import Link from 'next/link';
 import { LandingControls } from './LandingControls';
+import SignupModal from "./ui/signup-modal";
+
 
 export function Hero() {
   const { reduced, autoReason, mounted } = useMotion();
@@ -67,12 +69,12 @@ export function Hero() {
           transition={{ duration: 0.8, delay: 0.5 }}
           className="mt-12 flex flex-col items-center justify-center gap-4 sm:flex-row"
         >
-          <Link
-            href="/register"
-            className="w-full sm:w-auto rounded-full bg-white px-8 py-3 text-sm font-medium text-[#080b10] hover:opacity-90 transition-opacity"
-          >
-            Try NochBot
-          </Link>
+          <SignupModal trigger={
+            <button className="w-full sm:w-auto rounded-full bg-white px-8 py-3 text-sm font-medium text-[#080b10] hover:opacity-90 transition-opacity"
+            >
+              Try NochBot
+            </button>
+          } />
           <Link
             href="#features"
             className="w-full sm:w-auto rounded-full border border-white/10 px-8 py-3 text-sm font-medium text-white/60 hover:text-white hover:border-white/20 transition-all"
