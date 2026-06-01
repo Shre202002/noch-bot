@@ -4,98 +4,129 @@
 import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useParams } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
+import { ArrowUp, Square, FileText, ChevronDown } from 'lucide-react';
 
-type Message = { role: 'user' | 'assistant'; content: string };
+type Message = { role: 'user' | 'assistant'; content: string; createdAt?: string };
 
-// ── Markdown renderer (same as dashboard) ────────────────────────────────────
+// ── Markdown renderer ─────────────────────────────────────────────────────────
 const mdComponents = {
   h2: ({ children }: any) => (
-    <h2 style={{ fontSize: 15, fontWeight: 700, color: '#36f4a4', margin: '12px 0 6px 0' }}>{children}</h2>
+    <h2 style={{ fontSize: 15, fontWeight: 700, color: '#D97757', margin: '12px 0 6px 0' }}>{children}</h2>
   ),
   h3: ({ children }: any) => (
-    <h3 style={{ fontSize: 13, fontWeight: 600, color: '#a8f0d0', margin: '10px 0 4px 0' }}>{children}</h3>
+    <h3 style={{ fontSize: 13, fontWeight: 600, color: '#C6613F', margin: '10px 0 4px 0' }}>{children}</h3>
   ),
   p: ({ children }: any) => (
-    <p style={{ margin: '4px 0', lineHeight: 1.7 }}>{children}</p>
+    <p style={{ margin: '4px 0', lineHeight: 1.75 }}>{children}</p>
   ),
   strong: ({ children }: any) => (
-    <strong style={{ color: '#fff', fontWeight: 700 }}>{children}</strong>
+    <strong style={{ fontWeight: 700 }}>{children}</strong>
   ),
   ul: ({ children }: any) => (
-    <ul style={{ paddingLeft: 18, margin: '6px 0' }}>{children}</ul>
+    <ul style={{ paddingLeft: 20, margin: '6px 0' }}>{children}</ul>
   ),
   ol: ({ children }: any) => (
-    <ol style={{ paddingLeft: 18, margin: '6px 0' }}>{children}</ol>
+    <ol style={{ paddingLeft: 20, margin: '6px 0' }}>{children}</ol>
   ),
   li: ({ children }: any) => (
-    <li style={{ margin: '3px 0', lineHeight: 1.6 }}>{children}</li>
+    <li style={{ margin: '4px 0', lineHeight: 1.65 }}>{children}</li>
   ),
   table: ({ children }: any) => (
     <div style={{ overflowX: 'auto', margin: '10px 0' }}>
-      <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 12 }}>{children}</table>
+      <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 13 }}>{children}</table>
     </div>
   ),
   thead: ({ children }: any) => (
-    <thead style={{ background: '#36f4a420' }}>{children}</thead>
+    <thead style={{ background: 'rgba(217,119,87,0.08)' }}>{children}</thead>
   ),
   th: ({ children }: any) => (
-    <th style={{ border: '1px solid #36f4a440', padding: '6px 10px', color: '#36f4a4', fontWeight: 600, textAlign: 'left' }}>{children}</th>
+    <th style={{ border: '1px solid rgba(217,119,87,0.3)', padding: '7px 12px', color: '#D97757', fontWeight: 600, textAlign: 'left', fontSize: 12 }}>{children}</th>
   ),
   td: ({ children }: any) => (
-    <td style={{ border: '1px solid #2a2d35', padding: '6px 10px', color: '#e8eaed' }}>{children}</td>
+    <td style={{ border: '1px solid var(--bg-300)', padding: '7px 12px' }}>{children}</td>
   ),
   blockquote: ({ children }: any) => (
-    <blockquote style={{ borderLeft: '3px solid #36f4a4', paddingLeft: 12, margin: '8px 0', color: '#a8f0d0', fontStyle: 'italic' }}>{children}</blockquote>
+    <blockquote style={{ borderLeft: '3px solid #D97757', paddingLeft: 14, margin: '10px 0', opacity: 0.85, fontStyle: 'italic' }}>{children}</blockquote>
   ),
   code: ({ children }: any) => (
-    <code style={{ background: '#0a0a0a', border: '1px solid #2a2d35', borderRadius: 4, padding: '1px 6px', fontSize: 12, color: '#36f4a4', fontFamily: 'monospace' }}>{children}</code>
+    <code style={{ background: 'var(--bg-200)', borderRadius: 5, padding: '1px 6px', fontSize: 12, fontFamily: 'monospace' }}>{children}</code>
   ),
   hr: () => (
-    <hr style={{ border: 'none', borderTop: '1px solid #2a2d35', margin: '10px 0' }} />
+    <hr style={{ border: 'none', borderTop: '1px solid var(--bg-300)', margin: '12px 0' }} />
   ),
 };
 
+// ── Typing dots ───────────────────────────────────────────────────────────────
 function TypingDots() {
   return (
-    <div style={{ display: 'flex', gap: 5, alignItems: 'center', padding: '2px 0' }}>
-      {[0, 1, 2].map((i) => (
+    <div style={{ display: 'flex', gap: 5, alignItems: 'center', padding: '4px 2px' }}>
+      {[0, 1, 2].map(i => (
         <span key={i} style={{
-          width: 7, height: 7, borderRadius: '50%', background: '#9ca3af',
+          width: 7, height: 7, borderRadius: '50%',
+          background: 'var(--text-400)',
           display: 'inline-block',
-          animation: `nb 1.2s infinite ${i * 0.2}s`,
+          animation: `typingBounce 1.2s infinite ${i * 0.2}s`,
         }} />
       ))}
     </div>
   );
 }
 
+// ── Avatar ────────────────────────────────────────────────────────────────────
+function BotAvatar() {
+  return (
+    <div style={{
+      width: 30, height: 30, borderRadius: 10, flexShrink: 0,
+      background: 'rgba(217,119,87,0.12)',
+      border: '1px solid rgba(217,119,87,0.25)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }}>
+      <FileText size={14} color="#D97757" />
+    </div>
+  );
+}
+
+// ── Main chat component ───────────────────────────────────────────────────────
 function PdfChat() {
   const params = useParams();
   const slug = params?.slug as string;
 
-  const [fileId, setFileId]       = useState('');
-  const [userId, setUserId]       = useState('');
-  const [label, setLabel]         = useState('PDF Assistant');
-  const [loadError, setLoadError] = useState('');
+  const [fileId, setFileId]         = useState('');
+  const [userId, setUserId]         = useState('');
+  const [label, setLabel]           = useState('PDF Assistant');
+  const [loadError, setLoadError]   = useState('');
   const [loadingMeta, setLoadingMeta] = useState(true);
+  const [isDark, setIsDark]         = useState(false);
 
-  const [messages, setMessages]       = useState<Message[]>([]);
-  const [input, setInput]             = useState('');
-  const [loading, setLoading]         = useState(false);
-  const [typingText, setTypingText]   = useState('');
-  const [isTyping, setIsTyping]       = useState(false);
-  const [autoScroll, setAutoScroll]   = useState(true);
-  const [abortCtrl, setAbortCtrl]     = useState<AbortController | null>(null);
+  const [messages, setMessages]     = useState<Message[]>([]);
+  const [input, setInput]           = useState('');
+  const [loading, setLoading]       = useState(false);
+  const [typingText, setTypingText] = useState('');
+  const [isTyping, setIsTyping]     = useState(false);
+  const [autoScroll, setAutoScroll] = useState(true);
+  const [abortCtrl, setAbortCtrl]   = useState<AbortController | null>(null);
 
-  const bottomRef       = useRef<HTMLDivElement>(null);
-  const containerRef    = useRef<HTMLDivElement>(null);
-  const intervalRef     = useRef<ReturnType<typeof setInterval> | null>(null);
-  const inputRef        = useRef<HTMLInputElement>(null);
+  const [sessionId] = useState(() =>
+    typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `session-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  );
 
-  const accent     = '#36f4a4';
-  const accentDark = '#0d2420';
+  const bottomRef    = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const textareaRef  = useRef<HTMLTextAreaElement>(null);
+  const intervalRef  = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // ── Load slug metadata ──────────────────────────────────────────────────────
+  // ── Dark mode detection ───────────────────────────────────────────────────
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    setIsDark(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsDark(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+
+  // ── Load slug ─────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!slug) return;
     fetch(`/api/pdf-links/${slug}`)
@@ -110,7 +141,7 @@ function PdfChat() {
       .finally(() => setLoadingMeta(false));
   }, [slug]);
 
-  // ── Auto scroll ─────────────────────────────────────────────────────────────
+  // ── Auto scroll ───────────────────────────────────────────────────────────
   useEffect(() => {
     if (autoScroll) bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, typingText, isTyping, loading, autoScroll]);
@@ -126,16 +157,22 @@ function PdfChat() {
     return () => el.removeEventListener('scroll', onScroll);
   }, []);
 
-  useEffect(() => {
-    if (loading) setAutoScroll(true);
-  }, [loading]);
+  useEffect(() => { if (loading) setAutoScroll(true); }, [loading]);
 
-  // ── Cleanup interval on unmount ─────────────────────────────────────────────
+  // ── Auto resize textarea ──────────────────────────────────────────────────
+  useEffect(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    ta.style.height = 'auto';
+    ta.style.height = Math.min(ta.scrollHeight, 200) + 'px';
+  }, [input]);
+
+  // ── Cleanup ───────────────────────────────────────────────────────────────
   useEffect(() => {
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, []);
 
-  // ── Typewriter ──────────────────────────────────────────────────────────────
+  // ── Typewriter ────────────────────────────────────────────────────────────
   const runTypewriter = useCallback((text: string, controller: AbortController, onDone: (t: string) => void) => {
     if (intervalRef.current) clearInterval(intervalRef.current);
     setIsTyping(true);
@@ -145,8 +182,7 @@ function PdfChat() {
       if (controller.signal.aborted) {
         clearInterval(intervalRef.current!);
         intervalRef.current = null;
-        // Save partial response
-        setMessages(prev => [...prev, { role: 'assistant', content: text.slice(0, i) + ' ▋' }]);
+        setMessages(prev => [...prev, { role: 'assistant', content: text.slice(0, i) + ' ▋', createdAt: new Date().toISOString() }]);
         setTypingText('');
         setIsTyping(false);
         return;
@@ -160,22 +196,22 @@ function PdfChat() {
         setTypingText('');
         onDone(text);
       }
-    }, 14);
+    }, 10);
   }, []);
 
-  // ── Stop ────────────────────────────────────────────────────────────────────
+  // ── Stop ──────────────────────────────────────────────────────────────────
   const stopResponse = () => {
     abortCtrl?.abort();
     setAbortCtrl(null);
     setLoading(false);
   };
 
-  // ── Send ────────────────────────────────────────────────────────────────────
+  // ── Send ──────────────────────────────────────────────────────────────────
   const sendMessage = async (text?: string) => {
     const userText = (text || input).trim();
     if (!userText || loading || isTyping || !fileId) return;
 
-    const newMessages: Message[] = [...messages, { role: 'user', content: userText }];
+    const newMessages: Message[] = [...messages, { role: 'user', content: userText, createdAt: new Date().toISOString() }];
     setMessages(newMessages);
     setInput('');
     setLoading(true);
@@ -188,7 +224,7 @@ function PdfChat() {
       const res = await fetch('/api/chat/pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userText, fileId, userId }),
+        body: JSON.stringify({ message: userText, fileId, userId, sessionId, slug, label }),
         signal: controller.signal,
       });
       const data = await res.json();
@@ -196,104 +232,94 @@ function PdfChat() {
 
       setLoading(false);
       runTypewriter(responseText, controller, (full) => {
-        setMessages(prev => [...prev, { role: 'assistant', content: full }]);
+        setMessages(prev => [...prev, { role: 'assistant', content: full, createdAt: new Date().toISOString() }]);
         setAbortCtrl(null);
       });
     } catch (err: any) {
       setLoading(false);
       setAbortCtrl(null);
       if (err?.name === 'AbortError') return;
-      setMessages([...newMessages, { role: 'assistant', content: '⚠️ Network error. Try again.' }]);
+      setMessages([...newMessages, { role: 'assistant', content: '⚠️ Network error. Try again.', createdAt: new Date().toISOString() }]);
     }
   };
 
-  // ── Loading state ───────────────────────────────────────────────────────────
+  const isActive = loading || isTyping;
+
+  // ── Loading screen ────────────────────────────────────────────────────────
   if (loadingMeta) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100dvh', background: '#0a0a0a', flexDirection: 'column', gap: 16 }}>
-        <div style={{ width: 32, height: 32, border: `2px solid ${accent}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-        <span style={{ color: '#7d8187', fontSize: 14 }}>Loading chat...</span>
+      <div className={isDark ? 'dark' : ''} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100dvh', background: 'var(--bg-0)', flexDirection: 'column', gap: 14 }}>
+        <style>{cssVars + keyframes}</style>
+        <div style={{ width: 36, height: 36, border: '2.5px solid #D97757', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        <span style={{ color: 'var(--text-400)', fontSize: 14 }}>Loading chat...</span>
       </div>
     );
   }
 
   if (loadError) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100dvh', background: '#0a0a0a', flexDirection: 'column', gap: 12 }}>
-        <div style={{ fontSize: 40 }}>⚠️</div>
-        <p style={{ color: '#ef4444', fontSize: 15 }}>{loadError}</p>
-        <p style={{ color: '#7d8187', fontSize: 13 }}>This chat link may have been removed.</p>
+      <div className={isDark ? 'dark' : ''} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100dvh', background: 'var(--bg-0)', flexDirection: 'column', gap: 12 }}>
+        <style>{cssVars + keyframes}</style>
+        <div style={{ fontSize: 48 }}>📄</div>
+        <p style={{ color: '#ef4444', fontSize: 15, fontWeight: 500 }}>{loadError}</p>
+        <p style={{ color: 'var(--text-400)', fontSize: 13 }}>This chat link may have been removed.</p>
       </div>
     );
   }
 
   const SUGGESTIONS = [
-    'What is this document about?',
-    'Summarize the key points',
-    'What are the main topics covered?',
-    'Give me the most important takeaway',
+    { icon: '📖', text: 'What is this document about?' },
+    { icon: '🎯', text: 'Summarize the key points' },
+    { icon: '📋', text: 'List the main topics' },
+    { icon: '💡', text: 'Most important takeaway' },
   ];
 
-  const isActive = loading || isTyping;
-
   return (
-    <div style={{ fontFamily: 'system-ui,-apple-system,sans-serif', display: 'flex', flexDirection: 'column', height: '100dvh', background: '#0a0a0a', maxWidth: 800, margin: '0 auto', width: '100%' }}>
-      <style>{`
-        @keyframes nb  { 0%,60%,100%{transform:translateY(0);opacity:.4} 30%{transform:translateY(-6px);opacity:1} }
-        @keyframes fi  { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes cb  { 0%,100%{opacity:1} 50%{opacity:0} }
-        @keyframes spin{ to{transform:rotate(360deg)} }
-        .nc-msg        { animation: fi 0.2s ease; }
-        .sug-btn:hover { border-color: ${accent} !important; color: ${accent} !important; background: ${accentDark} !important; }
-        .stop-btn:hover{ background: #2a0f0f !important; }
-        .send-btn:hover:not(:disabled){ transform: scale(1.05); }
-        /* Responsive tweaks */
-        @media (max-width: 600px) {
-          .chat-bubble { max-width: 90% !important; font-size: 13px !important; }
-          .chat-header-label { font-size: 13px !important; }
-          .suggestions-grid { grid-template-columns: 1fr 1fr !important; }
-        }
-      `}</style>
+    <div className={isDark ? 'dark' : ''} style={{ fontFamily: "'Inter', system-ui, sans-serif", display: 'flex', flexDirection: 'column', height: '100dvh', background: 'var(--bg-0)', color: 'var(--text-100)' }}>
+      <style>{cssVars + keyframes}</style>
 
       {/* ── Header ── */}
-      <div style={{ background: '#1f2228', borderBottom: '1px solid #2a2d35', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-        <div style={{ width: 38, height: 38, borderRadius: 11, background: accentDark, border: `1px solid ${accent}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>
-          📄
+      <div style={{ background: 'var(--bg-100)', borderBottom: '1px solid var(--bg-300)', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0, backdropFilter: 'blur(8px)' }}>
+        <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(217,119,87,0.1)', border: '1px solid rgba(217,119,87,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <FileText size={17} color="#D97757" />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="chat-header-label" style={{ fontSize: 14, fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</div>
-          <div style={{ fontSize: 11, color: '#7d8187', display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
-            <div style={{ width: 6, height: 6, borderRadius: '50%', background: isActive ? '#eab308' : accent, flexShrink: 0 }} />
-            {loading ? 'Thinking...' : isTyping ? 'Typing...' : 'Ready to help'}
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-100)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</div>
+          <div style={{ fontSize: 11, color: 'var(--text-400)', display: 'flex', alignItems: 'center', gap: 5, marginTop: 1 }}>
+            <div style={{ width: 6, height: 6, borderRadius: '50%', background: isActive ? '#f59e0b' : '#22c55e', flexShrink: 0 }} />
+            {loading ? 'Thinking...' : isTyping ? 'Typing...' : 'Ready'}
           </div>
         </div>
-        <div style={{ fontSize: 11, color: '#4a4e56', background: '#2a2d35', borderRadius: 9999, padding: '4px 10px', flexShrink: 0 }}>
-          PDF Chat
-        </div>
+        {/* Dark mode toggle */}
+        <button
+          onClick={() => setIsDark(!isDark)}
+          style={{ background: 'var(--bg-200)', border: '1px solid var(--bg-300)', borderRadius: 8, padding: '6px 10px', color: 'var(--text-300)', cursor: 'pointer', fontSize: 14 }}
+        >
+          {isDark ? '☀️' : '🌙'}
+        </button>
       </div>
 
       {/* ── Messages ── */}
-      <div
-        ref={containerRef}
-        style={{ flex: 1, overflowY: 'auto', padding: '16px 16px 8px', display: 'flex', flexDirection: 'column', gap: 14 }}
-      >
+      <div ref={containerRef} style={{ flex: 1, overflowY: 'auto', padding: '24px 16px 12px', display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 780, width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
+
         {/* Empty state */}
         {messages.length === 0 && !loading && !isTyping && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, gap: 20, textAlign: 'center', padding: '0 16px' }}>
-            <div style={{ width: 64, height: 64, borderRadius: 18, background: accentDark, border: `2px solid ${accent}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32 }}>
-              📄
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, gap: 24, textAlign: 'center', padding: '0 16px', animation: 'fadeInUp 0.3s ease' }}>
+            <div style={{ width: 72, height: 72, borderRadius: 20, background: 'rgba(217,119,87,0.1)', border: '1.5px solid rgba(217,119,87,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <FileText size={32} color="#D97757" />
             </div>
             <div>
-              <p style={{ fontWeight: 600, color: '#fff', margin: 0, fontSize: 16 }}>Ask me about this document</p>
-              <p style={{ color: '#7d8187', fontSize: 13, margin: '6px 0 0' }}>{label}</p>
+              <p style={{ fontWeight: 600, color: 'var(--text-100)', margin: 0, fontSize: 18 }}>Ask me about this document</p>
+              <p style={{ color: 'var(--text-400)', fontSize: 13, margin: '6px 0 0', maxWidth: 320 }}>{label}</p>
             </div>
-            {/* Suggestions — 2-col responsive grid */}
-            <div className="suggestions-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, width: '100%', maxWidth: 380 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, width: '100%', maxWidth: 400 }}>
               {SUGGESTIONS.map(s => (
-                <button key={s} className="sug-btn" onClick={() => sendMessage(s)}
-                  style={{ fontSize: 12, padding: '10px 12px', borderRadius: 10, border: '1px solid #2a2d35', background: '#1f2228', color: '#7d8187', textAlign: 'left', cursor: 'pointer', transition: 'all 0.15s', lineHeight: 1.4 }}>
-                  {s}
+                <button key={s.text} onClick={() => sendMessage(s.text)}
+                  style={{ fontSize: 12, padding: '10px 14px', borderRadius: 12, border: '1px solid var(--bg-300)', background: 'var(--bg-100)', color: 'var(--text-300)', textAlign: 'left', cursor: 'pointer', transition: 'all 0.15s', lineHeight: 1.4, display: 'flex', alignItems: 'center', gap: 8 }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#D97757'; (e.currentTarget as HTMLElement).style.color = '#D97757'; (e.currentTarget as HTMLElement).style.background = 'rgba(217,119,87,0.05)'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--bg-300)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-300)'; (e.currentTarget as HTMLElement).style.background = 'var(--bg-100)'; }}
+                >
+                  <span>{s.icon}</span>{s.text}
                 </button>
               ))}
             </div>
@@ -302,24 +328,20 @@ function PdfChat() {
 
         {/* Messages */}
         {messages.map((msg, i) => (
-          <div key={i} className="nc-msg" style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start', gap: 8, alignItems: 'flex-end' }}>
-            {msg.role === 'assistant' && (
-              <div style={{ width: 28, height: 28, borderRadius: 8, background: accentDark, border: `1px solid ${accent}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0, marginBottom: 2 }}>📄</div>
-            )}
-            <div
-              className="chat-bubble"
-              style={{
-                maxWidth: '75%', padding: '10px 14px',
-                borderRadius: msg.role === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-                background: msg.role === 'user' ? accent : '#1f2228',
-                color: msg.role === 'user' ? '#000' : '#e5e7eb',
-                fontSize: 13.5, lineHeight: 1.65,
-                border: msg.role === 'assistant' ? '1px solid #2a2d35' : 'none',
-                fontWeight: msg.role === 'user' ? 500 : 400,
-              }}
-            >
+          <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start', gap: 10, alignItems: 'flex-start', animation: 'fadeInUp 0.2s ease' }}>
+            {msg.role === 'assistant' && <BotAvatar />}
+            <div style={{
+              maxWidth: '78%',
+              padding: msg.role === 'user' ? '10px 16px' : '12px 16px',
+              borderRadius: msg.role === 'user' ? '18px 18px 4px 18px' : '4px 18px 18px 18px',
+              background: msg.role === 'user' ? '#D97757' : 'var(--bg-100)',
+              color: msg.role === 'user' ? '#fff' : 'var(--text-100)',
+              fontSize: 14, lineHeight: 1.65,
+              border: msg.role === 'assistant' ? '1px solid var(--bg-300)' : 'none',
+              boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+            }}>
               {msg.role === 'user'
-                ? msg.content
+                ? <span style={{ fontWeight: 500 }}>{msg.content}</span>
                 : <ReactMarkdown components={mdComponents}>{msg.content}</ReactMarkdown>
               }
             </div>
@@ -328,9 +350,9 @@ function PdfChat() {
 
         {/* Loading dots */}
         {loading && (
-          <div className="nc-msg" style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: accentDark, border: `1px solid ${accent}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>📄</div>
-            <div style={{ padding: '10px 14px', borderRadius: '18px 18px 18px 4px', background: '#1f2228', border: '1px solid #2a2d35' }}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', animation: 'fadeInUp 0.2s ease' }}>
+            <BotAvatar />
+            <div style={{ padding: '12px 16px', borderRadius: '4px 18px 18px 18px', background: 'var(--bg-100)', border: '1px solid var(--bg-300)', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
               <TypingDots />
             </div>
           </div>
@@ -338,11 +360,11 @@ function PdfChat() {
 
         {/* Typewriter */}
         {isTyping && typingText && (
-          <div className="nc-msg" style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: accentDark, border: `1px solid ${accent}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>📄</div>
-            <div className="chat-bubble" style={{ maxWidth: '75%', padding: '10px 14px', borderRadius: '18px 18px 18px 4px', background: '#1f2228', color: '#e5e7eb', fontSize: 13.5, lineHeight: 1.65, border: '1px solid #2a2d35' }}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', animation: 'fadeInUp 0.2s ease' }}>
+            <BotAvatar />
+            <div style={{ maxWidth: '78%', padding: '12px 16px', borderRadius: '4px 18px 18px 18px', background: 'var(--bg-100)', color: 'var(--text-100)', fontSize: 14, lineHeight: 1.65, border: '1px solid var(--bg-300)', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
               <ReactMarkdown components={mdComponents}>{typingText}</ReactMarkdown>
-              <span style={{ display: 'inline-block', width: 2, height: '1em', background: accent, marginLeft: 2, animation: 'cb 0.7s infinite', verticalAlign: 'text-bottom' }} />
+              <span style={{ display: 'inline-block', width: 2, height: '1em', background: '#D97757', marginLeft: 2, animation: 'cursorBlink 0.7s infinite', verticalAlign: 'text-bottom' }} />
             </div>
           </div>
         )}
@@ -350,61 +372,119 @@ function PdfChat() {
         <div ref={bottomRef} />
       </div>
 
-      {/* ── Input bar ── */}
-      <div style={{ padding: '12px 16px', background: '#1f2228', borderTop: '1px solid #2a2d35', display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
-        <input
-          ref={inputRef}
-          type="text"
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && !isActive && sendMessage()}
-          placeholder={isActive ? 'Generating...' : 'Ask about this document...'}
-          disabled={isActive}
-          style={{ flex: 1, padding: '11px 16px', borderRadius: 999, border: '1.5px solid #2a2d35', fontSize: 13.5, outline: 'none', color: '#fff', background: '#0a0a0a', transition: 'border-color 0.15s', minWidth: 0 }}
-          onFocus={e => e.currentTarget.style.borderColor = accent}
-          onBlur={e => e.currentTarget.style.borderColor = '#2a2d35'}
-        />
-
-        {/* Stop button — shown while loading or typing */}
-        {isActive ? (
-          <button
-            className="stop-btn"
-            onClick={stopResponse}
-            style={{ height: 40, padding: '0 16px', borderRadius: 999, background: '#1a0a0a', border: '1px solid #ef444460', color: '#ef4444', fontWeight: 600, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, transition: 'all 0.15s', flexShrink: 0 }}
+      {/* ── Input area ── */}
+      <div style={{ padding: '12px 16px 20px', flexShrink: 0 }}>
+        <div style={{ maxWidth: 780, margin: '0 auto' }}>
+          <div style={{
+            background: 'var(--bg-100)',
+            border: '1px solid var(--bg-300)',
+            borderRadius: 18,
+            boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+            overflow: 'hidden',
+            transition: 'box-shadow 0.2s',
+          }}
+            onFocus={() => {}}
           >
-            <span style={{ width: 9, height: 9, background: '#ef4444', borderRadius: 2, display: 'inline-block' }} />
-            Stop
-          </button>
-        ) : (
-          /* Send button */
-          <button
-            className="send-btn"
-            onClick={() => sendMessage()}
-            disabled={!input.trim()}
-            style={{ width: 40, height: 40, borderRadius: '50%', background: accent, border: 'none', cursor: !input.trim() ? 'not-allowed' : 'pointer', opacity: !input.trim() ? 0.4 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s', flexShrink: 0 }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="22" y1="2" x2="11" y2="13" />
-              <polygon points="22 2 15 22 11 13 2 9 22 2" fill="#000" stroke="none" />
-            </svg>
-          </button>
-        )}
-      </div>
+            {/* Textarea */}
+            <div style={{ padding: '14px 16px 8px' }}>
+              <textarea
+                ref={textareaRef}
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+                placeholder={isActive ? 'Generating response...' : 'Ask anything about this document...'}
+                disabled={isActive}
+                rows={1}
+                style={{
+                  width: '100%', background: 'transparent', border: 'none', outline: 'none',
+                  color: 'var(--text-100)', fontSize: 15, lineHeight: 1.6, resize: 'none',
+                  fontFamily: 'inherit', minHeight: '1.5em', maxHeight: 200,
+                  opacity: isActive ? 0.6 : 1,
+                }}
+              />
+            </div>
 
-      {/* ── Footer ── */}
-      <div style={{ textAlign: 'center', padding: '8px', background: '#0a0a0a', borderTop: '1px solid #2a2d35', flexShrink: 0 }}>
-        <a href="https://nochbot.space" target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: '#4a4e56', textDecoration: 'none' }}>
-          Powered by <span style={{ color: accent }}>Nochbot</span>
-        </a>
+            {/* Action bar */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 12px 10px' }}>
+              <span style={{ fontSize: 12, color: 'var(--text-400)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                <FileText size={12} color="var(--text-400)" />
+                {label}
+              </span>
+
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                {/* Stop button */}
+                {isActive && (
+                  <button onClick={stopResponse}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, padding: '6px 12px', color: '#ef4444', fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s' }}
+                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.15)'}
+                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.08)'}
+                  >
+                    <Square size={10} fill="#ef4444" />
+                    Stop
+                  </button>
+                )}
+
+                {/* Send button */}
+                <button onClick={() => sendMessage()}
+                  disabled={!input.trim() || isActive}
+                  style={{
+                    width: 34, height: 34, borderRadius: 10, border: 'none',
+                    background: input.trim() && !isActive ? '#D97757' : 'var(--bg-300)',
+                    color: input.trim() && !isActive ? '#fff' : 'var(--text-400)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: input.trim() && !isActive ? 'pointer' : 'not-allowed',
+                    transition: 'all 0.15s', flexShrink: 0,
+                  }}
+                  onMouseEnter={e => { if (input.trim() && !isActive) (e.currentTarget as HTMLElement).style.background = '#C6613F'; }}
+                  onMouseLeave={e => { if (input.trim() && !isActive) (e.currentTarget as HTMLElement).style.background = '#D97757'; }}
+                >
+                  <ArrowUp size={16} />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div style={{ textAlign: 'center', marginTop: 10 }}>
+            <a href="https://nochbot.space" target="_blank" rel="noopener noreferrer"
+              style={{ fontSize: 11, color: 'var(--text-500)', textDecoration: 'none' }}>
+              Powered by <span style={{ color: '#D97757', fontWeight: 600 }}>Nochbot</span>
+            </a>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
+// ── CSS injected as string to avoid globals.css dependency ────────────────────
+const cssVars = `
+  :root {
+    --bg-0:#FAF9F5; --bg-100:#FFFFFF; --bg-200:#F0EEE6; --bg-300:#DDDDDD;
+    --text-100:#1F1E1D; --text-200:#3D3D3A; --text-300:#73726C;
+    --text-400:#888888; --text-500:#999999;
+    --accent:#D97757; --accent-hover:#C6613F;
+  }
+  .dark {
+    --bg-0:#212121; --bg-100:#262624; --bg-200:#30302E; --bg-300:#454540;
+    --text-100:#ECECEC; --text-200:#E1E1E0; --text-300:#B4B4B4;
+    --text-400:#8A8A88; --text-500:#6B6B65;
+    --accent:#D2996E; --accent-hover:#E5AA7F;
+  }
+`;
+
+const keyframes = `
+  @keyframes spin         { to { transform: rotate(360deg); } }
+  @keyframes fadeInUp     { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes cursorBlink  { 0%,100%{opacity:1} 50%{opacity:0} }
+  @keyframes typingBounce { 0%,60%,100%{transform:translateY(0);opacity:.4} 30%{transform:translateY(-5px);opacity:1} }
+`;
+
+// ── Page wrapper ──────────────────────────────────────────────────────────────
 export default function PdfChatPage() {
   return (
     <Suspense fallback={
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100dvh', background: '#0a0a0a', color: '#7d8187', fontSize: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100dvh', background: '#FAF9F5', color: '#888', fontSize: 14 }}>
         Loading...
       </div>
     }>
