@@ -86,14 +86,13 @@ function handleQuantityInput(
 
   const bCtx: BookingContext = {
     field_count: fields.length,
-    current_field_index: -1, // We haven't started fields yet
+    current_field_index: -1, 
     current_attendee_index: 0,
     quantity: parsed
   };
 
   const nextState = getNextState('collecting_quantity', event.is_paid, bCtx);
   
-  // Initialize responses based on quantity
   let initialResponses: any = {};
   if (parsed > 1) {
     initialResponses = Array.from({ length: parsed }, () => ({}));
@@ -154,8 +153,8 @@ function handleFieldInput(
 
   const bCtx: BookingContext = {
     field_count: fields.length,
-    current_field_index: nextFieldIndex - 1, 
-    current_attendee_index: nextAttendeeIndex,
+    current_field_index: current_field_index, // Finished this field
+    current_attendee_index: current_attendee_index,
     quantity: booking.quantity
   };
 
@@ -180,13 +179,8 @@ function handleReviewInput(
   const negative = ['no', 'nope', 'change', 'edit', 'wrong'].includes(input.toLowerCase());
 
   if (affirmative) {
-    const bCtx: BookingContext = {
-      field_count: fields.length,
-      current_field_index: fields.length,
-      current_attendee_index: booking.quantity,
-      quantity: booking.quantity
-    };
-    const nextState = getNextState('reviewing', event.is_paid, bCtx);
+    // getNextState('reviewing') ignores context as it only checks event.is_paid
+    const nextState = getNextState('reviewing', event.is_paid, {} as any);
     
     return {
       ...booking,

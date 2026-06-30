@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { processBookingMessage } from "@/lib/bookingFlow";
+import { reserveCapacity } from "@/lib/eventCapacity";
 
 export async function POST(
   req: NextRequest,
@@ -44,11 +45,33 @@ export async function POST(
     // 4. Process Message
     const update = processBookingMessage(message, booking as any, event as any, fields as any);
 
+    // ── Phase 3 Checkpoint 3: Atomic Capacity Reservation ──
+    let statusUpdate = booking.status;
+    
+    // Check if the conversation is transitioning from Review to the final booking steps
+    if (
+      booking.conversation_state === 'reviewing' && 
+      ['awaiting_payment', 'confirmed'].includes(update.conversation_state)
+    ) {
+      // Reserve seats atomically
+      const reservation = await reserveCapacity(event._id, booking.quantity);
+      
+      if (!reservation) {
+        // Sold out during the review process
+        update.conversation_state = 'reviewing';
+        update.bot_reply = "I'm so sorry, but it looks like the event just sold out while we were talking! We can't complete your booking at this time.";
+      } else {
+        // Reservation successful - update the record's lifecycle status
+        statusUpdate = update.conversation_state === 'awaiting_payment' ? 'awaiting_payment' : 'confirmed';
+      }
+    }
+
     // 5. Persist Updates
     await db.collection("bookings").updateOne(
       { _id: booking._id },
       {
         $set: {
+          status: statusUpdate,
           conversation_state: update.conversation_state,
           session_context: update.session_context,
           quantity: update.quantity,
@@ -63,6 +86,7 @@ export async function POST(
       success: true,
       conversation_state: update.conversation_state,
       bot_reply: update.bot_reply,
+      status: statusUpdate,
       // Pass back context for widget UI state synchronization if needed
       context: update.session_context 
     });
