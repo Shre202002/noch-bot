@@ -41,7 +41,8 @@ export async function ensureBookingIndexes() {
   // Scanner Staff
   await db.collection('scanner_staff').createIndexes([
     { key: { org_id: 1 } },
-    { key: { email: 1 } }
+    { key: { email: 1 } },
+    { key: { access_token: 1 }, unique: true }
   ]);
 
   console.log('✅ Booking feature indexes initialized.');
