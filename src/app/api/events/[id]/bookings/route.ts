@@ -25,8 +25,13 @@ export async function GET(
     // 2. Parse Query Params
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status");
-    const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
-    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") || "25")));
+    
+    // Robust pagination parsing
+    const pageRaw = parseInt(searchParams.get("page") || "1");
+    const page = Math.max(1, isNaN(pageRaw) ? 1 : pageRaw);
+
+    const limitRaw = parseInt(searchParams.get("limit") || "25");
+    const limit = Math.min(100, Math.max(1, isNaN(limitRaw) ? 25 : limitRaw));
 
     // 3. Build Filter
     const query: any = { event_id: eventId };
