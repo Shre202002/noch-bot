@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/request";
+import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { getUserIdFromCookie } from "@/lib/auth";
 import { getDb } from "@/lib/db";
@@ -35,24 +35,31 @@ export async function POST(
       return NextResponse.json({ error: "field_key must be alphanumeric/underscores only" }, { status: 400 });
     }
 
-    // Unique key check
+    // Unique key check for this specific event
     const existingField = await db.collection("event_form_fields").findOne({ event_id: eventId, field_key });
     if (existingField) {
       return NextResponse.json({ error: "A field with this key already exists for this event" }, { status: 409 });
     }
 
-    // Regex validation
+    // Regex validation: Check if custom_regex is provided and compiles
     if (validation_rule === "custom_regex") {
-      if (!custom_regex) return NextResponse.json({ error: "custom_regex is required for this validation rule" }, { status: 400 });
-      try { new RegExp(custom_regex); } catch { return NextResponse.json({ error: "Invalid regex pattern" }, { status: 400 }); }
+      if (!custom_regex) {
+        return NextResponse.json({ error: "custom_regex is required for this validation rule" }, { status: 400 });
+      }
+      try {
+        new RegExp(custom_regex);
+      } catch (e) {
+        return NextResponse.json({ error: "Invalid regex pattern" }, { status: 400 });
+      }
     }
 
-    // Assign order index
+    // Assign order index automatically
     const lastField = await db.collection("event_form_fields")
       .find({ event_id: eventId })
       .sort({ order_index: -1 })
       .limit(1)
       .toArray();
+    
     const nextIndex = lastField.length > 0 ? lastField[0].order_index + 1 : 0;
 
     const newField: EventFormField = {
@@ -64,7 +71,7 @@ export async function POST(
       is_required: !!is_required,
       validation_rule: validation_rule || "none",
       custom_regex: custom_regex || null,
-      order_index: body.order_index !== undefined ? body.order_index : nextIndex,
+      order_index: body.order_index !== undefined ? Number(body.order_index) : nextIndex,
       ai_correction_enabled: !!ai_correction_enabled,
     };
 
@@ -73,6 +80,36 @@ export async function POST(
     return NextResponse.json({ success: true, id: result.insertedId }, { status: 201 });
   } catch (error) {
     console.error("[form_fields_post]", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
+export async function GET(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const userId = await getUserIdFromCookie();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  if (!ObjectId.isValid(params.id)) {
+    return NextResponse.json({ error: "Invalid event ID format" }, { status: 400 });
+  }
+
+  try {
+    const db = await getDb();
+    const eventId = new ObjectId(params.id);
+
+    // Verify ownership
+    const event = await db.collection("events").findOne({ _id: eventId, org_id: userId });
+    if (!event) return NextResponse.json({ error: "Event not found" }, { status: 404 });
+
+    const fields = await db.collection("event_form_fields")
+      .find({ event_id: eventId })
+      .sort({ order_index: 1 })
+      .toArray();
+
+    return NextResponse.json({ success: true, data: fields });
+  } catch (error) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
