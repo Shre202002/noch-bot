@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ObjectId } from "mongodb";
 import { getUserIdFromCookie } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { encryptCredentials } from "@/lib/credentialCrypto";
@@ -10,61 +11,71 @@ export async function POST(
   const userId = await getUserIdFromCookie();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  if (!ObjectId.isValid(params.id)) {
+    return NextResponse.json({ error: "Invalid event ID format" }, { status: 400 });
+  }
+
   try {
+    const db = await getDb();
+    const eventId = new ObjectId(params.id);
+
+    // 1. Ownership/Existence Check
+    const event = await db.collection("events").findOne({ _id: eventId, org_id: userId });
+    if (!event) return NextResponse.json({ error: "Event not found" }, { status: 404 });
+
     const body = await req.json();
     const { provider, credentials } = body;
 
-    const supportedProviders = ["stripe", "paypal", "razorpay", "cashfree"];
-    if (!provider || !supportedProviders.includes(provider)) {
-      return NextResponse.json({ error: "Unsupported or missing provider" }, { status: 400 });
+    // 2. Provider Validation
+    const supportedProviders = ['stripe', 'paypal', 'razorpay', 'cashfree'];
+    if (!supportedProviders.includes(provider)) {
+      return NextResponse.json({ error: "Unsupported payment provider" }, { status: 400 });
     }
 
-    if (!credentials || typeof credentials !== "object") {
-      return NextResponse.json({ error: "Provider credentials are required" }, { status: 400 });
+    // 3. Credential Shape Validation
+    if (!credentials || typeof credentials !== 'object') {
+      return NextResponse.json({ error: "Credentials required" }, { status: 400 });
     }
 
-    // 1. Basic field validation per provider (Phase 2 Group 3 stubs)
-    // TODO: Phase 4 — Actual test call to provider API
-    if (provider === "stripe" && !credentials.secret_key) {
-      return NextResponse.json({ error: "secret_key is required for Stripe" }, { status: 400 });
+    if (provider === 'stripe' && !credentials.secret_key) {
+      return NextResponse.json({ error: "Stripe requires secret_key" }, { status: 400 });
     }
-    if (provider === "razorpay" && (!credentials.key_id || !credentials.key_secret)) {
-      return NextResponse.json({ error: "key_id and key_secret are required for Razorpay" }, { status: 400 });
+    if (provider === 'razorpay' && (!credentials.key_id || !credentials.key_secret)) {
+      return NextResponse.json({ error: "Razorpay requires key_id and key_secret" }, { status: 400 });
+    }
+    if (provider === 'paypal' && (!credentials.client_id || !credentials.client_secret)) {
+      return NextResponse.json({ error: "PayPal requires client_id and client_secret" }, { status: 400 });
+    }
+    if (provider === 'cashfree' && (!credentials.app_id || !credentials.secret_key)) {
+      return NextResponse.json({ error: "Cashfree requires app_id and secret_key" }, { status: 400 });
     }
 
-    // 2. Encrypt credentials
-    let encrypted;
+    // 4. Encrypt and Upsert (Org-scoped)
     try {
-      encrypted = await encryptCredentials(credentials);
-    } catch (err: any) {
-      // Phase 1 stub throws "not yet implemented"
-      if (err.message === "encryptCredentials not yet implemented") {
-        return NextResponse.json({ error: "Payment encryption not yet active. Phase 4 pending." }, { status: 501 });
+      // TODO: Phase 4 — real provider validation call
+      const encrypted = await encryptCredentials(credentials);
+      
+      await db.collection("payment_gateway_configs").updateOne(
+        { org_id: userId, provider },
+        { 
+          $set: { 
+            org_id: userId, 
+            provider, 
+            credentials: encrypted, 
+            is_active: true,
+            updated_at: new Date()
+          } 
+        },
+        { upsert: true }
+      );
+
+      return NextResponse.json({ success: true, provider, is_active: true });
+    } catch (error: any) {
+      if (error.message === 'encryptCredentials not yet implemented') {
+        return NextResponse.json({ error: "Encryption not yet implemented (Phase 4)" }, { status: 501 });
       }
-      throw err;
+      throw error;
     }
-
-    // 3. Upsert configuration
-    const db = await getDb();
-    await db.collection("payment_gateway_configs").updateOne(
-      { org_id: userId, provider },
-      { 
-        $set: { 
-          org_id: userId,
-          provider,
-          credentials: encrypted,
-          is_active: true
-        } 
-      },
-      { upsert: true }
-    );
-
-    // 4. Response shape (Never return raw or encrypted credentials)
-    return NextResponse.json({ 
-      success: true, 
-      data: { provider, is_active: true } 
-    });
-
   } catch (error) {
     console.error("[payment_gateway_post]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
