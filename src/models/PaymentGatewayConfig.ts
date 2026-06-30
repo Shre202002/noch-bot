@@ -4,7 +4,7 @@ export type SupportedPaymentProvider = 'stripe' | 'paypal' | 'razorpay' | 'cashf
 
 export interface PaymentGatewayConfig {
   _id?: ObjectId;
-  org_id: ObjectId;
+  org_id: string; // Match UUID
   provider: SupportedPaymentProvider;
   credentials: string; // Encrypted JWE or AES string
   is_active: boolean;

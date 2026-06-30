@@ -4,7 +4,7 @@ export type EventStatus = 'draft' | 'published' | 'closed' | 'cancelled';
 
 export interface Event {
   _id?: ObjectId;
-  org_id: ObjectId;
+  org_id: string; // Changed to string to match existing UUID auth system
   name: string;
   description: string;
   start_at: Date;
