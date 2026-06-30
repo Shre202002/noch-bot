@@ -12,6 +12,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing widget ID" }, { status: 400 });
     }
 
+    if (!ObjectId.isValid(chatbot_widget_id)) {
+      return NextResponse.json({ error: "Invalid widget ID" }, { status: 400 });
+    }
+
     const db = await getDb();
     
     // Look up event by widget ID
@@ -39,7 +43,7 @@ export async function POST(req: NextRequest) {
       session_id: sessionId,
       status: 'in_progress',
       quantity: 0,
-      form_responses: [],
+      form_responses: {},
       conversation_state: 'collecting_quantity',
       session_context: {
         current_field_index: 0,

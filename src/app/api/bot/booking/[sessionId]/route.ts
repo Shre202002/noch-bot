@@ -16,17 +16,27 @@ export async function GET(
       return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
 
-    // 2. Fetch associated event to check current status
+    // 2. Check booking's own status
+    if (['confirmed', 'cancelled', 'expired'].includes(booking.status)) {
+      return NextResponse.json({
+        status: booking.status,
+        message: booking.status === 'confirmed'
+          ? "This booking is already confirmed."
+          : "This booking session is no longer active."
+      }, { status: 200 });
+    }
+
+    // 3. Fetch associated event to check current status
     const event = await db.collection("events").findOne({ _id: booking.event_id });
 
     if (!event || event.status !== 'published') {
       return NextResponse.json({ 
         status: 'cancelled',
         message: "The event is no longer available for booking."
-      });
+      }, { status: 200 });
     }
 
-    // 3. Return current state for hydration
+    // 4. Return current state for hydration
     return NextResponse.json({
       success: true,
       data: {
