@@ -1,0 +1,16 @@
+import { ObjectId } from 'mongodb';
+
+export type TicketStatus = 'active' | 'scanned' | 'void' | 'expired';
+
+export interface Ticket {
+  _id?: ObjectId;
+  booking_id: ObjectId;
+  event_id: ObjectId;
+  ticket_code: string;
+  qr_payload_hash: string;
+  status: TicketStatus;
+  scanned_at: Date | null;
+  scanned_by_staff_id: ObjectId | null;
+  scan_device_info: Record<string, any> | null;
+  issued_at: Date;
+}
