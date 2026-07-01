@@ -1,9 +1,15 @@
 import { PaymentGatewayAdapter, CheckoutParams, WebhookResult } from './adapter';
 
 export class PaypalAdapter implements PaymentGatewayAdapter {
+  private getApiBase(): string {
+    return process.env.PAYPAL_MODE === 'live' 
+      ? 'https://api-m.paypal.com' 
+      : 'https://api-m.sandbox.paypal.com';
+  }
+
   private async getAccessToken(credentials: Record<string, string>): Promise<string> {
     const auth = Buffer.from(`${credentials.client_id}:${credentials.client_secret}`).toString('base64');
-    const response = await fetch('https://api-m.sandbox.paypal.com/v1/oauth2/token', {
+    const response = await fetch(`${this.getApiBase()}/v1/oauth2/token`, {
       method: 'POST',
       body: 'grant_type=client_credentials',
       headers: {
@@ -18,10 +24,44 @@ export class PaypalAdapter implements PaymentGatewayAdapter {
   }
 
   async createCheckoutSession(params: CheckoutParams, credentials: Record<string, string>) {
-    // Placeholder for PayPal V2 Orders API implementation
+    const accessToken = await this.getAccessToken(credentials);
+    
+    const response = await fetch(`${this.getApiBase()}/v2/checkout/orders`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        intent: 'CAPTURE',
+        purchase_units: [{
+          reference_id: params.bookingId,
+          custom_id: params.bookingId,
+          amount: {
+            currency_code: params.currency.toUpperCase(),
+            value: params.amount.toString(),
+          },
+          description: `${params.eventName} - ${params.quantity} tickets`
+        }],
+        application_context: {
+          return_url: params.successUrl,
+          cancel_url: params.cancelUrl,
+          user_action: 'PAY_NOW'
+        }
+      }),
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      throw new Error(`PayPal Order creation failed: ${err}`);
+    }
+
+    const order = await response.json();
+    const approveLink = order.links.find((l: any) => l.rel === 'approve');
+
     return {
-      checkoutUrl: 'https://www.paypal.com/checkoutnow?token=placeholder',
-      providerReference: 'PAYPAL_ORDER_ID',
+      checkoutUrl: approveLink.href,
+      providerReference: order.id,
     };
   }
 
@@ -29,7 +69,7 @@ export class PaypalAdapter implements PaymentGatewayAdapter {
     rawBody: string,
     headers: Record<string, string | string[] | undefined>,
     credentials: Record<string, string>,
-    webhookId: string | null // For PayPal, the "secret" is the Webhook ID
+    webhookId: string | null
   ): Promise<WebhookResult | null> {
     if (!webhookId) return null;
 
@@ -37,8 +77,7 @@ export class PaypalAdapter implements PaymentGatewayAdapter {
       const accessToken = await this.getAccessToken(credentials);
       const payload = JSON.parse(rawBody);
 
-      // PayPal requires a verification call back to their API
-      const verifyResponse = await fetch('https://api-m.sandbox.paypal.com/v1/notifications/verify-webhook-signature', {
+      const verifyResponse = await fetch(`${this.getApiBase()}/v1/notifications/verify-webhook-signature`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -59,7 +98,6 @@ export class PaypalAdapter implements PaymentGatewayAdapter {
       const verification = await verifyResponse.json();
 
       if (verification.verification_status !== 'SUCCESS') {
-        console.warn('[PaypalAdapter] Signature verification failed');
         return null;
       }
 
@@ -72,7 +110,6 @@ export class PaypalAdapter implements PaymentGatewayAdapter {
         status = 'failed';
       }
 
-      // Try to find bookingId in customs/metadata
       const bookingId = payload.resource.custom_id || payload.resource.purchase_units?.[0]?.custom_id || null;
 
       return {

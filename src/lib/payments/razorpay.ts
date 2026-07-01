@@ -3,15 +3,37 @@ import { PaymentGatewayAdapter, CheckoutParams, WebhookResult } from './adapter'
 
 export class RazorpayAdapter implements PaymentGatewayAdapter {
   async createCheckoutSession(params: CheckoutParams, credentials: Record<string, string>) {
-    // Razorpay typically creates an 'Order' first, then the frontend opens the Modal.
-    // The checkoutUrl here is a conceptual redirect to a hosted page if using Razorpay Payment Links, 
-    // or we return the Order ID for the custom UI.
+    // Razorpay requires creating an Order on the server first.
+    // The frontend then uses this Order ID to open the standard checkout modal.
+    const auth = Buffer.from(`${credentials.key_id}:${credentials.key_secret}`).toString('base64');
     
-    // NOTE: This implementation assumes the use of standard Razorpay Orders.
-    // In a real implementation, you would call https://api.razorpay.com/v1/orders
+    const response = await fetch('https://api.razorpay.com/v1/orders', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${auth}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        amount: Math.round(params.amount * 100), // Razorpay expects paise/cents
+        currency: params.currency.toUpperCase(),
+        receipt: params.bookingId,
+        notes: {
+          bookingId: params.bookingId
+        }
+      }),
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      throw new Error(`Razorpay Order creation failed: ${err}`);
+    }
+
+    const order = await response.json();
+
     return {
-      checkoutUrl: '#razorpay-checkout', // Placeholder for frontend modal trigger
-      providerReference: 'rzp_order_placeholder',
+      // For Razorpay, we return the order ID. The frontend handles the modal popup.
+      checkoutUrl: `#razorpay-order-${order.id}`, 
+      providerReference: order.id,
     };
   }
 
@@ -22,8 +44,9 @@ export class RazorpayAdapter implements PaymentGatewayAdapter {
     webhookSecret: string | null
   ): Promise<WebhookResult | null> {
     const signature = headers['x-razorpay-signature'] as string;
+    const eventId = headers['x-razorpay-event-id'] as string; // Official idempotency key
 
-    if (!signature || !webhookSecret) {
+    if (!signature || !webhookSecret || !eventId) {
       return null;
     }
 
@@ -44,18 +67,17 @@ export class RazorpayAdapter implements PaymentGatewayAdapter {
       let status: WebhookResult['status'] = 'other';
       let bookingId: string | null = null;
 
-      // Map Razorpay events to our normalized status
       if (event === 'order.paid' || event === 'payment.captured') {
         status = 'paid';
-        const order = payload.payload.order?.entity || payload.payload.payment?.entity;
-        bookingId = order.notes?.bookingId || null;
+        const entity = payload.payload.order?.entity || payload.payload.payment?.entity;
+        bookingId = entity.notes?.bookingId || entity.receipt || null;
       } else if (event === 'payment.failed') {
         status = 'failed';
         bookingId = payload.payload.payment.entity.notes?.bookingId || null;
       }
 
       return {
-        providerEventId: payload.account_id + '_' + payload.created_at,
+        providerEventId: eventId,
         bookingId,
         status,
         rawPayload: payload,

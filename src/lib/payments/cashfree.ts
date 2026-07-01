@@ -2,13 +2,53 @@ import crypto from 'crypto';
 import { PaymentGatewayAdapter, CheckoutParams, WebhookResult } from './adapter';
 
 export class CashfreeAdapter implements PaymentGatewayAdapter {
+  private getApiBase(): string {
+    return process.env.CASHFREE_MODE === 'production'
+      ? 'https://api.cashfree.com/pg'
+      : 'https://sandbox.cashfree.com/pg';
+  }
+
   async createCheckoutSession(params: CheckoutParams, credentials: Record<string, string>) {
+    const response = await fetch(`${this.getApiBase()}/orders`, {
+      method: 'POST',
+      headers: {
+        'x-client-id': credentials.app_id,
+        'x-client-secret': credentials.secret_key,
+        'x-api-version': '2023-08-01',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        order_id: `order_${params.bookingId}_${Date.now()}`,
+        order_amount: params.amount,
+        order_currency: params.currency.toUpperCase(),
+        order_meta: {
+          return_url: `${params.successUrl}?order_id={order_id}`,
+          notify_url: params.successUrl, // Fallback
+        },
+        order_tags: {
+          bookingId: params.bookingId
+        }
+      }),
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      throw new Error(`Cashfree Order creation failed: ${err}`);
+    }
+
+    const order = await response.json();
+
     return {
-      checkoutUrl: 'https://payments.cashfree.com/order/placeholder',
-      providerReference: 'CF_ORDER_ID',
+      checkoutUrl: order.payment_link || order.payment_session_id, // Return URL or ID based on CF response
+      providerReference: order.order_id,
     };
   }
 
+  /**
+   * Signature Verification (Cashfree V3)
+   * Source: https://docs.cashfree.com/docs/webhooks#signature-verification
+   * Scheme: x-webhook-timestamp + raw_body, HMAC-SHA256, Base64
+   */
   async verifyAndParseWebhook(
     rawBody: string,
     headers: Record<string, string | string[] | undefined>,
