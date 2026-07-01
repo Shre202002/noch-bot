@@ -1,3 +1,4 @@
+
 import { getDb } from './db';
 
 /**
@@ -43,6 +44,11 @@ export async function ensureBookingIndexes() {
     { key: { org_id: 1 } },
     { key: { email: 1 } },
     { key: { access_token: 1 }, unique: true }
+  ]);
+
+  // Webhook Idempotency (Phase 4)
+  await db.collection('processed_webhooks').createIndexes([
+    { key: { provider: 1, provider_event_id: 1 }, unique: true }
   ]);
 
   console.log('✅ Booking feature indexes initialized.');
