@@ -3,6 +3,18 @@ import { getDb } from "@/lib/db";
 import { processBookingMessage } from "@/lib/bookingFlow";
 import { reserveCapacity, placeHold, reconcileExpiredHold } from "@/lib/eventCapacity";
 import { issueTicketsForBooking } from "@/lib/ticketIssuance";
+import { stripeAdapter } from "@/lib/payments/stripe";
+import { razorpayAdapter } from "@/lib/payments/razorpay";
+import { paypalAdapter } from "@/lib/payments/paypal";
+import { cashfreeAdapter } from "@/lib/payments/cashfree";
+import { decryptCredentials } from "@/lib/credentialCrypto";
+
+const providerAdapters: Record<string, any> = {
+  stripe: stripeAdapter,
+  razorpay: razorpayAdapter,
+  paypal: paypalAdapter,
+  cashfree: cashfreeAdapter,
+};
 
 export async function POST(
   req: NextRequest,
@@ -61,6 +73,9 @@ export async function POST(
     let statusUpdate = booking.status;
     let holdExpiresAt = booking.hold_expires_at;
     let reservationPlaced = false;
+    let paymentData: any = null;
+    let paymentProvider: any = booking.payment_provider || 'none';
+    let paymentRefId: string | null = booking.payment_reference_id || null;
 
     try {
       if (booking.conversation_state === 'reviewing' && update.conversation_state !== 'reviewing') {
@@ -93,7 +108,47 @@ export async function POST(
           statusUpdate = 'awaiting_payment';
           update.conversation_state = 'awaiting_payment';
           holdExpiresAt = holdResult.hold_expires_at;
-          update.bot_reply = "Great! I've reserved your tickets. Please complete the payment within 5 minutes to confirm your booking.";
+
+          // Initiate real payment session
+          const gatewayConfig = await db.collection("payment_gateway_configs").findOne({ 
+            org_id: event.org_id, 
+            is_active: true 
+          });
+
+          if (!gatewayConfig) {
+            throw new Error(`Event is paid but no active payment gateway found for org: ${event.org_id}`);
+          }
+
+          const adapter = providerAdapters[gatewayConfig.provider];
+          const credentials = await decryptCredentials(gatewayConfig.credentials);
+          
+          // Extract email/phone fallbacks from form responses
+          const firstAttendee = Array.isArray(booking.form_responses) ? booking.form_responses[0] : booking.form_responses;
+          const emailField = fields.find(f => f.validation_rule === 'email_format');
+          const phoneField = fields.find(f => f.validation_rule === 'phone_format');
+          
+          const session = await adapter.createCheckoutSession({
+            bookingId: booking._id.toString(),
+            orgId: event.org_id,
+            amount: event.price! * booking.quantity,
+            currency: event.currency,
+            eventName: event.name,
+            quantity: booking.quantity,
+            successUrl: `${process.env.NEXTAUTH_URL}/booking/success?sid=${sessionId}`,
+            cancelUrl: `${process.env.NEXTAUTH_URL}/booking/cancel?sid=${sessionId}`,
+            customerEmail: emailField ? firstAttendee[emailField.field_key] : "no-reply@nochbot.space",
+            customerPhone: phoneField ? firstAttendee[phoneField.field_key] : "9999999999"
+          }, credentials);
+
+          paymentProvider = gatewayConfig.provider;
+          paymentRefId = session.providerReference;
+          paymentData = {
+            provider: paymentProvider,
+            checkoutUrl: session.checkoutUrl,
+            providerReference: session.providerReference
+          };
+
+          update.bot_reply = "Great! I've reserved your tickets. Please complete the payment using the link below to confirm your booking.";
         } else {
           // Free event path - immediate sale
           const saleResult = await reserveCapacity(event._id, booking.quantity);
@@ -117,8 +172,6 @@ export async function POST(
       }
 
       // 7. Persist Updates
-      // STOPGAP SAFETY: If this write fails, the catch block below handles the inconsistent state.
-      // Phase 4 will replace this with a proper idempotent outbox pattern.
       await db.collection("bookings").updateOne(
         { _id: booking._id },
         {
@@ -129,27 +182,28 @@ export async function POST(
             quantity: update.quantity,
             form_responses: update.form_responses,
             hold_expires_at: holdExpiresAt,
+            payment_provider: paymentProvider,
+            payment_reference_id: paymentRefId,
             updated_at: new Date()
           }
         }
       );
     } catch (persistenceError) {
       if (reservationPlaced) {
-        console.error(`[CRASH_STOPGAP] Capacity reserved but booking persistence failed. Manual reconciliation required.
+        console.error(`[CRITICAL_BOOKING_ERROR] Inventory reserved but persistence failed. Manual reconciliation required.
           Booking ID: ${booking._id}
           Event ID: ${event._id}
           Quantity: ${booking.quantity}
           Type: ${event.is_paid ? 'Hold' : 'Direct Sale'}
           Error: ${persistenceError instanceof Error ? persistenceError.message : 'Unknown'}`);
         
-        // Best-effort revert of UI state
         try {
           await db.collection("bookings").updateOne(
             { _id: booking._id },
             { $set: { conversation_state: 'reviewing', updated_at: new Date() } }
           );
         } catch (revertError) {
-          console.error("[CRASH_STOPGAP] Failed to revert state after crash:", revertError);
+          console.error("[CRITICAL_BOOKING_ERROR] Failed to revert state after crash:", revertError);
         }
       }
       throw persistenceError;
@@ -160,7 +214,8 @@ export async function POST(
       conversation_state: update.conversation_state,
       bot_reply: update.bot_reply,
       status: statusUpdate,
-      context: update.session_context 
+      context: update.session_context,
+      payment_data: paymentData
     });
 
   } catch (error) {
