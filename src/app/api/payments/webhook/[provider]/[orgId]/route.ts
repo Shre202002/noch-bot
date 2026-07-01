@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { stripeAdapter } from "@/lib/payments/stripe";
+import { razorpayAdapter } from "@/lib/payments/razorpay";
+import { paypalAdapter } from "@/lib/payments/paypal";
+import { cashfreeAdapter } from "@/lib/payments/cashfree";
+import { PaymentGatewayAdapter } from "@/lib/payments/adapter";
 import { decryptCredentials } from "@/lib/credentialCrypto";
 import { ObjectId } from "mongodb";
 import { confirmHold, releaseHold } from "@/lib/eventCapacity";
@@ -9,20 +13,25 @@ import { issueTicketsForBooking } from "@/lib/ticketIssuance";
 /**
  * @fileOverview Centralized webhook receiver for payment providers.
  * Path: /api/payments/webhook/[provider]/[orgId]
- * 
- * This route is unauthenticated and public. It relies on cryptographic signature
- * verification via per-org secrets to ensure authenticity.
  */
+
+const providerAdapters: Record<string, PaymentGatewayAdapter> = {
+  stripe: stripeAdapter,
+  razorpay: razorpayAdapter,
+  paypal: paypalAdapter,
+  cashfree: cashfreeAdapter,
+};
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ provider: string; orgId: string }> }
 ) {
   const { provider, orgId } = await params;
+  const adapter = providerAdapters[provider.toLowerCase()];
 
   try {
     // 1. Validate Provider
-    if (provider !== 'stripe') {
+    if (!adapter) {
       return NextResponse.json({ error: "Unsupported provider" }, { status: 400 });
     }
 
@@ -30,12 +39,12 @@ export async function POST(
     const db = await getDb();
     const config = await db.collection("payment_gateway_configs").findOne({ 
       org_id: orgId, 
-      provider,
+      provider: provider.toLowerCase(),
       is_active: true 
     });
 
-    if (!config || !config.webhook_secret) {
-      console.warn(`[webhook_${provider}] Config not found for org: ${orgId}`);
+    if (!config) {
+      console.warn(`[webhook_${provider}] Active config not found for org: ${orgId}`);
       return NextResponse.json({ error: "Configuration not found" }, { status: 400 });
     }
 
@@ -48,11 +57,10 @@ export async function POST(
 
     // 4. Decrypt Secrets
     const credentials = await decryptCredentials(config.credentials);
-    const secretObj = await decryptCredentials(config.webhook_secret);
-    const webhookSecret = secretObj.secret;
+    const webhookSecret = config.webhook_secret ? (await decryptCredentials(config.webhook_secret)).secret : null;
 
     // 5. Verify & Parse (Atomic handoff)
-    const result = await stripeAdapter.verifyAndParseWebhook(
+    const result = await adapter.verifyAndParseWebhook(
       rawBody,
       headers,
       credentials,
@@ -82,21 +90,16 @@ export async function POST(
       throw err;
     }
 
-    // 7. Handle Result with atomic status claim and crash-safety
+    // 7. Atomic Claim & Process Side Effects
     try {
-      if (!result.bookingId) {
-        return new NextResponse("No booking ID in payload", { status: 200 });
-      }
-
-      if (!ObjectId.isValid(result.bookingId)) {
-        console.error(`[webhook_${provider}] Invalid booking ID: ${result.bookingId}`);
-        return new NextResponse("Invalid booking ID", { status: 200 });
+      if (!result.bookingId || !ObjectId.isValid(result.bookingId)) {
+        return new NextResponse("No valid booking ID in payload", { status: 200 });
       }
 
       const bookingId = new ObjectId(result.bookingId);
 
       if (result.status === 'paid') {
-        // ATOMIC CLAIM: Try to mark as confirmed only if currently awaiting_payment
+        // ATOMIC CLAIM: Only transition if currently awaiting_payment
         const booking = await db.collection("bookings").findOneAndUpdate(
           { _id: bookingId, status: 'awaiting_payment' },
           {
@@ -110,25 +113,20 @@ export async function POST(
           { returnDocument: 'before' }
         );
 
-        if (!booking) {
-          console.warn(`[webhook_${provider}] Booking ${bookingId} already resolved or not awaiting payment`);
-          return new NextResponse("Already resolved", { status: 200 });
+        if (booking) {
+          await confirmHold(booking.event_id, booking.quantity);
+          await issueTicketsForBooking(booking as any);
+          console.log(`[webhook_${provider}] Booking confirmed: ${bookingId}`);
         }
-
-        // Successfully claimed - perform side effects
-        await confirmHold(booking.event_id, booking.quantity);
-        await issueTicketsForBooking(booking as any);
-        
-        console.log(`[webhook_${provider}] Booking confirmed and tickets issued: ${bookingId}`);
       } else if (result.status === 'failed') {
-        // ATOMIC CLAIM: Try to mark as cancelled
+        // ATOMIC CLAIM: Mark as cancelled
         const booking = await db.collection("bookings").findOneAndUpdate(
           { _id: bookingId, status: 'awaiting_payment' },
           { 
             $set: { 
               status: 'cancelled', 
               conversation_state: 'cancelled', 
-              hold_expires_at: null,
+              hold_expires_at: null, 
               updated_at: new Date() 
             } 
           },
@@ -141,16 +139,11 @@ export async function POST(
         }
       }
     } catch (mutationError) {
-      // WEBHOOK_FAILURE: Webhook already marked processed, but side effects failed.
-      // This requires manual reconciliation based on logs.
-      console.error(`[CRITICAL_WEBHOOK_FAILURE] Payment processed but side-effect persistence failed.
+      console.error(`[CRITICAL_WEBHOOK_FAILURE] Manual reconciliation required.
         Booking ID: ${result.bookingId}
-        Provider ID: ${result.providerEventId}
         Status: ${result.status}
         Error: ${mutationError instanceof Error ? mutationError.message : 'Unknown'}`);
-      
-      // Still return 200 because retrying would hit the idempotency gate.
-      return new NextResponse("Internal error recorded for reconciliation", { status: 200 });
+      return new NextResponse("Internal error recorded", { status: 200 });
     }
 
     return new NextResponse("OK", { status: 200 });
