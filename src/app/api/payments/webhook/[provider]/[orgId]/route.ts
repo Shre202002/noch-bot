@@ -19,7 +19,6 @@ export async function POST(
   { params }: { params: Promise<{ provider: string; orgId: string }> }
 ) {
   const { provider, orgId } = await params;
-  const startTime = Date.now();
 
   try {
     // 1. Validate Provider
@@ -41,7 +40,6 @@ export async function POST(
     }
 
     // 3. Read RAW body for signature verification
-    // Do NOT use req.json() - exact bytes are required.
     const rawBody = await req.text();
     const headers: Record<string, string> = {};
     req.headers.forEach((value, key) => {
@@ -54,7 +52,6 @@ export async function POST(
     const webhookSecret = secretObj.secret;
 
     // 5. Verify & Parse (Atomic handoff)
-    // We only act on the 'result' if the signature is cryptographically valid.
     const result = await stripeAdapter.verifyAndParseWebhook(
       rawBody,
       headers,
@@ -68,7 +65,6 @@ export async function POST(
     }
 
     // 6. Idempotency Gate (INSERT FIRST)
-    // The unique index on {provider, provider_event_id} prevents double-processing.
     try {
       await db.collection('processed_webhooks').insertOne({
         provider,
@@ -86,34 +82,23 @@ export async function POST(
       throw err;
     }
 
-    // 7. Handle Result
-    if (!result.bookingId) {
-      return new NextResponse("No booking ID in payload", { status: 200 });
-    }
-
-    const bookingId = new ObjectId(result.bookingId);
-    const booking = await db.collection("bookings").findOne({ _id: bookingId });
-
-    if (!booking) {
-      console.warn(`[webhook_${provider}] Booking ${result.bookingId} not found`);
-      return new NextResponse("Booking not found", { status: 200 });
-    }
-
-    // CRASH SAFETY WRAPPER for mutations
+    // 7. Handle Result with atomic status claim and crash-safety
     try {
+      if (!result.bookingId) {
+        return new NextResponse("No booking ID in payload", { status: 200 });
+      }
+
+      if (!ObjectId.isValid(result.bookingId)) {
+        console.error(`[webhook_${provider}] Invalid booking ID: ${result.bookingId}`);
+        return new NextResponse("Invalid booking ID", { status: 200 });
+      }
+
+      const bookingId = new ObjectId(result.bookingId);
+
       if (result.status === 'paid') {
-        // Success Path
-        if (booking.status !== 'awaiting_payment') {
-          console.warn(`[webhook_${provider}] Booking ${bookingId} in invalid state: ${booking.status}`);
-          return new NextResponse("Invalid state", { status: 200 });
-        }
-
-        // a. Convert hold to sale
-        await confirmHold(booking.event_id, booking.quantity);
-
-        // b. Update booking
-        await db.collection("bookings").updateOne(
-          { _id: bookingId },
+        // ATOMIC CLAIM: Try to mark as confirmed only if currently awaiting_payment
+        const booking = await db.collection("bookings").findOneAndUpdate(
+          { _id: bookingId, status: 'awaiting_payment' },
           {
             $set: {
               status: 'confirmed',
@@ -121,40 +106,57 @@ export async function POST(
               hold_expires_at: null,
               updated_at: new Date()
             }
-          }
+          },
+          { returnDocument: 'before' }
         );
 
-        // c. Issue Tickets
+        if (!booking) {
+          console.warn(`[webhook_${provider}] Booking ${bookingId} already resolved or not awaiting payment`);
+          return new NextResponse("Already resolved", { status: 200 });
+        }
+
+        // Successfully claimed - perform side effects
+        await confirmHold(booking.event_id, booking.quantity);
         await issueTicketsForBooking(booking as any);
         
         console.log(`[webhook_${provider}] Booking confirmed and tickets issued: ${bookingId}`);
       } else if (result.status === 'failed') {
-        // Failure Path
-        await releaseHold(booking.event_id, booking.quantity);
-        await db.collection("bookings").updateOne(
-          { _id: bookingId },
-          { $set: { status: 'cancelled', conversation_state: 'cancelled', updated_at: new Date() } }
+        // ATOMIC CLAIM: Try to mark as cancelled
+        const booking = await db.collection("bookings").findOneAndUpdate(
+          { _id: bookingId, status: 'awaiting_payment' },
+          { 
+            $set: { 
+              status: 'cancelled', 
+              conversation_state: 'cancelled', 
+              hold_expires_at: null,
+              updated_at: new Date() 
+            } 
+          },
+          { returnDocument: 'before' }
         );
-        console.log(`[webhook_${provider}] Payment failed, hold released: ${bookingId}`);
+
+        if (booking) {
+          await releaseHold(booking.event_id, booking.quantity);
+          console.log(`[webhook_${provider}] Payment failed, hold released: ${bookingId}`);
+        }
       }
     } catch (mutationError) {
-      // KNOWN LIMITATION: Partial failure after idempotency key is already stored.
-      // This webhook will NOT be retried. Manual reconciliation is required.
-      console.error(`[CRITICAL_WEBHOOK_FAILURE] Payment processed but internal state update failed.
-        Booking ID: ${bookingId}
+      // WEBHOOK_FAILURE: Webhook already marked processed, but side effects failed.
+      // This requires manual reconciliation based on logs.
+      console.error(`[CRITICAL_WEBHOOK_FAILURE] Payment processed but side-effect persistence failed.
+        Booking ID: ${result.bookingId}
         Provider ID: ${result.providerEventId}
-        Event ID: ${booking.event_id}
-        Quantity: ${booking.quantity}
+        Status: ${result.status}
         Error: ${mutationError instanceof Error ? mutationError.message : 'Unknown'}`);
       
-      // We still return 200 because retrying would fail the idempotency check anyway.
+      // Still return 200 because retrying would hit the idempotency gate.
       return new NextResponse("Internal error recorded for reconciliation", { status: 200 });
     }
 
     return new NextResponse("OK", { status: 200 });
 
   } catch (error) {
-    console.error(`[webhook_${provider}] Global error:`, error);
+    console.error(`[webhook_${provider}] Global router error:`, error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
