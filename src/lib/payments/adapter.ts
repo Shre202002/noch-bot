@@ -1,4 +1,3 @@
-
 /**
  * @fileOverview Standard interface for payment gateway providers.
  */
@@ -24,22 +23,22 @@ export interface PaymentGatewayAdapter {
   /**
    * Creates a checkout session or order on the provider's platform.
    */
-  createCheckoutSession(params: CheckoutParams, credentials: Record<string, string>): Promise<{ 
+  createCheckoutSession(
+    params: CheckoutParams, 
+    credentials: Record<string, string>
+  ): Promise<{ 
     checkoutUrl: string; 
     providerReference: string; 
   }>;
 
   /**
-   * Verifies the cryptographic signature of an incoming webhook.
+   * Atomically verifies the cryptographic signature and parses the payload.
+   * Returns a normalized WebhookResult on success, or null if verification fails.
+   * This ensures the application only ever acts on verified data.
    */
-  verifyWebhookSignature(
+  verifyAndParseWebhook(
     rawBody: string, 
     headers: Record<string, string | string[] | undefined>, 
     credentials: Record<string, string>
-  ): Promise<boolean>;
-
-  /**
-   * Parses the provider's webhook payload into a normalized result.
-   */
-  parseWebhookPayload(body: any): WebhookResult;
+  ): Promise<WebhookResult | null>;
 }

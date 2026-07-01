@@ -1,11 +1,10 @@
-
 import Stripe from 'stripe';
 import { PaymentGatewayAdapter, CheckoutParams, WebhookResult } from './adapter';
 
 export class StripeAdapter implements PaymentGatewayAdapter {
   private getClient(secretKey: string): Stripe {
     return new Stripe(secretKey, {
-      apiVersion: '2025-01-27-preview', // Use a stable or latest version
+      apiVersion: '2024-06-20', // Using a stable, dated release
     });
   }
 
@@ -40,47 +39,44 @@ export class StripeAdapter implements PaymentGatewayAdapter {
     };
   }
 
-  async verifyWebhookSignature(
+  async verifyAndParseWebhook(
     rawBody: string, 
     headers: Record<string, string | string[] | undefined>, 
     credentials: Record<string, string>
-  ) {
+  ): Promise<WebhookResult | null> {
     const stripe = this.getClient(credentials.secret_key);
     const sig = headers['stripe-signature'] as string;
     const webhookSecret = credentials.webhook_secret;
 
-    if (!sig || !webhookSecret) return false;
+    if (!sig || !webhookSecret) return null;
 
     try {
-      stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
-      return true;
+      // Atomic verify + parse
+      const event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
+      
+      let bookingId: string | null = null;
+      let status: WebhookResult['status'] = 'other';
+
+      if (event.type === 'checkout.session.completed') {
+        const session = event.data.object as Stripe.Checkout.Session;
+        bookingId = session.metadata?.bookingId || session.client_reference_id || null;
+        status = session.payment_status === 'paid' ? 'paid' : 'failed';
+      } else if (event.type === 'checkout.session.async_payment_failed') {
+        const session = event.data.object as Stripe.Checkout.Session;
+        bookingId = session.metadata?.bookingId || null;
+        status = 'failed';
+      }
+
+      return {
+        providerEventId: event.id,
+        bookingId,
+        status,
+        rawPayload: event,
+      };
     } catch (err) {
-      console.warn('[StripeAdapter] Signature verification failed:', err);
-      return false;
+      console.warn('[StripeAdapter] Webhook verification failed:', err);
+      return null;
     }
-  }
-
-  parseWebhookPayload(body: any): WebhookResult {
-    const event = body as Stripe.Event;
-    let bookingId: string | null = null;
-    let status: WebhookResult['status'] = 'other';
-
-    if (event.type === 'checkout.session.completed') {
-      const session = event.data.object as Stripe.Checkout.Session;
-      bookingId = session.metadata?.bookingId || session.client_reference_id || null;
-      status = session.payment_status === 'paid' ? 'paid' : 'failed';
-    } else if (event.type === 'checkout.session.async_payment_failed') {
-      const session = event.data.object as Stripe.Checkout.Session;
-      bookingId = session.metadata?.bookingId || null;
-      status = 'failed';
-    }
-
-    return {
-      providerEventId: event.id,
-      bookingId,
-      status,
-      rawPayload: body,
-    };
   }
 }
 
