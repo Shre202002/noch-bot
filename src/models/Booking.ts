@@ -10,6 +10,7 @@ export type ConversationState =
   | 'collecting_quantity' 
   | 'collecting_fields' 
   | 'reviewing' 
+  | 'processing_confirmation' // Transitional locking state
   | 'awaiting_payment' 
   | 'confirmed' 
   | 'cancelled' 
@@ -30,6 +31,8 @@ export interface Booking {
     current_attendee_index: number;
     last_updated_at: Date;
   };
+
+  hold_expires_at: Date | null; // For paid events BMS-style flow
 
   amount_charged: number | null;
   payment_provider: PaymentProvider;

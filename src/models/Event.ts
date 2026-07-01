@@ -12,6 +12,7 @@ export interface Event {
   venue: string | null;
   capacity: number;
   tickets_sold: number;
+  tickets_held: number; // BMS-style temporary holds
   status: EventStatus;
   is_paid: boolean;
   price: number | null;

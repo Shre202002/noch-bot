@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { processBookingMessage } from "@/lib/bookingFlow";
-import { reserveCapacity } from "@/lib/eventCapacity";
+import { reserveCapacity, placeHold, reconcileExpiredHold } from "@/lib/eventCapacity";
+import { issueTicketsForBooking } from "@/lib/ticketIssuance";
 
 export async function POST(
   req: NextRequest,
@@ -17,10 +18,21 @@ export async function POST(
 
     const db = await getDb();
 
-    // 1. Fetch booking and validate status
-    const booking = await db.collection("bookings").findOne({ session_id: sessionId });
+    // 1. Fetch booking
+    let booking = await db.collection("bookings").findOne({ session_id: sessionId });
     if (!booking) {
       return NextResponse.json({ error: "Session not found" }, { status: 404 });
+    }
+
+    // 2. Passive Hold Reconciliation
+    if (booking.status === 'awaiting_payment') {
+      const expired = await reconcileExpiredHold(booking._id);
+      if (expired) {
+        return NextResponse.json({ 
+          error: "Session expired",
+          message: "Your booking hold has expired. Please restart the process."
+        }, { status: 403 });
+      }
     }
 
     if (['confirmed', 'cancelled', 'expired'].includes(booking.status)) {
@@ -30,43 +42,77 @@ export async function POST(
       }, { status: 403 });
     }
 
-    // 2. Fetch event and re-verify status
+    // 3. Fetch event
     const event = await db.collection("events").findOne({ _id: booking.event_id });
     if (!event || event.status !== 'published') {
       return NextResponse.json({ error: "Event no longer available" }, { status: 410 });
     }
 
-    // 3. Fetch form fields
+    // 4. Fetch form fields
     const fields = await db.collection("event_form_fields")
       .find({ event_id: event._id })
       .sort({ order_index: 1 })
       .toArray();
 
-    // 4. Process Message
+    // 5. Process Message (Deterministic Logic)
     const update = processBookingMessage(message, booking as any, event as any, fields as any);
 
-    // ── Phase 3 Checkpoint 3: Atomic Capacity Reservation ──
+    // 6. Handle Confirmation Phase (with Locking)
     let statusUpdate = booking.status;
-    
-    // Check if the conversation is transitioning from Review to the final booking steps
-    if (
-      booking.conversation_state === 'reviewing' && 
-      ['awaiting_payment', 'confirmed'].includes(update.conversation_state)
-    ) {
-      // Reserve seats atomically
-      const reservation = await reserveCapacity(event._id, booking.quantity);
-      
-      if (!reservation) {
-        // Sold out during the review process
-        update.conversation_state = 'reviewing';
-        update.bot_reply = "I'm so sorry, but it looks like the event just sold out while we were talking! We can't complete your booking at this time.";
+    let holdExpiresAt = booking.hold_expires_at;
+
+    if (booking.conversation_state === 'reviewing' && update.conversation_state !== 'reviewing') {
+      // ATOMIC LOCK: Try to move out of reviewing
+      const lockResult = await db.collection("bookings").findOneAndUpdate(
+        { _id: booking._id, conversation_state: 'reviewing' },
+        { $set: { conversation_state: 'processing_confirmation' } }
+      );
+
+      if (!lockResult) {
+        return NextResponse.json({ error: "Request already being processed" }, { status: 409 });
+      }
+
+      if (event.is_paid) {
+        // BMS Hold path
+        const holdResult = await placeHold(event._id, booking.quantity);
+        if (!holdResult) {
+          // Sold out - revert
+          await db.collection("bookings").updateOne(
+            { _id: booking._id },
+            { $set: { conversation_state: 'reviewing' } }
+          );
+          return NextResponse.json({
+            success: true,
+            conversation_state: 'reviewing',
+            bot_reply: "I'm so sorry, but it looks like the event just sold out while we were talking! We can't complete your booking at this time."
+          });
+        }
+        statusUpdate = 'awaiting_payment';
+        update.conversation_state = 'awaiting_payment';
+        holdExpiresAt = holdResult.hold_expires_at;
+        update.bot_reply = "Great! I've reserved your tickets. Please complete the payment within 5 minutes to confirm your booking.";
       } else {
-        // Reservation successful - update the record's lifecycle status
-        statusUpdate = update.conversation_state === 'awaiting_payment' ? 'awaiting_payment' : 'confirmed';
+        // Free event path - immediate sale
+        const saleResult = await reserveCapacity(event._id, booking.quantity);
+        if (!saleResult) {
+          await db.collection("bookings").updateOne(
+            { _id: booking._id },
+            { $set: { conversation_state: 'reviewing' } }
+          );
+          return NextResponse.json({
+            success: true,
+            conversation_state: 'reviewing',
+            bot_reply: "I'm so sorry, but it looks like the event just sold out!"
+          });
+        }
+        statusUpdate = 'confirmed';
+        update.conversation_state = 'confirmed';
+        await issueTicketsForBooking(booking as any);
+        update.bot_reply = "Perfect! Your booking is confirmed. Your tickets have been issued.";
       }
     }
 
-    // 5. Persist Updates
+    // 7. Persist Updates
     await db.collection("bookings").updateOne(
       { _id: booking._id },
       {
@@ -76,18 +122,17 @@ export async function POST(
           session_context: update.session_context,
           quantity: update.quantity,
           form_responses: update.form_responses,
+          hold_expires_at: holdExpiresAt,
           updated_at: new Date()
         }
       }
     );
 
-    // 6. Return response to widget
     return NextResponse.json({
       success: true,
       conversation_state: update.conversation_state,
       bot_reply: update.bot_reply,
       status: statusUpdate,
-      // Pass back context for widget UI state synchronization if needed
       context: update.session_context 
     });
 

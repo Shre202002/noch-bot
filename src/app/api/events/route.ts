@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/request";
+import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { getUserIdFromCookie } from "@/lib/auth";
 import { getDb } from "@/lib/db";
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
 
     const db = await getDb();
     const event: Event = {
-      org_id: userId, // UUID string
+      org_id: userId,
       name,
       description,
       start_at: start,
@@ -69,6 +69,7 @@ export async function POST(req: NextRequest) {
       venue: venue || null,
       capacity: capNum,
       tickets_sold: 0,
+      tickets_held: 0,
       status: "draft",
       is_paid: !!is_paid,
       price: is_paid ? priceNum : null,
@@ -78,7 +79,7 @@ export async function POST(req: NextRequest) {
       ticket_template_id: ticket_template_id || "default",
       logo_url: logo_url || null,
       banner_url: banner_url || null,
-      chatbot_widget_id: new ObjectId(), // Placeholder
+      chatbot_widget_id: new ObjectId(),
       created_at: new Date(),
       updated_at: new Date(),
     };
