@@ -24,7 +24,7 @@ export async function POST(
     if (!event) return NextResponse.json({ error: "Event not found" }, { status: 404 });
 
     const body = await req.json();
-    const { provider, credentials } = body;
+    const { provider, credentials, webhook_secret } = body;
 
     // 2. Provider Validation
     const supportedProviders = ['stripe', 'paypal', 'razorpay', 'cashfree'];
@@ -50,22 +50,34 @@ export async function POST(
       return NextResponse.json({ error: "Cashfree requires app_id and secret_key" }, { status: 400 });
     }
 
-    // 4. Encrypt and Upsert (Org-scoped)
+    // 4. Webhook Secret Validation for Stripe
+    const existing = await db.collection("payment_gateway_configs").findOne({ org_id: userId, provider });
+    if (provider === 'stripe' && !webhook_secret && !existing?.webhook_secret) {
+      return NextResponse.json({ error: "Stripe requires webhook_secret" }, { status: 400 });
+    }
+
+    // 5. Encrypt and Upsert (Org-scoped)
     try {
       // TODO: Phase 4 — real provider validation call
-      const encrypted = await encryptCredentials(credentials);
+      const encryptedCreds = await encryptCredentials(credentials);
       
+      const updateDoc: any = {
+        $set: { 
+          org_id: userId, 
+          provider, 
+          credentials: encryptedCreds, 
+          is_active: true,
+          updated_at: new Date()
+        }
+      };
+
+      if (webhook_secret) {
+        updateDoc.$set.webhook_secret = await encryptCredentials({ secret: webhook_secret });
+      }
+
       await db.collection("payment_gateway_configs").updateOne(
         { org_id: userId, provider },
-        { 
-          $set: { 
-            org_id: userId, 
-            provider, 
-            credentials: encrypted, 
-            is_active: true,
-            updated_at: new Date()
-          } 
-        },
+        updateDoc,
         { upsert: true }
       );
 

@@ -39,6 +39,7 @@ export interface PaymentGatewayAdapter {
   verifyAndParseWebhook(
     rawBody: string, 
     headers: Record<string, string | string[] | undefined>, 
-    credentials: Record<string, string>
+    credentials: Record<string, string>,
+    webhookSecret: string | null
   ): Promise<WebhookResult | null>;
 }
