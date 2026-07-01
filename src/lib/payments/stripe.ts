@@ -13,6 +13,7 @@ export class StripeAdapter implements PaymentGatewayAdapter {
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
+      customer_email: params.customerEmail,
       line_items: [{
         price_data: {
           currency: params.currency.toLowerCase(),
@@ -20,7 +21,7 @@ export class StripeAdapter implements PaymentGatewayAdapter {
             name: params.eventName,
             description: `Booking for ${params.quantity} ticket(s)`,
           },
-          unit_amount: Math.round(params.amount * 100), // Stripe expects cents
+          unit_amount: Math.round(params.amount * 100),
         },
         quantity: params.quantity,
       }],
@@ -51,7 +52,6 @@ export class StripeAdapter implements PaymentGatewayAdapter {
     if (!sig || !webhookSecret) return null;
 
     try {
-      // Atomic verify + parse
       const event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
       
       let bookingId: string | null = null;
@@ -74,11 +74,9 @@ export class StripeAdapter implements PaymentGatewayAdapter {
         rawPayload: event,
       };
     } catch (err) {
-      console.warn('[StripeAdapter] Webhook verification failed:', err);
       return null;
     }
   }
 }
 
-// Export singleton
 export const stripeAdapter = new StripeAdapter();

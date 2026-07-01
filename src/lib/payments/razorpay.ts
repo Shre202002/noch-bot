@@ -3,8 +3,6 @@ import { PaymentGatewayAdapter, CheckoutParams, WebhookResult } from './adapter'
 
 export class RazorpayAdapter implements PaymentGatewayAdapter {
   async createCheckoutSession(params: CheckoutParams, credentials: Record<string, string>) {
-    // Razorpay requires creating an Order on the server first.
-    // The frontend then uses this Order ID to open the standard checkout modal.
     const auth = Buffer.from(`${credentials.key_id}:${credentials.key_secret}`).toString('base64');
     
     const response = await fetch('https://api.razorpay.com/v1/orders', {
@@ -14,7 +12,7 @@ export class RazorpayAdapter implements PaymentGatewayAdapter {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        amount: Math.round(params.amount * 100), // Razorpay expects paise/cents
+        amount: Math.round(params.amount * 100),
         currency: params.currency.toUpperCase(),
         receipt: params.bookingId,
         notes: {
@@ -31,8 +29,8 @@ export class RazorpayAdapter implements PaymentGatewayAdapter {
     const order = await response.json();
 
     return {
-      // For Razorpay, we return the order ID. The frontend handles the modal popup.
-      checkoutUrl: `#razorpay-order-${order.id}`, 
+      // Razorpay uses a client-side SDK. checkoutUrl is empty, Order ID is the reference.
+      checkoutUrl: '', 
       providerReference: order.id,
     };
   }
@@ -44,7 +42,7 @@ export class RazorpayAdapter implements PaymentGatewayAdapter {
     webhookSecret: string | null
   ): Promise<WebhookResult | null> {
     const signature = headers['x-razorpay-signature'] as string;
-    const eventId = headers['x-razorpay-event-id'] as string; // Official idempotency key
+    const eventId = headers['x-razorpay-event-id'] as string;
 
     if (!signature || !webhookSecret || !eventId) {
       return null;
@@ -57,7 +55,6 @@ export class RazorpayAdapter implements PaymentGatewayAdapter {
         .digest('hex');
 
       if (expectedSignature !== signature) {
-        console.warn('[RazorpayAdapter] Signature mismatch');
         return null;
       }
 

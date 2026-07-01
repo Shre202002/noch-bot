@@ -119,7 +119,6 @@ export class PaypalAdapter implements PaymentGatewayAdapter {
         rawPayload: payload,
       };
     } catch (err) {
-      console.error('[PaypalAdapter] Verification error:', err);
       return null;
     }
   }

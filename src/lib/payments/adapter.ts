@@ -4,12 +4,15 @@
 
 export interface CheckoutParams {
   bookingId: string;
+  orgId: string;
   amount: number;
   currency: string;
   eventName: string;
   quantity: number;
   successUrl: string;
   cancelUrl: string;
+  customerPhone?: string;
+  customerEmail?: string;
 }
 
 export interface WebhookResult {
@@ -22,6 +25,8 @@ export interface WebhookResult {
 export interface PaymentGatewayAdapter {
   /**
    * Creates a checkout session or order on the provider's platform.
+   * For redirect-based providers (Stripe, PayPal), checkoutUrl is populated.
+   * For SDK-based providers (Razorpay, Cashfree), providerReference contains the Session/Order ID.
    */
   createCheckoutSession(
     params: CheckoutParams, 
@@ -34,7 +39,6 @@ export interface PaymentGatewayAdapter {
   /**
    * Atomically verifies the cryptographic signature and parses the payload.
    * Returns a normalized WebhookResult on success, or null if verification fails.
-   * This ensures the application only ever acts on verified data.
    */
   verifyAndParseWebhook(
     rawBody: string, 

@@ -9,6 +9,8 @@ export class CashfreeAdapter implements PaymentGatewayAdapter {
   }
 
   async createCheckoutSession(params: CheckoutParams, credentials: Record<string, string>) {
+    const baseUrl = process.env.NEXTAUTH_URL || '';
+    
     const response = await fetch(`${this.getApiBase()}/orders`, {
       method: 'POST',
       headers: {
@@ -23,7 +25,12 @@ export class CashfreeAdapter implements PaymentGatewayAdapter {
         order_currency: params.currency.toUpperCase(),
         order_meta: {
           return_url: `${params.successUrl}?order_id={order_id}`,
-          notify_url: params.successUrl, // Fallback
+          notify_url: `${baseUrl}/api/payments/webhook/cashfree/${params.orgId}`,
+        },
+        customer_details: {
+          customer_id: params.bookingId,
+          customer_phone: params.customerPhone || '9999999999',
+          customer_email: params.customerEmail || 'no-reply@nochbot.space'
         },
         order_tags: {
           bookingId: params.bookingId
@@ -39,16 +46,12 @@ export class CashfreeAdapter implements PaymentGatewayAdapter {
     const order = await response.json();
 
     return {
-      checkoutUrl: order.payment_link || order.payment_session_id, // Return URL or ID based on CF response
-      providerReference: order.order_id,
+      // Cashfree V3 uses an SDK-based flow. payment_session_id is used by the JS SDK.
+      checkoutUrl: '', 
+      providerReference: order.payment_session_id,
     };
   }
 
-  /**
-   * Signature Verification (Cashfree V3)
-   * Source: https://docs.cashfree.com/docs/webhooks#signature-verification
-   * Scheme: x-webhook-timestamp + raw_body, HMAC-SHA256, Base64
-   */
   async verifyAndParseWebhook(
     rawBody: string,
     headers: Record<string, string | string[] | undefined>,
@@ -67,7 +70,6 @@ export class CashfreeAdapter implements PaymentGatewayAdapter {
         .digest('base64');
 
       if (expectedSignature !== signature) {
-        console.warn('[CashfreeAdapter] Signature mismatch');
         return null;
       }
 
