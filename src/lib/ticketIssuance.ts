@@ -4,6 +4,11 @@ import { getDb } from './db';
 import { Booking } from '@/models/Booking';
 import { Ticket } from '@/models/Ticket';
 
+const TICKET_QR_SECRET = process.env.TICKET_QR_SECRET;
+if (!TICKET_QR_SECRET) {
+  throw new Error('CRITICAL: TICKET_QR_SECRET environment variable is missing.');
+}
+
 /**
  * Generates a high-entropy, human-friendly ticket code.
  * Avoiding ambiguous characters: 0, O, 1, I, L.
@@ -34,8 +39,9 @@ export async function issueTicketsForBooking(booking: Booking): Promise<Ticket[]
     while (!success && attempts < 3) {
       ticketCode = `EVT-${generateReadableCode()}`;
       
+      // Use HMAC with server-side secret to prevent payload forgery
       const qrPayloadHash = crypto
-        .createHash('sha256')
+        .createHmac('sha256', TICKET_QR_SECRET!)
         .update(`${ticketCode}:${booking._id}:${booking.event_id}`)
         .digest('hex');
 
