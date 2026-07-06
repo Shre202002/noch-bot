@@ -1,11 +1,12 @@
+
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   ArrowLeft, Loader2, Save, Rocket, Plus, Trash2, 
-  Settings, FormInput, CreditCard, Users, GripVertical
+  Settings, FormInput, CreditCard, GripVertical, Pencil
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,41 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 interface FormField {
   _id: string;
@@ -46,14 +81,52 @@ export default function EventDetailPage() {
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
 
-  useEffect(() => {
-    fetch(`/api/events/${params.id}`)
-      .then((res) => res.json())
-      .then((data) => {
+  // Basic Details State
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [capacity, setCapacity] = useState(0);
+
+  const fetchEvent = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/events/${params.id}`);
+      const data = await res.json();
+      if (data.data) {
         setEvent(data.data);
-        setLoading(false);
+        setName(data.data.name);
+        setDescription(data.data.description);
+        setCapacity(data.data.capacity);
+      }
+    } catch (err) {
+      toast({ variant: "destructive", title: "Failed to load event" });
+    } finally {
+      setLoading(false);
+    }
+  }, [params.id, toast]);
+
+  useEffect(() => {
+    fetchEvent();
+  }, [fetchEvent]);
+
+  const handleSaveDetails = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/events/${params.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, description, capacity }),
       });
-  }, [params.id]);
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to save");
+      }
+      toast({ title: "Success", description: "Event details updated" });
+      fetchEvent();
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error", description: err.message });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handlePublish = async () => {
     setPublishing(true);
@@ -64,10 +137,7 @@ export default function EventDetailPage() {
         throw new Error(err.error || "Failed to publish");
       }
       toast({ title: "Success", description: "Event is now live!" });
-      router.refresh();
-      // Re-fetch local state
-      const updated = await fetch(`/api/events/${params.id}`).then(r => r.json());
-      setEvent(updated.data);
+      fetchEvent();
     } catch (err: any) {
       toast({ variant: "destructive", title: "Publish Failed", description: err.message });
     } finally {
@@ -88,19 +158,82 @@ export default function EventDetailPage() {
           is_required: true,
         }),
       });
-      if (res.ok) {
-        const refresh = await fetch(`/api/events/${params.id}`).then(r => r.json());
-        setEvent(refresh.data);
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to add field");
       }
-    } catch (err) {}
+      fetchEvent();
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Failed to add field", description: err.message });
+    }
   };
 
   const deleteField = async (fieldId: string) => {
     try {
-      await fetch(`/api/events/${params.id}/form-fields/${fieldId}`, { method: "DELETE" });
+      const res = await fetch(`/api/events/${params.id}/form-fields/${fieldId}`, { method: "DELETE" });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to delete field");
+      }
       setEvent(prev => prev ? { ...prev, form_fields: prev.form_fields.filter(f => f._id !== fieldId) } : null);
-    } catch (err) {}
+      toast({ title: "Field Deleted" });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Failed to delete field", description: err.message });
+    }
   };
+
+  const updateField = async (fieldId: string, updates: Partial<FormField>) => {
+    try {
+      const res = await fetch(`/api/events/${params.id}/form-fields/${fieldId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to update field");
+      }
+      fetchEvent();
+      toast({ title: "Field Updated" });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Failed to update field", description: err.message });
+    }
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      setEvent((prev) => {
+        if (!prev) return null;
+        const oldIndex = prev.form_fields.findIndex((f) => f._id === active.id);
+        const newIndex = prev.form_fields.findIndex((f) => f._id === over.id);
+        const newFields = arrayMove(prev.form_fields, oldIndex, newIndex);
+        
+        // Async update reorder API
+        const payload = newFields.map((f, i) => ({
+          field_id: f._id,
+          order_index: i
+        }));
+        
+        fetch(`/api/events/${params.id}/form-fields/reorder`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        }).catch(() => {
+          toast({ variant: "destructive", title: "Failed to sync reorder" });
+        });
+
+        return { ...prev, form_fields: newFields };
+      });
+    }
+  };
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   if (loading) {
     return (
@@ -162,13 +295,17 @@ export default function EventDetailPage() {
             <CardContent className="p-6 space-y-6">
               <div className="grid gap-2">
                 <Label>Event Name</Label>
-                <Input defaultValue={event.name} className="bg-background/50" />
+                <Input value={name} onChange={(e) => setName(e.target.value)} className="bg-background/50" />
+              </div>
+              <div className="grid gap-2">
+                <Label>Description</Label>
+                <Textarea value={description} onChange={(e) => setDescription(e.target.value)} className="bg-background/50 min-h-[100px]" />
               </div>
               <div className="grid gap-2">
                 <Label>Capacity</Label>
-                <Input type="number" defaultValue={event.capacity} className="bg-background/50" />
+                <Input type="number" value={capacity} onChange={(e) => setCapacity(Number(e.target.value))} className="bg-background/50" />
               </div>
-              <Button disabled={saving} className="rounded-full px-8">
+              <Button onClick={handleSaveDetails} disabled={saving} className="rounded-full px-8">
                 {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                 Save Changes
               </Button>
@@ -187,37 +324,33 @@ export default function EventDetailPage() {
             </Button>
           </div>
 
-          <div className="space-y-3">
-            {event.form_fields.map((field, idx) => (
-              <Card key={field._id} className="border-border bg-card/30 group">
-                <CardContent className="p-4 flex items-center gap-4">
-                  <div className="cursor-grab text-muted-foreground hover:text-foreground">
-                    <GripVertical className="h-4 w-4" />
-                  </div>
-                  <div className="grid flex-1 gap-1">
-                    <p className="text-sm font-bold">{field.label}</p>
-                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                      {field.field_type} • {field.field_key} • {field.is_required ? "Required" : "Optional"}
-                    </p>
-                  </div>
-                  <Button 
-                    onClick={() => deleteField(field._id)}
-                    size="icon" 
-                    variant="ghost" 
-                    className="h-8 w-8 text-muted-foreground hover:text-red-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
+          <DndContext 
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <div className="space-y-3">
+              <SortableContext 
+                items={event.form_fields.map(f => f._id)}
+                strategy={verticalListSortingStrategy}
+              >
+                {event.form_fields.map((field) => (
+                  <SortableFieldItem 
+                    key={field._id} 
+                    field={field} 
+                    onDelete={deleteField} 
+                    onUpdate={updateField}
+                  />
+                ))}
+              </SortableContext>
 
-            {event.form_fields.length === 0 && (
-              <div className="py-12 text-center border-2 border-dashed border-border rounded-2xl text-muted-foreground text-sm">
-                No custom questions added yet. The bot will only ask for the number of tickets.
-              </div>
-            )}
-          </div>
+              {event.form_fields.length === 0 && (
+                <div className="py-12 text-center border-2 border-dashed border-border rounded-2xl text-muted-foreground text-sm">
+                  No custom questions added yet. The bot will only ask for the number of tickets.
+                </div>
+              )}
+            </div>
+          </DndContext>
         </TabsContent>
 
         <TabsContent value="gateway">
@@ -244,5 +377,108 @@ export default function EventDetailPage() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+function SortableFieldItem({ field, onDelete, onUpdate }: { 
+  field: FormField, 
+  onDelete: (id: string) => void,
+  onUpdate: (id: string, updates: Partial<FormField>) => void
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: field._id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : 1,
+  };
+
+  return (
+    <Card ref={setNodeRef} style={style} className={`border-border bg-card/30 group ${isDragging ? 'opacity-50' : ''}`}>
+      <CardContent className="p-4 flex items-center gap-4">
+        <div {...attributes} {...listeners} className="cursor-grab text-muted-foreground hover:text-foreground">
+          <GripVertical className="h-4 w-4" />
+        </div>
+        <div className="grid flex-1 gap-1">
+          <p className="text-sm font-bold">{field.label}</p>
+          <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+            {field.field_type} • {field.field_key} • {field.is_required ? "Required" : "Optional"}
+          </p>
+        </div>
+        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <EditFieldDialog field={field} onSave={(updates) => onUpdate(field._id, updates)} />
+          <Button 
+            onClick={() => onDelete(field._id)}
+            size="icon" 
+            variant="ghost" 
+            className="h-8 w-8 text-muted-foreground hover:text-red-500 rounded-full"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function EditFieldDialog({ field, onSave }: { field: FormField, onSave: (updates: Partial<FormField>) => void }) {
+  const [label, setLabel] = useState(field.label);
+  const [type, setType] = useState(field.field_type);
+  const [required, setRequired] = useState(field.is_required);
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-foreground rounded-full">
+          <Pencil className="h-4 w-4" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md bg-black border-white/10 text-white">
+        <DialogHeader>
+          <DialogTitle>Edit Attendee Question</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label>Question Label</Label>
+            <Input value={label} onChange={(e) => setLabel(e.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label>Input Type</Label>
+            <Select value={type} onValueChange={setType}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="text">Short Text</SelectItem>
+                <SelectItem value="email">Email Address</SelectItem>
+                <SelectItem value="phone">Phone Number</SelectItem>
+                <SelectItem value="number">Number</SelectItem>
+                <SelectItem value="date">Date</SelectItem>
+                <SelectItem value="boolean">Yes/No Toggle</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center justify-between">
+            <Label>Required</Label>
+            <Switch checked={required} onCheckedChange={setRequired} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button 
+            className="w-full bg-[#36f4a4] text-black font-bold"
+            onClick={() => onSave({ label, field_type: type, is_required: required })}
+          >
+            Save Field
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
