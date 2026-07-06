@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -57,6 +56,8 @@ interface FormField {
   label: string;
   field_type: string;
   is_required: boolean;
+  validation_rule: string;
+  custom_regex: string | null;
 }
 
 interface EventData {
@@ -156,6 +157,7 @@ export default function EventDetailPage() {
           label: "New Question",
           field_type: "text",
           is_required: true,
+          validation_rule: "none",
         }),
       });
       if (!res.ok) {
@@ -163,6 +165,7 @@ export default function EventDetailPage() {
         throw new Error(err.error || "Failed to add field");
       }
       fetchEvent();
+      toast({ title: "Field Added" });
     } catch (err: any) {
       toast({ variant: "destructive", title: "Failed to add field", description: err.message });
     }
@@ -195,8 +198,10 @@ export default function EventDetailPage() {
       }
       fetchEvent();
       toast({ title: "Field Updated" });
+      return true;
     } catch (err: any) {
       toast({ variant: "destructive", title: "Failed to update field", description: err.message });
+      return false;
     }
   };
 
@@ -383,7 +388,7 @@ export default function EventDetailPage() {
 function SortableFieldItem({ field, onDelete, onUpdate }: { 
   field: FormField, 
   onDelete: (id: string) => void,
-  onUpdate: (id: string, updates: Partial<FormField>) => void
+  onUpdate: (id: string, updates: Partial<FormField>) => Promise<boolean>
 }) {
   const {
     attributes,
@@ -409,7 +414,7 @@ function SortableFieldItem({ field, onDelete, onUpdate }: {
         <div className="grid flex-1 gap-1">
           <p className="text-sm font-bold">{field.label}</p>
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-            {field.field_type} • {field.field_key} • {field.is_required ? "Required" : "Optional"}
+            {field.field_type} • {field.validation_rule} • {field.is_required ? "Required" : "Optional"}
           </p>
         </div>
         <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -428,13 +433,27 @@ function SortableFieldItem({ field, onDelete, onUpdate }: {
   );
 }
 
-function EditFieldDialog({ field, onSave }: { field: FormField, onSave: (updates: Partial<FormField>) => void }) {
+function EditFieldDialog({ field, onSave }: { field: FormField, onSave: (updates: Partial<FormField>) => Promise<boolean> }) {
+  const [open, setOpen] = useState(false);
   const [label, setLabel] = useState(field.label);
   const [type, setType] = useState(field.field_type);
   const [required, setRequired] = useState(field.is_required);
+  const [validationRule, setValidationRule] = useState(field.validation_rule);
+  const [customRegex, setCustomRegex] = useState(field.custom_regex || "");
+
+  const handleSave = async () => {
+    const success = await onSave({ 
+      label, 
+      field_type: type, 
+      is_required: required,
+      validation_rule: validationRule,
+      custom_regex: validationRule === 'custom_regex' ? customRegex : null
+    });
+    if (success) setOpen(false);
+  };
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-foreground rounded-full">
           <Pencil className="h-4 w-4" />
@@ -449,22 +468,54 @@ function EditFieldDialog({ field, onSave }: { field: FormField, onSave: (updates
             <Label>Question Label</Label>
             <Input value={label} onChange={(e) => setLabel(e.target.value)} />
           </div>
-          <div className="space-y-2">
-            <Label>Input Type</Label>
-            <Select value={type} onValueChange={setType}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="text">Short Text</SelectItem>
-                <SelectItem value="email">Email Address</SelectItem>
-                <SelectItem value="phone">Phone Number</SelectItem>
-                <SelectItem value="number">Number</SelectItem>
-                <SelectItem value="date">Date</SelectItem>
-                <SelectItem value="boolean">Yes/No Toggle</SelectItem>
-              </SelectContent>
-            </Select>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Input Type</Label>
+              <Select value={type} onValueChange={setType}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="text">Short Text</SelectItem>
+                  <SelectItem value="email">Email Address</SelectItem>
+                  <SelectItem value="phone">Phone Number</SelectItem>
+                  <SelectItem value="number">Number</SelectItem>
+                  <SelectItem value="date">Date</SelectItem>
+                  <SelectItem value="boolean">Yes/No Toggle</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Validation Rule</Label>
+              <Select value={validationRule} onValueChange={setValidationRule}>
+                <SelectTrigger>
+                  <SelectValue placeholder="No Validation" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  <SelectItem value="email_format">Email Format</SelectItem>
+                  <SelectItem value="phone_format">Phone Format</SelectItem>
+                  <SelectItem value="name_format">Name Format</SelectItem>
+                  <SelectItem value="custom_regex">Custom Regex</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
+
+          {validationRule === 'custom_regex' && (
+            <div className="space-y-2">
+              <Label>Regex Pattern</Label>
+              <Input 
+                value={customRegex} 
+                onChange={(e) => setCustomRegex(e.target.value)} 
+                placeholder="^[0-9A-Z]{5}$"
+              />
+              <p className="text-[10px] text-muted-foreground">The bot will validate user input against this pattern.</p>
+            </div>
+          )}
+
           <div className="flex items-center justify-between">
             <Label>Required</Label>
             <Switch checked={required} onCheckedChange={setRequired} />
@@ -473,7 +524,7 @@ function EditFieldDialog({ field, onSave }: { field: FormField, onSave: (updates
         <DialogFooter>
           <Button 
             className="w-full bg-[#36f4a4] text-black font-bold"
-            onClick={() => onSave({ label, field_type: type, is_required: required })}
+            onClick={handleSave}
           >
             Save Field
           </Button>
