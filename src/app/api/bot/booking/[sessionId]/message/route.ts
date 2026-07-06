@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { processBookingMessage } from "@/lib/bookingFlow";
-import { reserveCapacity, placeHold, reconcileExpiredHold } from "@/lib/eventCapacity";
+import { reserveCapacity, placeHold, reconcileExpiredHold, releaseHold } from "@/lib/eventCapacity";
 import { issueTicketsForBooking } from "@/lib/ticketIssuance";
 import { stripeAdapter } from "@/lib/payments/stripe";
 import { razorpayAdapter } from "@/lib/payments/razorpay";
@@ -197,6 +197,15 @@ export async function POST(
           Type: ${event.is_paid ? 'Hold' : 'Direct Sale'}
           Error: ${persistenceError instanceof Error ? persistenceError.message : 'Unknown'}`);
         
+        // Stopgap safety net: best-effort release of held capacity for paid events
+        if (event.is_paid) {
+          try {
+            await releaseHold(event._id, booking.quantity);
+          } catch (releaseError) {
+            console.error("[CRITICAL_BOOKING_ERROR] Failed to release hold after persistence error:", releaseError);
+          }
+        }
+
         try {
           await db.collection("bookings").updateOne(
             { _id: booking._id },
