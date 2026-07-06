@@ -5,7 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   ArrowLeft, Loader2, Save, Rocket, Plus, Trash2, 
-  Settings, FormInput, CreditCard, GripVertical, Pencil
+  Settings, FormInput, CreditCard, GripVertical, Pencil,
+  CalendarIcon
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -261,12 +262,12 @@ export default function EventDetailPage() {
           </Button>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-black tracking-tight">{event.name}</h1>
+              <h1 className="text-3xl font-black tracking-tight text-white">{event.name}</h1>
               <Badge variant={event.status === "published" ? "default" : "secondary"}>
                 {event.status.toUpperCase()}
               </Badge>
             </div>
-            <p className="text-sm text-muted-foreground mt-1">ID: {event._id}</p>
+            <p className="text-sm text-muted-foreground mt-1 font-mono">ID: {event._id}</p>
           </div>
         </div>
 
@@ -274,7 +275,7 @@ export default function EventDetailPage() {
           <Button 
             onClick={handlePublish} 
             disabled={publishing}
-            className="rounded-full bg-[#36f4a4] text-black hover:bg-[#36f4a4]/90 font-bold"
+            className="rounded-full bg-[#36f4a4] text-black hover:bg-[#36f4a4]/90 font-bold px-8 h-10"
           >
             {publishing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Rocket className="mr-2 h-4 w-4" />}
             Publish Event
@@ -283,7 +284,7 @@ export default function EventDetailPage() {
       </div>
 
       <Tabs defaultValue="details" className="space-y-6">
-        <TabsList className="bg-accent/20 border border-border p-1 h-auto rounded-full">
+        <TabsList className="bg-accent/20 border border-white/5 p-1 h-auto rounded-full">
           <TabsTrigger value="details" className="rounded-full px-6 py-2 data-[state=active]:bg-background">
             <Settings className="mr-2 h-4 w-4" /> Details
           </TabsTrigger>
@@ -296,21 +297,21 @@ export default function EventDetailPage() {
         </TabsList>
 
         <TabsContent value="details">
-          <Card className="border-border bg-card/30">
+          <Card className="border-border bg-card/30 backdrop-blur-sm">
             <CardContent className="p-6 space-y-6">
               <div className="grid gap-2">
-                <Label>Event Name</Label>
-                <Input value={name} onChange={(e) => setName(e.target.value)} className="bg-background/50" />
+                <Label className="text-white/70">Event Name</Label>
+                <Input value={name} onChange={(e) => setName(e.target.value)} className="bg-black/40 border-white/10" />
               </div>
               <div className="grid gap-2">
-                <Label>Description</Label>
-                <Textarea value={description} onChange={(e) => setDescription(e.target.value)} className="bg-background/50 min-h-[100px]" />
+                <Label className="text-white/70">Description</Label>
+                <Textarea value={description} onChange={(e) => setDescription(e.target.value)} className="bg-black/40 border-white/10 min-h-[100px]" />
               </div>
               <div className="grid gap-2">
-                <Label>Capacity</Label>
-                <Input type="number" value={capacity} onChange={(e) => setCapacity(Number(e.target.value))} className="bg-background/50" />
+                <Label className="text-white/70">Capacity</Label>
+                <Input type="number" value={capacity} onChange={(e) => setCapacity(Number(e.target.value))} className="bg-black/40 border-white/10" />
               </div>
-              <Button onClick={handleSaveDetails} disabled={saving} className="rounded-full px-8">
+              <Button onClick={handleSaveDetails} disabled={saving} className="rounded-full px-8 h-10 font-bold">
                 {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                 Save Changes
               </Button>
@@ -321,10 +322,10 @@ export default function EventDetailPage() {
         <TabsContent value="fields" className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-bold">Attendee Questions</h3>
+              <h3 className="font-bold text-white">Attendee Questions</h3>
               <p className="text-xs text-muted-foreground">What details should the chatbot ask each guest?</p>
             </div>
-            <Button onClick={addField} size="sm" variant="outline" className="rounded-full">
+            <Button onClick={addField} size="sm" variant="outline" className="rounded-full border-white/10 hover:bg-white/5 font-semibold">
               <Plus className="mr-2 h-3 w-3" /> Add Field
             </Button>
           </div>
@@ -350,7 +351,7 @@ export default function EventDetailPage() {
               </SortableContext>
 
               {event.form_fields.length === 0 && (
-                <div className="py-12 text-center border-2 border-dashed border-border rounded-2xl text-muted-foreground text-sm">
+                <div className="py-12 text-center border-2 border-dashed border-white/5 rounded-2xl text-muted-foreground text-sm">
                   No custom questions added yet. The bot will only ask for the number of tickets.
                 </div>
               )}
@@ -359,21 +360,21 @@ export default function EventDetailPage() {
         </TabsContent>
 
         <TabsContent value="gateway">
-          <Card className="border-border bg-card/30">
+          <Card className="border-border bg-card/30 backdrop-blur-sm">
             <CardContent className="p-12 text-center space-y-4">
               <div className="mx-auto w-12 h-12 rounded-full bg-blue-500/10 flex items-center justify-center">
                 <CreditCard className="h-6 w-6 text-blue-400" />
               </div>
               <div>
-                <h3 className="font-bold">Payment Gateway</h3>
-                <p className="text-sm text-muted-foreground max-w-xs mx-auto">
+                <h3 className="font-bold text-white">Payment Gateway</h3>
+                <p className="text-sm text-muted-foreground max-w-xs mx-auto leading-relaxed">
                   {!event.is_paid 
                     ? "This is a free event. No payment configuration is required." 
                     : "Connect your Stripe, Razorpay or PayPal account to accept payments."}
                 </p>
               </div>
               {event.is_paid && (
-                <Button variant="outline" className="rounded-full">
+                <Button variant="outline" className="rounded-full border-white/10 font-bold hover:bg-white/5">
                   Configure Gateway
                 </Button>
               )}
@@ -406,16 +407,24 @@ function SortableFieldItem({ field, onDelete, onUpdate }: {
   };
 
   return (
-    <Card ref={setNodeRef} style={style} className={`border-border bg-card/30 group ${isDragging ? 'opacity-50' : ''}`}>
+    <Card ref={setNodeRef} style={style} className={`border-white/5 bg-card/30 group ${isDragging ? 'opacity-50' : ''}`}>
       <CardContent className="p-4 flex items-center gap-4">
         <div {...attributes} {...listeners} className="cursor-grab text-muted-foreground hover:text-foreground">
           <GripVertical className="h-4 w-4" />
         </div>
         <div className="grid flex-1 gap-1">
-          <p className="text-sm font-bold">{field.label}</p>
-          <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-            {field.field_type} • {field.validation_rule} • {field.is_required ? "Required" : "Optional"}
-          </p>
+          <p className="text-sm font-bold text-white">{field.label}</p>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-[9px] h-4 border-white/10 bg-white/5 text-white/50 uppercase tracking-tighter">
+              {field.field_type}
+            </Badge>
+            <Badge variant="outline" className="text-[9px] h-4 border-[#36f4a4]/20 bg-[#36f4a4]/5 text-[#36f4a4]/70 uppercase tracking-tighter">
+              {field.validation_rule.replace('_', ' ')}
+            </Badge>
+            {field.is_required && (
+              <span className="text-[9px] font-black text-red-500/50 uppercase tracking-widest">Required</span>
+            )}
+          </div>
         </div>
         <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
           <EditFieldDialog field={field} onSave={(updates) => onUpdate(field._id, updates)} />
@@ -461,22 +470,22 @@ function EditFieldDialog({ field, onSave }: { field: FormField, onSave: (updates
       </DialogTrigger>
       <DialogContent className="sm:max-w-md bg-black border-white/10 text-white">
         <DialogHeader>
-          <DialogTitle>Edit Attendee Question</DialogTitle>
+          <DialogTitle className="text-xl font-black">Edit Question</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 py-4">
+        <div className="space-y-6 py-4">
           <div className="space-y-2">
-            <Label>Question Label</Label>
-            <Input value={label} onChange={(e) => setLabel(e.target.value)} />
+            <Label className="text-white/70">Question Label</Label>
+            <Input value={label} onChange={(e) => setLabel(e.target.value)} className="bg-black/40 border-white/10" />
           </div>
           
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Input Type</Label>
+              <Label className="text-white/70 text-xs">Input Type</Label>
               <Select value={type} onValueChange={setType}>
-                <SelectTrigger>
+                <SelectTrigger className="bg-black/40 border-white/10 text-xs h-9">
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-black border-white/10 text-white">
                   <SelectItem value="text">Short Text</SelectItem>
                   <SelectItem value="email">Email Address</SelectItem>
                   <SelectItem value="phone">Phone Number</SelectItem>
@@ -488,12 +497,12 @@ function EditFieldDialog({ field, onSave }: { field: FormField, onSave: (updates
             </div>
 
             <div className="space-y-2">
-              <Label>Validation Rule</Label>
+              <Label className="text-white/70 text-xs">Validation Rule</Label>
               <Select value={validationRule} onValueChange={setValidationRule}>
-                <SelectTrigger>
+                <SelectTrigger className="bg-black/40 border-white/10 text-xs h-9">
                   <SelectValue placeholder="No Validation" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-black border-white/10 text-white">
                   <SelectItem value="none">None</SelectItem>
                   <SelectItem value="email_format">Email Format</SelectItem>
                   <SelectItem value="phone_format">Phone Format</SelectItem>
@@ -505,25 +514,29 @@ function EditFieldDialog({ field, onSave }: { field: FormField, onSave: (updates
           </div>
 
           {validationRule === 'custom_regex' && (
-            <div className="space-y-2">
-              <Label>Regex Pattern</Label>
+            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="space-y-2">
+              <Label className="text-white/70">Regex Pattern</Label>
               <Input 
                 value={customRegex} 
                 onChange={(e) => setCustomRegex(e.target.value)} 
                 placeholder="^[0-9A-Z]{5}$"
+                className="bg-black/40 border-white/10 font-mono text-xs"
               />
-              <p className="text-[10px] text-muted-foreground">The bot will validate user input against this pattern.</p>
-            </div>
+              <p className="text-[10px] text-muted-foreground leading-snug">The bot will validate user input against this pattern.</p>
+            </motion.div>
           )}
 
-          <div className="flex items-center justify-between">
-            <Label>Required</Label>
+          <div className="flex items-center justify-between p-4 rounded-xl border border-white/5 bg-white/5">
+            <div className="grid gap-0.5">
+              <Label className="text-white font-bold">Required Field</Label>
+              <p className="text-[10px] text-muted-foreground">The bot won't skip this question.</p>
+            </div>
             <Switch checked={required} onCheckedChange={setRequired} />
           </div>
         </div>
         <DialogFooter>
           <Button 
-            className="w-full bg-[#36f4a4] text-black font-bold"
+            className="w-full bg-[#36f4a4] text-black font-black h-11"
             onClick={handleSave}
           >
             Save Field
