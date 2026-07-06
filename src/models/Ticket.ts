@@ -12,5 +12,6 @@ export interface Ticket {
   scanned_at: Date | null;
   scanned_by_staff_id: ObjectId | null;
   scan_device_info: Record<string, any> | null;
+  client_scan_id: string | null; // Unique ID from client to track which specific attempt won
   issued_at: Date;
 }

@@ -5,7 +5,15 @@ import { getDb } from "@/lib/db";
 
 const TICKET_QR_SECRET = process.env.TICKET_QR_SECRET;
 
+if (!TICKET_QR_SECRET) {
+  console.error("CRITICAL: TICKET_QR_SECRET is not configured for scanning routes.");
+}
+
 export async function POST(req: NextRequest) {
+  if (!TICKET_QR_SECRET) {
+    return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
+  }
+
   const staff = await authenticateScannerRequest(req);
   if (!staff) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -17,7 +25,7 @@ export async function POST(req: NextRequest) {
     const results = [];
 
     for (const scan of scans) {
-      const { ticket_code, scanned_at, scan_device_info } = scan;
+      const { ticket_code, scanned_at, scan_device_info, client_scan_id } = scan;
       
       try {
         const ticket = await db.collection("tickets").findOne({ ticket_code });
@@ -54,6 +62,7 @@ export async function POST(req: NextRequest) {
               scanned_at: clientTimestamp,
               scanned_by_staff_id: staff._id,
               scan_device_info: scan_device_info || null,
+              client_scan_id: client_scan_id || null,
             }
           }
         );
@@ -61,9 +70,17 @@ export async function POST(req: NextRequest) {
         if (update) {
           results.push({ ticket_code, result: "accepted" });
         } else {
-          // Already scanned - check for conflict
+          // Already scanned - check for ID-based retry or timestamp conflict
           const existing = await db.collection("tickets").findOne({ ticket_code });
+          
           if (existing?.status === "scanned") {
+            // 1. Check if this is a safe retry of the same attempt
+            if (client_scan_id && existing.client_scan_id === client_scan_id) {
+               results.push({ ticket_code, result: "accepted", details: "Retry accepted" });
+               continue;
+            }
+
+            // 2. Otherwise handle as conflict
             const existingTime = new Date(existing.scanned_at).getTime();
             const attemptTime = clientTimestamp.getTime();
 
@@ -73,9 +90,9 @@ export async function POST(req: NextRequest) {
                 result: "duplicate_conflict", 
                 details: `Already scanned at ${existing.scanned_at}` 
               });
-            } else if (existingTime === attemptTime && existing.scanned_by_staff_id?.equals(staff._id)) {
-              results.push({ ticket_code, result: "accepted", details: "Retry successful" });
             } else {
+              // This should theoretically not happen if sync order matches real time, 
+              // unless there is clock skew between devices.
               console.warn(`[scanner_sync_skew] Batch attempt ${attemptTime} is EARLIER than DB ${existingTime} for ${ticket_code}`);
               results.push({ ticket_code, result: "duplicate_conflict", details: "Ticket already scanned" });
             }

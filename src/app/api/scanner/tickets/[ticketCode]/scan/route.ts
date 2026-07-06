@@ -5,17 +5,25 @@ import { getDb } from "@/lib/db";
 
 const TICKET_QR_SECRET = process.env.TICKET_QR_SECRET;
 
+if (!TICKET_QR_SECRET) {
+  console.error("CRITICAL: TICKET_QR_SECRET is not configured for scanning routes.");
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: { ticketCode: string } }
 ) {
+  if (!TICKET_QR_SECRET) {
+    return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
+  }
+
   const staff = await authenticateScannerRequest(req);
   if (!staff) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
     const { ticketCode } = params;
     const body = await req.json();
-    const { scan_device_info } = body;
+    const { scan_device_info, client_scan_id } = body;
 
     const db = await getDb();
 
@@ -48,18 +56,24 @@ export async function POST(
           scanned_at: now,
           scanned_by_staff_id: staff._id,
           scan_device_info: scan_device_info || null,
+          client_scan_id: client_scan_id || null,
         }
       },
       { returnDocument: "after" }
     );
 
     if (!result) {
-      // Re-fetch to see why it failed
-      const stale = await db.collection("tickets").findOne({ ticket_code: ticketCode });
+      // Re-fetch to see why it failed (retry check)
+      const existing = await db.collection("tickets").findOne({ ticket_code: ticketCode });
+      
+      if (existing?.status === "scanned" && client_scan_id && existing.client_scan_id === client_scan_id) {
+         return NextResponse.json({ success: true, ticket: existing, details: "Retry accepted" });
+      }
+
       return NextResponse.json({ 
         error: "Cannot scan ticket",
-        reason: stale?.status || "unknown",
-        scanned_at: stale?.scanned_at,
+        reason: existing?.status || "unknown",
+        scanned_at: existing?.scanned_at,
       }, { status: 409 });
     }
 
