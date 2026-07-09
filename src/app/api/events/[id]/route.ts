@@ -142,3 +142,41 @@ export async function PATCH(
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const userId = await getUserIdFromCookie();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  if (!ObjectId.isValid(params.id)) {
+    return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
+  }
+
+  try {
+    const db = await getDb();
+    const eventId = new ObjectId(params.id);
+
+    const event = await db.collection("events").findOne({ _id: eventId, org_id: userId });
+    if (!event) return NextResponse.json({ error: "Event not found" }, { status: 404 });
+
+    // Security: Prevent deletion if tickets are already sold to avoid orphaned attendee records
+    if (event.tickets_sold > 0) {
+      return NextResponse.json(
+        { error: "Cannot delete an event that has active ticket sales. Cancel the event instead." },
+        { status: 409 }
+      );
+    }
+
+    await db.collection("events").deleteOne({ _id: eventId, org_id: userId });
+    
+    // Cleanup related data
+    await db.collection("event_form_fields").deleteMany({ event_id: eventId });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("[event_delete]", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}

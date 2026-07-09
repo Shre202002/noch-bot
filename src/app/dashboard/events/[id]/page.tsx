@@ -86,6 +86,7 @@ interface EventData {
   end_at: string;
   venue: string | null;
   capacity: number;
+  tickets_sold: number;
   is_paid: boolean;
   price: number | null;
   currency: string;
@@ -117,6 +118,7 @@ export default function EventDetailPage() {
   const [isGatewayConfigured, setIsGatewayConfigured] = useState(false);
   const [configuredProvider, setConfiguredProvider] = useState<string | null>(null);
   const [isEditingGateway, setIsEditingGateway] = useState(false);
+  const [deletingEvent, setDeletingEvent] = useState(false);
 
   // Form states
   const [name, setName] = useState("");
@@ -233,6 +235,20 @@ export default function EventDetailPage() {
       toast({ variant: "destructive", title: "Publish Failed", description: err.message });
     } finally {
       setPublishing(false);
+    }
+  };
+
+  const handleDeleteEvent = async () => {
+    setDeletingEvent(true);
+    try {
+      const res = await fetch(`/api/events/${params.id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to delete event");
+      toast({ title: "Event Deleted", description: "The event has been removed." });
+      router.push("/dashboard/events");
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error", description: err.message });
+      setDeletingEvent(false);
     }
   };
 
@@ -384,7 +400,7 @@ export default function EventDetailPage() {
           <TabsTrigger value="gateway" className="rounded-full px-6 py-2 cursor-pointer"><CreditCard className="mr-2 h-4 w-4" /> Payments</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="details">
+        <TabsContent value="details" className="space-y-8">
           <Card className="border-border bg-card/30 backdrop-blur-sm">
             <CardContent className="p-6 space-y-6">
               <div className="grid gap-2">
@@ -403,6 +419,49 @@ export default function EventDetailPage() {
                 {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                 Save Changes
               </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="border-red-500/20 bg-red-500/5 backdrop-blur-sm">
+            <CardContent className="p-6 space-y-4">
+              <div>
+                <h3 className="text-lg font-bold text-red-400">Danger Zone</h3>
+                <p className="text-sm text-zinc-400">Deleting an event is permanent. You can only delete events with no ticket sales.</p>
+              </div>
+              
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    className="border-red-500/30 text-red-500 hover:bg-red-500/10 hover:text-red-400 rounded-full font-bold cursor-pointer"
+                    disabled={deletingEvent || event.tickets_sold > 0}
+                  >
+                    {deletingEvent ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                    Delete Event
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent className="bg-zinc-950 border-zinc-800 text-white">
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription className="text-zinc-400">
+                      This action cannot be undone. This will permanently delete the event
+                      <strong> "{event.name}"</strong> and all associated attendee form questions.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel className="bg-transparent border-zinc-800 text-white hover:bg-zinc-900 cursor-pointer">Cancel</AlertDialogCancel>
+                    <AlertDialogAction 
+                      onClick={handleDeleteEvent}
+                      className="bg-red-600 text-white hover:bg-red-700 font-bold border-none cursor-pointer"
+                    >
+                      Delete Event
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+              {event.tickets_sold > 0 && (
+                <p className="text-[10px] text-red-400 italic">Deletion is blocked because {event.tickets_sold} tickets have already been sold.</p>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
