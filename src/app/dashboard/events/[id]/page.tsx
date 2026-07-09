@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { QRCodeSVG } from "qrcode.react";
+import { TicketPreview } from "@/components/TicketPreview";
 import {
   Dialog,
   DialogContent,
@@ -470,7 +470,7 @@ function SortableFieldItem({ field, onDelete, onUpdate }: { field: FormField, on
 }
 
 function TicketDesignView({ event, onUpdate, onUploadLogo }: { event: EventData, onUpdate: () => void, onUploadLogo: (f: File) => Promise<void> }) {
-  const [templateId, setTemplateId] = useState(event.ticket_template_id || "modern");
+  const [templateId, setTemplateId] = useState(event.ticket_template_id || "dark");
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -485,10 +485,10 @@ function TicketDesignView({ event, onUpdate, onUploadLogo }: { event: EventData,
   };
 
   const templates = [
-    { id: "modern", name: "Modern", color: "bg-blue-600" },
-    { id: "minimal", name: "Minimal", color: "bg-zinc-200 text-black" },
-    { id: "dark", name: "Dark Pro", color: "bg-black border border-white/10" },
-    { id: "classic", name: "Classic", color: "bg-amber-100 text-black" }
+    { id: "modern", name: "Bold Graphic", color: "bg-blue-600" },
+    { id: "minimal", name: "Boarding Pass", color: "bg-emerald-500" },
+    { id: "dark", name: "Premium Dark", color: "bg-zinc-900 border border-[#d4af37]" },
+    { id: "classic", name: "Vintage Raffle", color: "bg-[#fcf9f2] text-black" }
   ];
 
   return (
@@ -500,7 +500,7 @@ function TicketDesignView({ event, onUpdate, onUploadLogo }: { event: EventData,
         </div>
 
         <div className="space-y-4">
-          <Label>Logo</Label>
+          <Label>Event Logo</Label>
           <div className="flex items-center gap-4">
             <div className="h-16 w-16 rounded-xl border border-white/10 bg-black/40 flex items-center justify-center overflow-hidden">
               {event.logo_url ? <img src={event.logo_url} className="h-full w-full object-cover" /> : <Plus className="h-6 w-6 text-white/20" />}
@@ -562,71 +562,11 @@ function TicketDesignView({ event, onUpdate, onUploadLogo }: { event: EventData,
 
       <div className="relative">
         <div className="sticky top-24">
-          <h3 className="text-xs font-bold uppercase tracking-widest text-white/50 mb-4 text-center">Ticket Preview (Attendee View)</h3>
-          <div className="mx-auto max-w-[320px]">
+          <h3 className="text-xs font-bold uppercase tracking-widest text-white/50 mb-4 text-center">Live Ticket Preview</h3>
+          <div className="mx-auto flex justify-center">
              <TicketPreview event={event} templateId={templateId} />
           </div>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function TicketPreview({ event, templateId }: { event: EventData, templateId: string }) {
-  const isDark = templateId === 'dark';
-  const isClassic = templateId === 'classic';
-  const isMinimal = templateId === 'minimal';
-
-  const containerStyles = {
-    modern: "bg-white text-black",
-    minimal: "bg-white text-zinc-800 border-2 border-zinc-100",
-    dark: "bg-[#111] text-white border border-white/10",
-    classic: "bg-[#fcf9f2] text-[#432] border border-[#dcb]"
-  }[templateId as keyof typeof containerStyles] || "bg-white text-black";
-
-  return (
-    <div className={`rounded-3xl shadow-2xl overflow-hidden flex flex-col ${containerStyles}`}>
-      <div className={`p-6 ${isDark ? 'bg-white/5' : 'bg-black/5'} flex justify-center`}>
-        {event.logo_url ? <img src={event.logo_url} className="h-10 w-auto" /> : <div className="h-10 w-10 bg-primary/20 rounded-lg" />}
-      </div>
-      
-      <div className="p-8 flex-1 space-y-6 text-center">
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-40 mb-1">E-Ticket</p>
-          <h2 className="text-2xl font-black leading-tight tracking-tight">{event.name}</h2>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4 border-y border-current/10 py-4">
-          <div className="text-left">
-            <p className="text-[9px] font-bold uppercase opacity-40 mb-0.5">Date</p>
-            <p className="text-xs font-bold">{new Date(event.start_at).toLocaleDateString()}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-[9px] font-bold uppercase opacity-40 mb-0.5">Venue</p>
-            <p className="text-xs font-bold truncate">{event.venue || "TBA"}</p>
-          </div>
-        </div>
-
-        <div className="space-y-4 pt-2">
-          <div className="space-y-0.5">
-            <p className="text-[9px] font-bold uppercase opacity-40">Attendee</p>
-            <p className="text-sm font-bold">John Doe</p>
-          </div>
-          
-          <div className="flex justify-center py-2">
-            <div className={`p-2 rounded-xl ${isDark ? 'bg-white' : 'bg-white border border-black/10'}`}>
-               <QRCodeSVG value={`EVT-DEMO-123456`} size={120} />
-            </div>
-          </div>
-          
-          <p className="text-[10px] font-mono opacity-50">#EVT-DEMO-123456</p>
-        </div>
-      </div>
-
-      <div className={`p-4 ${isDark ? 'bg-white/5' : 'bg-black/5'} border-t border-dashed border-current/20 relative`}>
-        <div className="absolute -left-2 -top-2 h-4 w-4 rounded-full bg-black/10" />
-        <div className="absolute -right-2 -top-2 h-4 w-4 rounded-full bg-black/10" />
-        <p className="text-[8px] text-center opacity-30 font-medium tracking-wider">Valid for single entry only • Powered by NochBot</p>
       </div>
     </div>
   );
