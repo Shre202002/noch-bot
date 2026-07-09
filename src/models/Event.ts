@@ -2,6 +2,25 @@ import { ObjectId } from 'mongodb';
 
 export type EventStatus = 'draft' | 'published' | 'closed' | 'cancelled';
 
+export interface TicketColorPalette {
+  background_color: string;
+  text_color: string;
+  accent_color: string;
+  border_color: string;
+  muted_text_color: string;
+  qr_background_color: string;
+}
+
+export interface TicketDesign {
+  template_id: string;
+  logo_url: string | null;
+  logo_file_id?: string | null;
+  remove_background: boolean;
+  bg_removed_logo_url: string | null;
+  color_palette?: TicketColorPalette;
+  updated_at: Date;
+}
+
 export interface Event {
   _id?: ObjectId;
   org_id: string; // UUID string from auth session
@@ -24,6 +43,7 @@ export interface Event {
   logo_file_id?: string | null;
   remove_background?: boolean;
   bg_removed_logo_url?: string | null;
+  ticket_design?: TicketDesign; // New structured object
   banner_url: string | null;
   chatbot_widget_id: ObjectId;
   created_at: Date;

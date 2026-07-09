@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
@@ -8,7 +7,8 @@ import {
   ArrowLeft, Loader2, Save, Rocket, Plus, Trash2, 
   Settings, FormInput, CreditCard, GripVertical, Pencil,
   CalendarIcon, CheckCircle2, AlertCircle, Layout, QrCode,
-  ExternalLink, Upload, Mail, Scissors, Check, ShieldCheck, RefreshCcw
+  ExternalLink, Upload, Mail, Scissors, Check, ShieldCheck, RefreshCcw,
+  Palette, RotateCcw
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -19,8 +19,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { TicketPreview } from "@/components/TicketPreview";
+import { TicketPreview, TICKET_TEMPLATE_DEFAULT_PALETTES } from "@/components/TicketPreview";
 import { Switch } from "@/components/ui/switch";
+import { TicketColorPalette } from "@/models/Event";
 import {
   Select,
   SelectContent,
@@ -56,7 +57,7 @@ import {
   useSensor,
   useSensors,
   DragEndEvent,
-} from "@dnd-kit/core";
+} from "@radix-ui/react-dnd";
 import {
   arrayMove,
   SortableContext,
@@ -89,6 +90,7 @@ interface EventData {
   price: number | null;
   currency: string;
   ticket_template_id: string;
+  ticket_color_palette?: TicketColorPalette;
   logo_url: string | null;
   logo_file_id?: string | null;
   remove_background?: boolean;
@@ -708,18 +710,69 @@ function SortableFieldItem({
 function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () => void }) {
   const { toast } = useToast();
   const [templateId, setTemplateId] = useState(event.ticket_template_id || "dark");
+  const [palette, setPalette] = useState<TicketColorPalette>(
+    event.ticket_color_palette || TICKET_TEMPLATE_DEFAULT_PALETTES[event.ticket_template_id || "dark"]
+  );
   const [uploading, setUploading] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
+  const [isSavingPalette, setIsSavingPalette] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (event.ticket_color_palette) {
+      setPalette(event.ticket_color_palette);
+    }
+  }, [event.ticket_color_palette]);
 
   const handleTemplateChange = async (id: string) => {
     setTemplateId(id);
-    await fetch(`/api/events/${event._id}`, {
+    const defaultPalette = TICKET_TEMPLATE_DEFAULT_PALETTES[id];
+    setPalette(defaultPalette);
+    
+    await fetch(`/api/events/${event._id}/ticket-design`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ticket_template_id: id }),
+      body: JSON.stringify({ 
+        template_id: id,
+        color_palette: defaultPalette
+      }),
     });
     onUpdate();
+  };
+
+  const savePalette = useCallback(async (newPalette: TicketColorPalette) => {
+    setIsSavingPalette(true);
+    try {
+      const res = await fetch(`/api/events/${event._id}/ticket-design`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ color_palette: newPalette }),
+      });
+      if (!res.ok) throw new Error("Failed to save palette");
+      onUpdate();
+    } catch (err) {
+      toast({ variant: "destructive", title: "Autosave failed" });
+    } finally {
+      setIsSavingPalette(false);
+    }
+  }, [event._id, onUpdate, toast]);
+
+  const handleColorChange = (key: keyof TicketColorPalette, value: string) => {
+    const newPalette = { ...palette, [key]: value };
+    setPalette(newPalette);
+    
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => {
+      savePalette(newPalette);
+    }, 500);
+  };
+
+  const handleResetPalette = async () => {
+    const defaultPalette = TICKET_TEMPLATE_DEFAULT_PALETTES[templateId];
+    setPalette(defaultPalette);
+    await savePalette(defaultPalette);
+    toast({ title: "Palette Reset", description: "Reverted to template defaults." });
   };
 
   const handleLogoUpload = async (file: File) => {
@@ -743,12 +796,10 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
 
     setUploading(true);
     try {
-      // 1. Get signed auth data
       const authRes = await fetch('/api/imagekit/upload-auth');
       if (!authRes.ok) throw new Error("Failed to authenticate upload");
       const authData = await authRes.json();
       
-      // 2. Prepare Form Data
       const fileName = `event-logo-${event._id}-${Date.now()}`;
       const formData = new FormData();
       formData.append("file", file);
@@ -759,7 +810,6 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
       formData.append("fileName", fileName);
       formData.append("folder", "/event-logos");
 
-      // 3. Direct upload to ImageKit
       const uploadRes = await fetch("https://upload.imagekit.io/api/v1/files/upload", {
         method: "POST",
         body: formData,
@@ -774,14 +824,13 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
       const logoUrl = uploadData.url;
       const bgRemovedUrl = buildBgRemovedImageKitUrl(logoUrl);
 
-      // 4. Save to DB
       const saveRes = await fetch(`/api/events/${event._id}/ticket-logo`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           logo_url: logoUrl,
           logo_file_id: uploadData.fileId,
-          remove_background: event.remove_background ?? true, // default to true
+          remove_background: event.remove_background ?? true,
           bg_removed_logo_url: bgRemovedUrl
         }),
       });
@@ -834,97 +883,157 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
     { id: "classic", name: "Vintage Raffle", color: "bg-[#fcf9f2] text-black" }
   ];
 
+  const ColorInput = ({ label, value, paletteKey }: { label: string, value: string, paletteKey: keyof TicketColorPalette }) => (
+    <div className="space-y-2">
+      <div className="flex justify-between items-center">
+        <Label className="text-[11px] uppercase tracking-wider text-white/50">{label}</Label>
+        <span className="text-[10px] font-mono text-white/30">{value.toUpperCase()}</span>
+      </div>
+      <div className="flex items-center gap-2 p-1.5 rounded-lg bg-black/40 border border-white/5">
+        <input 
+          type="color" 
+          value={value} 
+          onChange={(e) => handleColorChange(paletteKey, e.target.value)}
+          className="h-7 w-12 bg-transparent border-none cursor-pointer rounded overflow-hidden"
+        />
+        <div className="h-4 w-[1px] bg-white/5" />
+        <Input 
+          value={value} 
+          onChange={(e) => handleColorChange(paletteKey, e.target.value)}
+          className="h-7 bg-transparent border-none text-[12px] font-mono p-0 focus-visible:ring-0" 
+        />
+      </div>
+    </div>
+  );
+
   return (
     <div className="grid gap-8 lg:grid-cols-2">
-      <div className="space-y-6">
-        <div>
-          <h3 className="font-bold text-white text-lg">Ticket Visuals</h3>
-          <p className="text-sm text-muted-foreground">Pick a template and brand it with your logo.</p>
-        </div>
+      <div className="space-y-8">
+        <section className="space-y-6">
+          <div>
+            <h3 className="font-bold text-white text-lg">Visual Branding</h3>
+            <p className="text-sm text-muted-foreground">Upload a logo and pick a template.</p>
+          </div>
 
-        <div className="space-y-4">
-          <Label className="text-white">Event Logo</Label>
-          <div className="flex items-center gap-4">
-            <div className="h-20 w-20 rounded-xl border border-white/10 bg-black/40 flex items-center justify-center overflow-hidden">
-              {event.logo_url ? (
-                <img 
-                  src={event.remove_background ? (event.bg_removed_logo_url || event.logo_url) : event.logo_url} 
-                  className="h-full w-full object-contain" 
-                  alt="Logo" 
-                />
-              ) : (
-                <div className="flex flex-col items-center gap-1 opacity-20">
-                  <Mail className="h-6 w-6" />
-                  <span className="text-[8px] uppercase">No Logo</span>
-                </div>
-              )}
-            </div>
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-2">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  disabled={uploading}
-                  onClick={() => fileInputRef.current?.click()}
-                  className="rounded-full border-white/10 hover:bg-white/5 font-semibold text-white cursor-pointer"
-                >
-                  {uploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
-                  {event.logo_url ? "Change Logo" : "Upload Logo"}
-                </Button>
-                {event.logo_url && (
-                  <Button variant="ghost" size="icon" onClick={removeLogo} className="text-red-500 hover:bg-red-500/10 rounded-full cursor-pointer">
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+          <div className="space-y-4">
+            <Label className="text-white">Event Logo</Label>
+            <div className="flex items-center gap-4">
+              <div className="h-20 w-20 rounded-xl border border-white/10 bg-black/40 flex items-center justify-center overflow-hidden">
+                {event.logo_url ? (
+                  <img 
+                    src={event.remove_background ? (event.bg_removed_logo_url || event.logo_url) : event.logo_url} 
+                    className="h-full w-full object-contain" 
+                    alt="Logo" 
+                  />
+                ) : (
+                  <div className="flex flex-col items-center gap-1 opacity-20">
+                    <Mail className="h-6 w-6" />
+                    <span className="text-[8px] uppercase">No Logo</span>
+                  </div>
                 )}
               </div>
-              <input 
-                ref={fileInputRef} 
-                type="file" 
-                className="hidden" 
-                accept="image/png,image/jpeg,image/webp"
-                onChange={async e => {
-                  const file = e.target.files?.[0];
-                  if (file) await handleLogoUpload(file);
-                }} 
-              />
-              <p className="text-[10px] text-muted-foreground">Max 2MB. Optimized for preview.</p>
-            </div>
-          </div>
-
-          {event.logo_url && (
-            <div className="flex items-center justify-between p-3 rounded-xl border border-white/5 bg-accent/20">
-              <div className="flex items-center gap-2">
-                <Scissors className="h-4 w-4 text-primary" />
-                <div className="space-y-0.5">
-                  <p className="text-xs font-bold text-white">Remove background</p>
-                  <p className="text-[10px] text-muted-foreground">Clean logo for templates</p>
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    disabled={uploading}
+                    onClick={() => fileInputRef.current?.click()}
+                    className="rounded-full border-white/10 hover:bg-white/5 font-semibold text-white cursor-pointer"
+                  >
+                    {uploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
+                    {event.logo_url ? "Change Logo" : "Upload Logo"}
+                  </Button>
+                  {event.logo_url && (
+                    <Button variant="ghost" size="icon" onClick={removeLogo} className="text-red-500 hover:bg-red-500/10 rounded-full cursor-pointer">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
+                <input 
+                  ref={fileInputRef} 
+                  type="file" 
+                  className="hidden" 
+                  accept="image/png,image/jpeg,image/webp"
+                  onChange={async e => {
+                    const file = e.target.files?.[0];
+                    if (file) await handleLogoUpload(file);
+                  }} 
+                />
+                <p className="text-[10px] text-muted-foreground">Max 2MB. Optimized for preview.</p>
               </div>
-              <Switch 
-                checked={!!event.remove_background} 
-                onCheckedChange={toggleBackgroundRemoval}
-                disabled={savingSettings}
-                className="cursor-pointer"
-              />
             </div>
-          )}
-        </div>
 
-        <div className="space-y-4">
-          <Label className="text-white">Template Picker</Label>
-          <div className="grid grid-cols-2 gap-3">
-            {templates.map(t => (
-              <button
-                key={t.id}
-                onClick={() => handleTemplateChange(t.id)}
-                className={`flex flex-col items-center gap-3 p-4 rounded-2xl border transition-all cursor-pointer ${templateId === t.id ? 'border-[#36f4a4] bg-[#36f4a4]/5' : 'border-white/5 bg-white/2'}`}
-              >
-                <div className={`h-12 w-full rounded-lg ${t.color}`} />
-                <span className="text-sm font-bold text-white">{t.name}</span>
-              </button>
-            ))}
+            {event.logo_url && (
+              <div className="flex items-center justify-between p-3 rounded-xl border border-white/5 bg-accent/10">
+                <div className="flex items-center gap-2">
+                  <Scissors className="h-4 w-4 text-primary" />
+                  <div className="space-y-0.5">
+                    <p className="text-xs font-bold text-white">Remove background</p>
+                    <p className="text-[10px] text-muted-foreground">Clean logo for templates</p>
+                  </div>
+                </div>
+                <Switch 
+                  checked={!!event.remove_background} 
+                  onCheckedChange={toggleBackgroundRemoval}
+                  disabled={savingSettings}
+                  className="cursor-pointer"
+                />
+              </div>
+            )}
           </div>
-        </div>
+
+          <div className="space-y-4">
+            <Label className="text-white">Base Template</Label>
+            <div className="grid grid-cols-2 gap-3">
+              {templates.map(t => (
+                <button
+                  key={t.id}
+                  onClick={() => handleTemplateChange(t.id)}
+                  className={`flex flex-col items-center gap-3 p-4 rounded-2xl border transition-all cursor-pointer ${templateId === t.id ? 'border-[#36f4a4] bg-[#36f4a4]/5' : 'border-white/5 bg-white/2'}`}
+                >
+                  <div className={`h-12 w-full rounded-lg ${t.color}`} />
+                  <span className="text-sm font-bold text-white">{t.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="space-y-6 pt-4 border-t border-white/5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Palette className="h-5 w-5 text-[#36f4a4]" />
+              <h3 className="font-bold text-white text-lg">Customize Colors</h3>
+            </div>
+            <div className="flex items-center gap-4">
+              {isSavingPalette && (
+                <div className="flex items-center gap-1.5 text-[10px] text-[#36f4a4] animate-pulse">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Saving...
+                </div>
+              )}
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={handleResetPalette}
+                className="text-[11px] h-8 text-muted-foreground hover:text-white rounded-full cursor-pointer"
+              >
+                <RotateCcw className="h-3 w-3 mr-1.5" />
+                Reset Defaults
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-x-6 gap-y-4 bg-accent/5 p-6 rounded-2xl border border-white/5">
+            <ColorInput label="Background" value={palette.background_color} paletteKey="background_color" />
+            <ColorInput label="Main Text" value={palette.text_color} paletteKey="text_color" />
+            <ColorInput label="Accent" value={palette.accent_color} paletteKey="accent_color" />
+            <ColorInput label="Border" value={palette.border_color} paletteKey="border_color" />
+            <ColorInput label="Muted Text" value={palette.muted_text_color} paletteKey="muted_text_color" />
+            <ColorInput label="QR Background" value={palette.qr_background_color} paletteKey="qr_background_color" />
+          </div>
+        </section>
 
         <Card className="border-border bg-blue-500/5 border-blue-500/20">
           <CardContent className="p-4 flex items-center justify-between">
@@ -943,7 +1052,10 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
         <div className="sticky top-24">
           <h3 className="text-xs font-bold uppercase tracking-widest text-white/50 mb-4 text-center">Live Ticket Preview</h3>
           <div className="mx-auto flex justify-center scale-90 sm:scale-100">
-             <TicketPreview event={event} templateId={templateId} />
+             <TicketPreview 
+              event={{...event, ticket_color_palette: palette}} 
+              templateId={templateId} 
+             />
           </div>
           {savingSettings && (
             <div className="mt-4 flex items-center justify-center gap-2 text-xs text-primary animate-pulse">
