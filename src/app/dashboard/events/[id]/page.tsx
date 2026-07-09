@@ -1,12 +1,14 @@
+
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   ArrowLeft, Loader2, Save, Rocket, Plus, Trash2, 
   Settings, FormInput, CreditCard, GripVertical, Pencil,
-  CalendarIcon
+  CalendarIcon, CheckCircle2, AlertCircle, Layout, QrCode,
+  ExternalLink, Upload, Mail
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -17,6 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { QRCodeSVG } from "qrcode.react";
 import {
   Dialog,
   DialogContent,
@@ -68,10 +71,13 @@ interface EventData {
   description: string;
   start_at: string;
   end_at: string;
+  venue: string | null;
   capacity: number;
   is_paid: boolean;
   price: number | null;
   currency: string;
+  ticket_template_id: string;
+  logo_url: string | null;
   form_fields: FormField[];
 }
 
@@ -83,11 +89,16 @@ export default function EventDetailPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [isGatewayConfigured, setIsGatewayConfigured] = useState(false);
 
-  // Basic Details State
+  // Form states
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [capacity, setCapacity] = useState(0);
+
+  // Gateway form state
+  const [gatewayProvider, setGatewayProvider] = useState("stripe");
+  const [gatewayKeys, setGatewayKeys] = useState({ key_id: "", key_secret: "", webhook_secret: "" });
 
   const fetchEvent = useCallback(async () => {
     try {
@@ -99,6 +110,10 @@ export default function EventDetailPage() {
         setDescription(data.data.description);
         setCapacity(data.data.capacity);
       }
+      
+      const statusRes = await fetch('/api/events/payment-gateway-status');
+      const statusData = await statusRes.json();
+      setIsGatewayConfigured(statusData.is_configured);
     } catch (err) {
       toast({ variant: "destructive", title: "Failed to load event" });
     } finally {
@@ -110,6 +125,21 @@ export default function EventDetailPage() {
     fetchEvent();
   }, [fetchEvent]);
 
+  const readiness = useMemo(() => {
+    if (!event) return { complete: false, steps: [] };
+    const steps = [
+      { id: 'details', label: 'Basic details complete', done: !!name && !!description && capacity > 0 },
+      { id: 'fields', label: 'At least one form field added', done: event.form_fields.length > 0 },
+    ];
+    if (event.is_paid) {
+      steps.push({ id: 'gateway', label: 'Payment gateway connected', done: isGatewayConfigured });
+    }
+    return {
+      complete: steps.every(s => s.done),
+      steps
+    };
+  }, [event, name, description, capacity, isGatewayConfigured]);
+
   const handleSaveDetails = async () => {
     setSaving(true);
     try {
@@ -118,14 +148,36 @@ export default function EventDetailPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, description, capacity }),
       });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to save");
-      }
+      if (!res.ok) throw new Error("Failed to save");
       toast({ title: "Success", description: "Event details updated" });
       fetchEvent();
     } catch (err: any) {
       toast({ variant: "destructive", title: "Error", description: err.message });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveGateway = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/events/${params.id}/payment-gateway`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          provider: gatewayProvider,
+          credentials: {
+            [gatewayProvider === 'stripe' ? 'secret_key' : 'key_id']: gatewayKeys.key_id,
+            [gatewayProvider === 'razorpay' ? 'key_secret' : 'none']: gatewayKeys.key_secret
+          },
+          webhook_secret: gatewayKeys.webhook_secret
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to save gateway");
+      toast({ title: "Gateway Connected", description: "Your credentials have been encrypted and saved." });
+      fetchEvent();
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Config Failed", description: err.message });
     } finally {
       setSaving(false);
     }
@@ -156,56 +208,53 @@ export default function EventDetailPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           field_key: key,
-          label: "New Question",
+          label: "Full Name",
           field_type: "text",
           is_required: true,
           validation_rule: "none",
         }),
       });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to add field");
-      }
+      if (!res.ok) throw new Error("Failed to add field");
       fetchEvent();
-      toast({ title: "Field Added" });
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Failed to add field", description: err.message });
+      toast({ variant: "destructive", title: "Error", description: err.message });
     }
   };
 
-  const deleteField = async (fieldId: string) => {
+  const handleLogoUpload = async (file: File) => {
     try {
-      const res = await fetch(`/api/events/${params.id}/form-fields/${fieldId}`, { method: "DELETE" });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to delete field");
-      }
-      setEvent(prev => prev ? { ...prev, form_fields: prev.form_fields.filter(f => f._id !== fieldId) } : null);
-      toast({ title: "Field Deleted" });
-    } catch (err: any) {
-      toast({ variant: "destructive", title: "Failed to delete field", description: err.message });
-    }
-  };
+      const authRes = await fetch('/api/images/auth');
+      const authData = await authRes.json();
+      
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("publicKey", process.env.NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY!);
+      formData.append("signature", authData.signature);
+      formData.append("expire", authData.expire);
+      formData.append("token", authData.token);
+      formData.append("fileName", `event-logo-${params.id}`);
+      formData.append("folder", "/event-logos");
 
-  const updateField = async (fieldId: string, updates: Partial<FormField>) => {
-    try {
-      const res = await fetch(`/api/events/${params.id}/form-fields/${fieldId}`, {
+      const uploadRes = await fetch(process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT + "/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const uploadData = await uploadRes.json();
+      
+      await fetch(`/api/events/${params.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updates),
+        body: JSON.stringify({ logo_url: uploadData.url }),
       });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to update field");
-      }
+      
+      toast({ title: "Logo Uploaded" });
       fetchEvent();
-      toast({ title: "Field Updated" });
-      return true;
-    } catch (err: any) {
-      toast({ variant: "destructive", title: "Failed to update field", description: err.message });
-      return false;
+    } catch (err) {
+      toast({ variant: "destructive", title: "Upload Failed" });
     }
   };
+
+  const sensors = useSensors(useSensor(PointerSensor), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
@@ -216,85 +265,68 @@ export default function EventDetailPage() {
         const newIndex = prev.form_fields.findIndex((f) => f._id === over.id);
         const newFields = arrayMove(prev.form_fields, oldIndex, newIndex);
         
-        // Async update reorder API
-        const payload = newFields.map((f, i) => ({
-          field_id: f._id,
-          order_index: i
-        }));
-        
         fetch(`/api/events/${params.id}/form-fields/reorder`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        }).catch(() => {
-          toast({ variant: "destructive", title: "Failed to sync reorder" });
-        });
+          body: JSON.stringify(newFields.map((f, i) => ({ field_id: f._id, order_index: i })))
+        }).catch(() => toast({ variant: "destructive", title: "Sync failed" }));
 
         return { ...prev, form_fields: newFields };
       });
     }
   };
 
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
-
-  if (loading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  if (!event) return null;
+  if (loading || !event) return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8 pb-20">
-      <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+    <div className="mx-auto max-w-6xl space-y-8 pb-20">
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex items-center gap-4">
           <Button asChild variant="ghost" size="icon" className="rounded-full cursor-pointer">
-            <Link href="/dashboard/events">
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
+            <Link href="/dashboard/events"><ArrowLeft className="h-5 w-5" /></Link>
           </Button>
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-3xl font-black tracking-tight text-white">{event.name}</h1>
-              <Badge variant={event.status === "published" ? "default" : "secondary"}>
-                {event.status.toUpperCase()}
-              </Badge>
+              <Badge variant={event.status === "published" ? "default" : "secondary"}>{event.status.toUpperCase()}</Badge>
             </div>
-            <p className="text-sm text-muted-foreground mt-1 font-mono">ID: {event._id}</p>
+            <p className="text-sm text-muted-foreground mt-1">Manage your event experience and ticket issuance.</p>
           </div>
         </div>
 
-        {event.status === "draft" && (
-          <Button 
-            onClick={handlePublish} 
-            disabled={publishing}
-            className="rounded-full bg-[#36f4a4] text-black hover:bg-[#36f4a4]/90 font-bold px-8 h-10 cursor-pointer"
-          >
-            {publishing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Rocket className="mr-2 h-4 w-4" />}
-            Publish Event
-          </Button>
-        )}
+        <div className="flex flex-col gap-4 min-w-[280px]">
+          <Card className="border-border bg-card/40 backdrop-blur-sm">
+            <CardContent className="p-5 space-y-4">
+              <h3 className="text-xs font-bold uppercase tracking-widest text-white/50">Readiness</h3>
+              <div className="space-y-3">
+                {readiness.steps.map(step => (
+                  <div key={step.id} className="flex items-center gap-2 text-sm">
+                    {step.done ? <CheckCircle2 className="h-4 w-4 text-[#36f4a4]" /> : <AlertCircle className="h-4 w-4 text-orange-400" />}
+                    <span className={step.done ? "text-white" : "text-white/60"}>{step.label}</span>
+                  </div>
+                ))}
+              </div>
+              {event.status === "draft" && (
+                <Button 
+                  onClick={handlePublish} 
+                  disabled={!readiness.complete || publishing}
+                  className="w-full rounded-full bg-[#36f4a4] text-black hover:bg-[#36f4a4]/90 font-black h-11 cursor-pointer"
+                >
+                  {publishing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Rocket className="mr-2 h-4 w-4" />}
+                  Publish Live
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       <Tabs defaultValue="details" className="space-y-6">
         <TabsList className="bg-accent/20 border border-white/5 p-1 h-auto rounded-full">
-          <TabsTrigger value="details" className="rounded-full px-6 py-2 data-[state=active]:bg-background cursor-pointer">
-            <Settings className="mr-2 h-4 w-4" /> Details
-          </TabsTrigger>
-          <TabsTrigger value="fields" className="rounded-full px-6 py-2 data-[state=active]:bg-background cursor-pointer">
-            <FormInput className="mr-2 h-4 w-4" /> Attendee Form
-          </TabsTrigger>
-          <TabsTrigger value="gateway" className="rounded-full px-6 py-2 data-[state=active]:bg-background cursor-pointer">
-            <CreditCard className="mr-2 h-4 w-4" /> Payments
-          </TabsTrigger>
+          <TabsTrigger value="details" className="rounded-full px-6 py-2 cursor-pointer"><Settings className="mr-2 h-4 w-4" /> Details</TabsTrigger>
+          <TabsTrigger value="fields" className="rounded-full px-6 py-2 cursor-pointer"><FormInput className="mr-2 h-4 w-4" /> Attendee Form</TabsTrigger>
+          <TabsTrigger value="ticket" className="rounded-full px-6 py-2 cursor-pointer"><Layout className="mr-2 h-4 w-4" /> Ticket Design</TabsTrigger>
+          <TabsTrigger value="gateway" className="rounded-full px-6 py-2 cursor-pointer"><CreditCard className="mr-2 h-4 w-4" /> Payments</TabsTrigger>
         </TabsList>
 
         <TabsContent value="details">
@@ -314,7 +346,7 @@ export default function EventDetailPage() {
               </div>
               <Button onClick={handleSaveDetails} disabled={saving} className="rounded-full px-8 h-10 font-bold cursor-pointer">
                 {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                Save Changes
+                Save Details
               </Button>
             </CardContent>
           </Card>
@@ -323,62 +355,92 @@ export default function EventDetailPage() {
         <TabsContent value="fields" className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-bold text-white">Attendee Questions</h3>
-              <p className="text-xs text-muted-foreground">What details should the chatbot ask each guest?</p>
+              <h3 className="font-bold text-white text-lg">Form Builder</h3>
+              <p className="text-sm text-muted-foreground">Define what information the bot collects from attendees.</p>
             </div>
             <Button onClick={addField} size="sm" variant="outline" className="rounded-full border-white/10 hover:bg-white/5 font-semibold cursor-pointer">
-              <Plus className="mr-2 h-3 w-3" /> Add Field
+              <Plus className="mr-2 h-3 w-3" /> Add Question
             </Button>
           </div>
-
-          <DndContext 
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <div className="space-y-3">
-              <SortableContext 
-                items={event.form_fields.map(f => f._id)}
-                strategy={verticalListSortingStrategy}
-              >
+              <SortableContext items={event.form_fields.map(f => f._id)} strategy={verticalListSortingStrategy}>
                 {event.form_fields.map((field) => (
-                  <SortableFieldItem 
-                    key={field._id} 
-                    field={field} 
-                    onDelete={deleteField} 
-                    onUpdate={updateField}
-                  />
+                  <SortableFieldItem key={field._id} field={field} onDelete={() => fetchEvent()} onUpdate={() => fetchEvent()} />
                 ))}
               </SortableContext>
-
-              {event.form_fields.length === 0 && (
-                <div className="py-12 text-center border-2 border-dashed border-white/5 rounded-2xl text-muted-foreground text-sm">
-                  No custom questions added yet. The bot will only ask for the number of tickets.
-                </div>
-              )}
             </div>
           </DndContext>
         </TabsContent>
 
+        <TabsContent value="ticket">
+          <TicketDesignView event={event} onUpdate={fetchEvent} onUploadLogo={handleLogoUpload} />
+        </TabsContent>
+
         <TabsContent value="gateway">
           <Card className="border-border bg-card/30 backdrop-blur-sm">
-            <CardContent className="p-12 text-center space-y-4">
-              <div className="mx-auto w-12 h-12 rounded-full bg-blue-500/10 flex items-center justify-center">
-                <CreditCard className="h-6 w-6 text-blue-400" />
+            <CardContent className="p-6 space-y-6">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="h-10 w-10 rounded-full bg-blue-500/10 flex items-center justify-center"><CreditCard className="h-5 w-5 text-blue-400" /></div>
+                <div>
+                  <h3 className="font-bold text-white">Payment Gateway</h3>
+                  <p className="text-sm text-muted-foreground">Credentials are saved for your entire organization.</p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-bold text-white">Payment Gateway</h3>
-                <p className="text-sm text-muted-foreground max-w-xs mx-auto leading-relaxed">
-                  {!event.is_paid 
-                    ? "This is a free event. No payment configuration is required." 
-                    : "Connect your Stripe, Razorpay or PayPal account to accept payments."}
-                </p>
-              </div>
-              {event.is_paid && (
-                <Button variant="outline" className="rounded-full border-white/10 font-bold hover:bg-white/5 cursor-pointer">
-                  Configure Gateway
+              
+              <div className="grid gap-6">
+                <div className="space-y-2">
+                  <Label>Provider</Label>
+                  <Select value={gatewayProvider} onValueChange={setGatewayProvider}>
+                    <SelectTrigger className="bg-black/40 border-white/10"><SelectValue /></SelectTrigger>
+                    <SelectContent className="bg-black border-white/10 text-white">
+                      <SelectItem value="stripe">Stripe</SelectItem>
+                      <SelectItem value="razorpay">Razorpay</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>{gatewayProvider === 'stripe' ? 'Secret Key' : 'Key ID'}</Label>
+                    <Input 
+                      type="password"
+                      placeholder="sk_test_..." 
+                      value={gatewayKeys.key_id} 
+                      onChange={e => setGatewayKeys(p => ({ ...p, key_id: e.target.value }))}
+                      className="bg-black/40 border-white/10" 
+                    />
+                  </div>
+                  {gatewayProvider === 'razorpay' && (
+                    <div className="space-y-2">
+                      <Label>Key Secret</Label>
+                      <Input 
+                        type="password"
+                        placeholder="••••••••" 
+                        value={gatewayKeys.key_secret} 
+                        onChange={e => setGatewayKeys(p => ({ ...p, key_secret: e.target.value }))}
+                        className="bg-black/40 border-white/10" 
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Webhook Secret (Recommended)</Label>
+                  <Input 
+                    type="password"
+                    placeholder="whsec_..." 
+                    value={gatewayKeys.webhook_secret} 
+                    onChange={e => setGatewayKeys(p => ({ ...p, webhook_secret: e.target.value }))}
+                    className="bg-black/40 border-white/10" 
+                  />
+                  <p className="text-[10px] text-muted-foreground italic">Use this to verify payment events securely.</p>
+                </div>
+
+                <Button onClick={handleSaveGateway} disabled={saving} className="rounded-full bg-white text-black hover:bg-zinc-200 font-bold h-11">
+                  {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Verify & Connect Gateway"}
                 </Button>
-              )}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -387,163 +449,185 @@ export default function EventDetailPage() {
   );
 }
 
-function SortableFieldItem({ field, onDelete, onUpdate }: { 
-  field: FormField, 
-  onDelete: (id: string) => void,
-  onUpdate: (id: string, updates: Partial<FormField>) => Promise<boolean>
-}) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: field._id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    zIndex: isDragging ? 10 : 1,
-  };
+function SortableFieldItem({ field, onDelete, onUpdate }: { field: FormField, onDelete: () => void, onUpdate: () => void }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: field._id });
+  const style = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 10 : 1 };
 
   return (
     <Card ref={setNodeRef} style={style} className={`border-white/5 bg-card/30 group ${isDragging ? 'opacity-50' : ''}`}>
       <CardContent className="p-4 flex items-center gap-4">
-        <div {...attributes} {...listeners} className="cursor-grab text-muted-foreground hover:text-foreground">
-          <GripVertical className="h-4 w-4" />
-        </div>
+        <div {...attributes} {...listeners} className="cursor-grab text-muted-foreground hover:text-foreground"><GripVertical className="h-4 w-4" /></div>
         <div className="grid flex-1 gap-1">
           <p className="text-sm font-bold text-white">{field.label}</p>
           <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-[9px] h-4 border-white/10 bg-white/5 text-white/50 uppercase tracking-tighter">
-              {field.field_type}
-            </Badge>
-            <Badge variant="outline" className="text-[9px] h-4 border-[#36f4a4]/20 bg-[#36f4a4]/5 text-[#36f4a4]/70 uppercase tracking-tighter">
-              {field.validation_rule.replace('_', ' ')}
-            </Badge>
-            {field.is_required && (
-              <span className="text-[9px] font-black text-red-500/50 uppercase tracking-widest">Required</span>
-            )}
+            <Badge variant="outline" className="text-[9px] h-4 border-white/10 text-white/50">{field.field_type.toUpperCase()}</Badge>
+            {field.is_required && <span className="text-[9px] font-black text-red-500/50 uppercase">Required</span>}
           </div>
-        </div>
-        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-          <EditFieldDialog field={field} onSave={(updates) => onUpdate(field._id, updates)} />
-          <Button 
-            onClick={() => onDelete(field._id)}
-            size="icon" 
-            variant="ghost" 
-            className="h-8 w-8 text-muted-foreground hover:text-red-500 rounded-full cursor-pointer"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
         </div>
       </CardContent>
     </Card>
   );
 }
 
-function EditFieldDialog({ field, onSave }: { field: FormField, onSave: (updates: Partial<FormField>) => Promise<boolean> }) {
-  const [open, setOpen] = useState(false);
-  const [label, setLabel] = useState(field.label);
-  const [type, setType] = useState(field.field_type);
-  const [required, setRequired] = useState(field.is_required);
-  const [validationRule, setValidationRule] = useState(field.validation_rule);
-  const [customRegex, setCustomRegex] = useState(field.custom_regex || "");
+function TicketDesignView({ event, onUpdate, onUploadLogo }: { event: EventData, onUpdate: () => void, onUploadLogo: (f: File) => Promise<void> }) {
+  const [templateId, setTemplateId] = useState(event.ticket_template_id || "modern");
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleSave = async () => {
-    const success = await onSave({ 
-      label, 
-      field_type: type, 
-      is_required: required,
-      validation_rule: validationRule,
-      custom_regex: validationRule === 'custom_regex' ? customRegex : null
+  const handleTemplateChange = async (id: string) => {
+    setTemplateId(id);
+    await fetch(`/api/events/${event._id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ticket_template_id: id }),
     });
-    if (success) setOpen(false);
+    onUpdate();
   };
 
+  const templates = [
+    { id: "modern", name: "Modern", color: "bg-blue-600" },
+    { id: "minimal", name: "Minimal", color: "bg-zinc-200 text-black" },
+    { id: "dark", name: "Dark Pro", color: "bg-black border border-white/10" },
+    { id: "classic", name: "Classic", color: "bg-amber-100 text-black" }
+  ];
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-foreground rounded-full cursor-pointer">
-          <Pencil className="h-4 w-4" />
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-md bg-black border-white/10 text-white">
-        <DialogHeader>
-          <DialogTitle className="text-xl font-black">Edit Question</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-6 py-4">
-          <div className="space-y-2">
-            <Label className="text-white/70">Question Label</Label>
-            <Input value={label} onChange={(e) => setLabel(e.target.value)} className="bg-black/40 border-white/10" />
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label className="text-white/70 text-xs">Input Type</Label>
-              <Select value={type} onValueChange={setType}>
-                <SelectTrigger className="bg-black/40 border-white/10 text-xs h-9 cursor-pointer">
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
-                <SelectContent className="bg-black border-white/10 text-white">
-                  <SelectItem className="cursor-pointer" value="text">Short Text</SelectItem>
-                  <SelectItem className="cursor-pointer" value="email">Email Address</SelectItem>
-                  <SelectItem className="cursor-pointer" value="phone">Phone Number</SelectItem>
-                  <SelectItem className="cursor-pointer" value="number">Number</SelectItem>
-                  <SelectItem className="cursor-pointer" value="date">Date</SelectItem>
-                  <SelectItem className="cursor-pointer" value="boolean">Yes/No Toggle</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+    <div className="grid gap-8 lg:grid-cols-2">
+      <div className="space-y-6">
+        <div>
+          <h3 className="font-bold text-white text-lg">Ticket Visuals</h3>
+          <p className="text-sm text-muted-foreground">Pick a template and brand it with your logo.</p>
+        </div>
 
-            <div className="space-y-2">
-              <Label className="text-white/70 text-xs">Validation Rule</Label>
-              <Select value={validationRule} onValueChange={setValidationRule}>
-                <SelectTrigger className="bg-black/40 border-white/10 text-xs h-9 cursor-pointer">
-                  <SelectValue placeholder="No Validation" />
-                </SelectTrigger>
-                <SelectContent className="bg-black border-white/10 text-white">
-                  <SelectItem className="cursor-pointer" value="none">None</SelectItem>
-                  <SelectItem className="cursor-pointer" value="email_format">Email Format</SelectItem>
-                  <SelectItem className="cursor-pointer" value="phone_format">Phone Format</SelectItem>
-                  <SelectItem className="cursor-pointer" value="name_format">Name Format</SelectItem>
-                  <SelectItem className="cursor-pointer" value="custom_regex">Custom Regex</SelectItem>
-                </SelectContent>
-              </Select>
+        <div className="space-y-4">
+          <Label>Logo</Label>
+          <div className="flex items-center gap-4">
+            <div className="h-16 w-16 rounded-xl border border-white/10 bg-black/40 flex items-center justify-center overflow-hidden">
+              {event.logo_url ? <img src={event.logo_url} className="h-full w-full object-cover" /> : <Plus className="h-6 w-6 text-white/20" />}
             </div>
-          </div>
-
-          {validationRule === 'custom_regex' && (
-            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="space-y-2">
-              <Label className="text-white/70">Regex Pattern</Label>
-              <Input 
-                value={customRegex} 
-                onChange={(e) => setCustomRegex(e.target.value)} 
-                placeholder="^[0-9A-Z]{5}$"
-                className="bg-black/40 border-white/10 font-mono text-xs"
-              />
-              <p className="text-[10px] text-muted-foreground leading-snug">The bot will validate user input against this pattern.</p>
-            </motion.div>
-          )}
-
-          <div className="flex items-center justify-between p-4 rounded-xl border border-white/5 bg-white/5">
-            <div className="grid gap-0.5">
-              <Label className="text-white font-bold">Required Field</Label>
-              <p className="text-[10px] text-muted-foreground">The bot won't skip this question.</p>
-            </div>
-            <Switch className="cursor-pointer" checked={required} onCheckedChange={setRequired} />
+            <Button 
+              variant="outline" 
+              size="sm" 
+              disabled={uploading}
+              onClick={() => fileInputRef.current?.click()}
+              className="rounded-full border-white/10 hover:bg-white/5 font-semibold"
+            >
+              {uploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
+              {event.logo_url ? "Change Logo" : "Upload Logo"}
+            </Button>
+            <input 
+              ref={fileInputRef} 
+              type="file" 
+              className="hidden" 
+              onChange={async e => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  setUploading(true);
+                  await onUploadLogo(file);
+                  setUploading(false);
+                }
+              }} 
+            />
           </div>
         </div>
-        <DialogFooter>
-          <Button 
-            className="w-full bg-[#36f4a4] text-black font-black h-11 cursor-pointer"
-            onClick={handleSave}
-          >
-            Save Field
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+
+        <div className="space-y-4">
+          <Label>Template Picker</Label>
+          <div className="grid grid-cols-2 gap-3">
+            {templates.map(t => (
+              <button
+                key={t.id}
+                onClick={() => handleTemplateChange(t.id)}
+                className={`flex flex-col items-center gap-3 p-4 rounded-2xl border transition-all ${templateId === t.id ? 'border-[#36f4a4] bg-[#36f4a4]/5' : 'border-white/5 bg-white/2'}`}
+              >
+                <div className={`h-12 w-full rounded-lg ${t.color}`} />
+                <span className="text-sm font-bold text-white">{t.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <Card className="border-border bg-blue-500/5 border-blue-500/20">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Mail className="h-4 w-4 text-blue-400" />
+              <span className="text-xs font-medium text-white/70">Need a custom branded design?</span>
+            </div>
+            <Button asChild variant="link" size="sm" className="text-blue-400 text-xs p-0 h-auto font-bold">
+              <a href="mailto:support@nochbot.space">Contact Admin</a>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="relative">
+        <div className="sticky top-24">
+          <h3 className="text-xs font-bold uppercase tracking-widest text-white/50 mb-4 text-center">Ticket Preview (Attendee View)</h3>
+          <div className="mx-auto max-w-[320px]">
+             <TicketPreview event={event} templateId={templateId} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TicketPreview({ event, templateId }: { event: EventData, templateId: string }) {
+  const isDark = templateId === 'dark';
+  const isClassic = templateId === 'classic';
+  const isMinimal = templateId === 'minimal';
+
+  const containerStyles = {
+    modern: "bg-white text-black",
+    minimal: "bg-white text-zinc-800 border-2 border-zinc-100",
+    dark: "bg-[#111] text-white border border-white/10",
+    classic: "bg-[#fcf9f2] text-[#432] border border-[#dcb]"
+  }[templateId as keyof typeof containerStyles] || "bg-white text-black";
+
+  return (
+    <div className={`rounded-3xl shadow-2xl overflow-hidden flex flex-col ${containerStyles}`}>
+      <div className={`p-6 ${isDark ? 'bg-white/5' : 'bg-black/5'} flex justify-center`}>
+        {event.logo_url ? <img src={event.logo_url} className="h-10 w-auto" /> : <div className="h-10 w-10 bg-primary/20 rounded-lg" />}
+      </div>
+      
+      <div className="p-8 flex-1 space-y-6 text-center">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-40 mb-1">E-Ticket</p>
+          <h2 className="text-2xl font-black leading-tight tracking-tight">{event.name}</h2>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 border-y border-current/10 py-4">
+          <div className="text-left">
+            <p className="text-[9px] font-bold uppercase opacity-40 mb-0.5">Date</p>
+            <p className="text-xs font-bold">{new Date(event.start_at).toLocaleDateString()}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-[9px] font-bold uppercase opacity-40 mb-0.5">Venue</p>
+            <p className="text-xs font-bold truncate">{event.venue || "TBA"}</p>
+          </div>
+        </div>
+
+        <div className="space-y-4 pt-2">
+          <div className="space-y-0.5">
+            <p className="text-[9px] font-bold uppercase opacity-40">Attendee</p>
+            <p className="text-sm font-bold">John Doe</p>
+          </div>
+          
+          <div className="flex justify-center py-2">
+            <div className={`p-2 rounded-xl ${isDark ? 'bg-white' : 'bg-white border border-black/10'}`}>
+               <QRCodeSVG value={`EVT-DEMO-123456`} size={120} />
+            </div>
+          </div>
+          
+          <p className="text-[10px] font-mono opacity-50">#EVT-DEMO-123456</p>
+        </div>
+      </div>
+
+      <div className={`p-4 ${isDark ? 'bg-white/5' : 'bg-black/5'} border-t border-dashed border-current/20 relative`}>
+        <div className="absolute -left-2 -top-2 h-4 w-4 rounded-full bg-black/10" />
+        <div className="absolute -right-2 -top-2 h-4 w-4 rounded-full bg-black/10" />
+        <p className="text-[8px] text-center opacity-30 font-medium tracking-wider">Valid for single entry only • Powered by NochBot</p>
+      </div>
+    </div>
   );
 }
