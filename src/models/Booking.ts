@@ -1,42 +1,51 @@
 import { ObjectId } from 'mongodb';
 
-export type BookingStatus = 'in_progress' | 'awaiting_payment' | 'paid' | 'confirmed' | 'cancelled' | 'expired';
-export type PaymentProvider = 'stripe' | 'paypal' | 'razorpay' | 'cashfree' | 'none';
-
-/**
- * Conversational state separate from payment/lifecycle status.
- */
-export type ConversationState = 
-  | 'collecting_quantity' 
-  | 'collecting_fields' 
-  | 'reviewing' 
-  | 'processing_confirmation' // Transitional locking state
-  | 'awaiting_payment' 
-  | 'confirmed' 
-  | 'cancelled' 
-  | 'expired';
-
 export interface Booking {
   _id?: ObjectId;
+  org_id: string;
   event_id: ObjectId;
-  session_id: string; // Public unique session ID for the visitor
-  status: BookingStatus;
-  quantity: number;
-  form_responses: Record<string, any> | Record<string, any>[];
-  
-  // Conversational state tracking
-  conversation_state: ConversationState;
-  session_context: {
-    current_field_index: number;
-    current_attendee_index: number;
-    last_updated_at: Date;
+  visitor_id: string;
+  chat_session_id?: string;
+  booking_session_id?: ObjectId;
+  booking_code: string; 
+  status: 'draft' | 'pending_payment' | 'confirmed' | 'cancelled' | 'expired' | 'failed';
+  payment_status: 'not_required' | 'pending' | 'paid' | 'failed' | 'refunded';
+  event_snapshot: {
+    name: string;
+    start_at: Date;
+    end_at: Date;
+    venue: string | null;
+    price: number | null;
+    currency: string;
+    ticket_template_id: string;
   };
-
-  hold_expires_at: Date | null; // For paid events BMS-style flow
-
-  amount_charged: number | null;
-  payment_provider: PaymentProvider;
-  payment_reference_id: string | null;
+  attendee: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    answers: Array<{
+      field_id: string;
+      label: string;
+      field_type: string;
+      value: any;
+    }>;
+  };
+  quantity: number;
+  amount_total: number;
+  currency: string;
+  ticket_codes: string[];
+  payment?: {
+    provider?: 'razorpay' | 'stripe';
+    provider_order_id?: string;
+    checkout_url?: string;
+    provider_reference?: string;
+  };
+  source: 'chat_widget';
+  user_agent?: string;
+  referrer?: string;
+  website_url?: string;
   created_at: Date;
   updated_at: Date;
+  confirmed_at?: Date;
+  expires_at?: Date;
 }

@@ -5,66 +5,40 @@ import { getDb } from "@/lib/db";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const userId = await getUserIdFromCookie();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  if (!ObjectId.isValid(params.id)) {
-    return NextResponse.json({ error: "Invalid event ID format" }, { status: 400 });
+  if (!ObjectId.isValid(id)) {
+    return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
   }
 
   try {
     const db = await getDb();
-    const eventId = new ObjectId(params.id);
-
-    // 1. Verify event ownership
-    const event = await db.collection("events").findOne({ _id: eventId, org_id: userId });
+    const event = await db.collection("events").findOne({ _id: new ObjectId(id), org_id: userId });
     if (!event) return NextResponse.json({ error: "Event not found" }, { status: 404 });
 
-    // 2. Parse Query Params
-    const { searchParams } = new URL(req.url);
-    const status = searchParams.get("status");
-    
-    // Robust pagination parsing
-    const pageRaw = parseInt(searchParams.get("page") || "1");
-    const page = Math.max(1, isNaN(pageRaw) ? 1 : pageRaw);
+    const bookings = await db.collection("bookings")
+      .find({ event_id: new ObjectId(id) })
+      .sort({ created_at: -1 })
+      .toArray();
 
-    const limitRaw = parseInt(searchParams.get("limit") || "25");
-    const limit = Math.min(100, Math.max(1, isNaN(limitRaw) ? 25 : limitRaw));
+    const result = bookings.map(b => ({
+      id: b._id.toString(),
+      booking_code: b.booking_code,
+      attendee_name: b.attendee.answers.find(a => a.label.toLowerCase().includes('name'))?.value,
+      attendee_email: b.attendee.answers.find(a => a.label.toLowerCase().includes('email'))?.value,
+      quantity: b.quantity,
+      amount_total: b.amount_total,
+      status: b.status,
+      payment_status: b.payment_status,
+      created_at: b.created_at,
+    }));
 
-    // 3. Build Filter
-    const query: any = { event_id: eventId };
-    if (status) query.status = status;
-
-    // 4. Fetch Bookings (Trimmed Projection)
-    const [bookings, total] = await Promise.all([
-      db.collection("bookings")
-        .find(query)
-        .project({
-          _id: 1,
-          status: 1,
-          quantity: 1,
-          amount_charged: 1,
-          payment_provider: 1,
-          created_at: 1
-        })
-        .sort({ created_at: -1 })
-        .skip((page - 1) * limit)
-        .limit(limit)
-        .toArray(),
-      db.collection("bookings").countDocuments(query)
-    ]);
-
-    return NextResponse.json({ 
-      success: true, 
-      bookings, 
-      total, 
-      page, 
-      limit 
-    });
+    return NextResponse.json({ bookings: result });
   } catch (error) {
-    console.error("[bookings_get_list]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
