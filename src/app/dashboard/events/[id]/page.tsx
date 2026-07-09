@@ -222,6 +222,20 @@ export default function EventDetailPage() {
   };
 
   const handleLogoUpload = async (file: File) => {
+    // PROTECTION: Validate size (2MB) and type
+    const MAX_SIZE = 2 * 1024 * 1024;
+    const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
+    if (file.size > MAX_SIZE) {
+      toast({ variant: "destructive", title: "File too large", description: "Logo must be smaller than 2MB" });
+      return;
+    }
+
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      toast({ variant: "destructive", title: "Invalid format", description: "Only JPEG, PNG and WebP are allowed" });
+      return;
+    }
+
     try {
       const authRes = await fetch('/api/images/auth');
       const authData = await authRes.json();
@@ -241,6 +255,8 @@ export default function EventDetailPage() {
       });
       const uploadData = await uploadRes.json();
       
+      if (!uploadRes.ok) throw new Error(uploadData.message || "ImageKit upload failed");
+
       await fetch(`/api/events/${params.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -249,8 +265,8 @@ export default function EventDetailPage() {
       
       toast({ title: "Logo Uploaded" });
       fetchEvent();
-    } catch (err) {
-      toast({ variant: "destructive", title: "Upload Failed" });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Upload Failed", description: err.message });
     }
   };
 
@@ -503,7 +519,7 @@ function TicketDesignView({ event, onUpdate, onUploadLogo }: { event: EventData,
           <Label>Event Logo</Label>
           <div className="flex items-center gap-4">
             <div className="h-16 w-16 rounded-xl border border-white/10 bg-black/40 flex items-center justify-center overflow-hidden">
-              {event.logo_url ? <img src={event.logo_url} className="h-full w-full object-cover" /> : <Plus className="h-6 w-6 text-white/20" />}
+              {event.logo_url ? <img src={event.logo_url} className="h-full w-full object-cover" alt="Logo" /> : <Plus className="h-6 w-6 text-white/20" />}
             </div>
             <Button 
               variant="outline" 
@@ -519,6 +535,7 @@ function TicketDesignView({ event, onUpdate, onUploadLogo }: { event: EventData,
               ref={fileInputRef} 
               type="file" 
               className="hidden" 
+              accept="image/png,image/jpeg,image/webp"
               onChange={async e => {
                 const file = e.target.files?.[0];
                 if (file) {
@@ -529,6 +546,7 @@ function TicketDesignView({ event, onUpdate, onUploadLogo }: { event: EventData,
               }} 
             />
           </div>
+          <p className="text-[10px] text-muted-foreground">PNG, JPEG or WebP. Max 2MB.</p>
         </div>
 
         <div className="space-y-4">
