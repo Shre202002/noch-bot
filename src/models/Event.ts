@@ -21,6 +21,9 @@ export interface Event {
   max_tickets_per_booking: number | null;
   ticket_template_id: string;
   logo_url: string | null;
+  logo_file_id?: string | null;
+  remove_background?: boolean;
+  bg_removed_logo_url?: string | null;
   banner_url: string | null;
   chatbot_widget_id: ObjectId;
   created_at: Date;

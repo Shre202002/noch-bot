@@ -40,10 +40,12 @@ export async function POST(
       }
     }
 
-    // 4. Finalize transition
-    // Note: chatbot_widget_id is already an ObjectId created in the POST /api/events route.
-    // This linkage can be further refined here if existing widget logic requires specific registration.
+    // 4. Validate Ticket Design
+    if (!event.ticket_template_id) {
+      return NextResponse.json({ error: "Please select a ticket template design before publishing" }, { status: 400 });
+    }
 
+    // 5. Finalize transition
     await db.collection("events").updateOne(
       { _id: eventId, org_id: userId },
       { 

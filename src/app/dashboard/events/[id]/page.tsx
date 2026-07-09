@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
@@ -8,7 +7,7 @@ import {
   ArrowLeft, Loader2, Save, Rocket, Plus, Trash2, 
   Settings, FormInput, CreditCard, GripVertical, Pencil,
   CalendarIcon, CheckCircle2, AlertCircle, Layout, QrCode,
-  ExternalLink, Upload, Mail
+  ExternalLink, Upload, Mail, Scissors
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -20,14 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { TicketPreview } from "@/components/TicketPreview";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -35,7 +27,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import {
   DndContext,
   closestCenter,
@@ -78,7 +69,16 @@ interface EventData {
   currency: string;
   ticket_template_id: string;
   logo_url: string | null;
+  logo_file_id?: string | null;
+  remove_background?: boolean;
+  bg_removed_logo_url?: string | null;
   form_fields: FormField[];
+}
+
+function buildBgRemovedImageKitUrl(url: string) {
+  if (!url) return "";
+  const separator = url.includes("?") ? "&" : "?";
+  return `${url}${separator}tr=e-bgremove`;
 }
 
 export default function EventDetailPage() {
@@ -130,6 +130,7 @@ export default function EventDetailPage() {
     const steps = [
       { id: 'details', label: 'Basic details complete', done: !!name && !!description && capacity > 0 },
       { id: 'fields', label: 'At least one form field added', done: event.form_fields.length > 0 },
+      { id: 'design', label: 'Ticket design selected', done: !!event.ticket_template_id },
     ];
     if (event.is_paid) {
       steps.push({ id: 'gateway', label: 'Payment gateway connected', done: isGatewayConfigured });
@@ -218,86 +219,6 @@ export default function EventDetailPage() {
       fetchEvent();
     } catch (err: any) {
       toast({ variant: "destructive", title: "Error", description: err.message });
-    }
-  };
-
-  const handleLogoUpload = async (file: File) => {
-    const MAX_SIZE = 2 * 1024 * 1024;
-    const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
-
-    if (file.size > MAX_SIZE) {
-      toast({ variant: "destructive", title: "File too large", description: "Logo must be smaller than 2MB" });
-      return;
-    }
-
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      toast({ variant: "destructive", title: "Invalid format", description: "Only JPEG, PNG and WebP are allowed" });
-      return;
-    }
-
-    try {
-      // 1. Convert to WebP client-side
-      const webpBlob = await new Promise<Blob>((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          canvas.width = img.width;
-          canvas.height = img.height;
-          const ctx = canvas.getContext('2d');
-          ctx?.drawImage(img, 0, 0);
-          canvas.toBlob((blob) => {
-            if (blob) resolve(blob);
-            else reject(new Error('WebP conversion failed'));
-          }, 'image/webp', 0.85);
-        };
-        img.onerror = () => reject(new Error('Failed to load image for conversion'));
-        img.src = URL.createObjectURL(file);
-      });
-
-      // 2. Get Signed Auth Data
-      const authRes = await fetch('/api/imagekit/auth');
-      if (!authRes.ok) throw new Error("Failed to authenticate upload");
-      const authData = await authRes.json();
-      
-      // 3. Prepare Filename & Folder
-      const sanitizedName = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'event';
-      const shortId = (params.id as string).substring(0, 8);
-      const fileName = `${sanitizedName}-${shortId}.webp`;
-
-      const formData = new FormData();
-      formData.append("file", webpBlob, fileName);
-      formData.append("publicKey", authData.publicKey);
-      formData.append("signature", authData.signature);
-      formData.append("expire", authData.expire.toString());
-      formData.append("token", authData.token);
-      formData.append("fileName", fileName);
-      formData.append("folder", "/Nochbot/Event-logos");
-
-      // 4. Direct Upload to ImageKit
-      const uploadRes = await fetch("https://upload.imagekit.io/api/v1/files/upload", {
-        method: "POST",
-        body: formData,
-      });
-      
-      if (!uploadRes.ok) {
-        const errorData = await uploadRes.json();
-        throw new Error(errorData.message || "ImageKit upload failed");
-      }
-      
-      const uploadData = await uploadRes.json();
-      
-      // 5. Update Event Record
-      await fetch(`/api/events/${params.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ logo_url: uploadData.url }),
-      });
-      
-      toast({ title: "Logo Updated", description: "Successfully converted to WebP and uploaded." });
-      fetchEvent();
-    } catch (err: any) {
-      console.error("[upload_error]", err);
-      toast({ variant: "destructive", title: "Upload Failed", description: err.message });
     }
   };
 
@@ -391,7 +312,7 @@ export default function EventDetailPage() {
                 <Label className="text-white/70">Capacity</Label>
                 <Input type="number" value={capacity} onChange={(e) => setCapacity(Number(e.target.value))} className="bg-black/40 border-white/10" />
               </div>
-              <Button onClick={handleSaveDetails} disabled={saving} className="rounded-full px-8 h-10 font-bold cursor-pointer">
+              <Button onClick={handleSaveDetails} disabled={saving} className="rounded-full px-8 h-10 font-bold cursor-pointer text-white">
                 {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                 Save Details
               </Button>
@@ -405,7 +326,7 @@ export default function EventDetailPage() {
               <h3 className="font-bold text-white text-lg">Form Builder</h3>
               <p className="text-sm text-muted-foreground">Define what information the bot collects from attendees.</p>
             </div>
-            <Button onClick={addField} size="sm" variant="outline" className="rounded-full border-white/10 hover:bg-white/5 font-semibold cursor-pointer">
+            <Button onClick={addField} size="sm" variant="outline" className="rounded-full border-white/10 hover:bg-white/5 font-semibold cursor-pointer text-white">
               <Plus className="mr-2 h-3 w-3" /> Add Question
             </Button>
           </div>
@@ -421,7 +342,7 @@ export default function EventDetailPage() {
         </TabsContent>
 
         <TabsContent value="ticket">
-          <TicketDesignView event={event} onUpdate={fetchEvent} onUploadLogo={handleLogoUpload} />
+          <TicketDesignView event={event} onUpdate={fetchEvent} />
         </TabsContent>
 
         <TabsContent value="gateway">
@@ -437,9 +358,9 @@ export default function EventDetailPage() {
               
               <div className="grid gap-6">
                 <div className="space-y-2">
-                  <Label>Provider</Label>
+                  <Label className="text-white">Provider</Label>
                   <Select value={gatewayProvider} onValueChange={setGatewayProvider}>
-                    <SelectTrigger className="bg-black/40 border-white/10"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="bg-black/40 border-white/10 text-white cursor-pointer"><SelectValue /></SelectTrigger>
                     <SelectContent className="bg-black border-white/10 text-white">
                       <SelectItem value="stripe">Stripe</SelectItem>
                       <SelectItem value="razorpay">Razorpay</SelectItem>
@@ -449,42 +370,42 @@ export default function EventDetailPage() {
                 
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label>{gatewayProvider === 'stripe' ? 'Secret Key' : 'Key ID'}</Label>
+                    <Label className="text-white">{gatewayProvider === 'stripe' ? 'Secret Key' : 'Key ID'}</Label>
                     <Input 
                       type="password"
                       placeholder="sk_test_..." 
                       value={gatewayKeys.key_id} 
                       onChange={e => setGatewayKeys(p => ({ ...p, key_id: e.target.value }))}
-                      className="bg-black/40 border-white/10" 
+                      className="bg-black/40 border-white/10 text-white" 
                     />
                   </div>
                   {gatewayProvider === 'razorpay' && (
                     <div className="space-y-2">
-                      <Label>Key Secret</Label>
+                      <Label className="text-white">Key Secret</Label>
                       <Input 
                         type="password"
                         placeholder="••••••••" 
                         value={gatewayKeys.key_secret} 
                         onChange={e => setGatewayKeys(p => ({ ...p, key_secret: e.target.value }))}
-                        className="bg-black/40 border-white/10" 
+                        className="bg-black/40 border-white/10 text-white" 
                       />
                     </div>
                   )}
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Webhook Secret (Recommended)</Label>
+                  <Label className="text-white">Webhook Secret (Recommended)</Label>
                   <Input 
                     type="password"
                     placeholder="whsec_..." 
                     value={gatewayKeys.webhook_secret} 
                     onChange={e => setGatewayKeys(p => ({ ...p, webhook_secret: e.target.value }))}
-                    className="bg-black/40 border-white/10" 
+                    className="bg-black/40 border-white/10 text-white" 
                   />
                   <p className="text-[10px] text-muted-foreground italic">Use this to verify payment events securely.</p>
                 </div>
 
-                <Button onClick={handleSaveGateway} disabled={saving} className="rounded-full bg-white text-black hover:bg-zinc-200 font-bold h-11">
+                <Button onClick={handleSaveGateway} disabled={saving} className="rounded-full bg-white text-black hover:bg-zinc-200 font-bold h-11 cursor-pointer">
                   {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Verify & Connect Gateway"}
                 </Button>
               </div>
@@ -516,9 +437,11 @@ function SortableFieldItem({ field, onDelete, onUpdate }: { field: FormField, on
   );
 }
 
-function TicketDesignView({ event, onUpdate, onUploadLogo }: { event: EventData, onUpdate: () => void, onUploadLogo: (f: File) => Promise<void> }) {
+function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () => void }) {
+  const { toast } = useToast();
   const [templateId, setTemplateId] = useState(event.ticket_template_id || "dark");
   const [uploading, setUploading] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleTemplateChange = async (id: string) => {
@@ -529,6 +452,111 @@ function TicketDesignView({ event, onUpdate, onUploadLogo }: { event: EventData,
       body: JSON.stringify({ ticket_template_id: id }),
     });
     onUpdate();
+  };
+
+  const handleLogoUpload = async (file: File) => {
+    if (!event._id) {
+      toast({ variant: "destructive", title: "Event ID missing", description: "Please save event first." });
+      return;
+    }
+
+    const MAX_SIZE = 2 * 1024 * 1024;
+    const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
+    if (file.size > MAX_SIZE) {
+      toast({ variant: "destructive", title: "File too large", description: "Logo must be smaller than 2MB" });
+      return;
+    }
+
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      toast({ variant: "destructive", title: "Invalid format", description: "Only JPEG, PNG and WebP are allowed" });
+      return;
+    }
+
+    setUploading(true);
+    try {
+      // 1. Get signed auth data
+      const authRes = await fetch('/api/imagekit/upload-auth');
+      if (!authRes.ok) throw new Error("Failed to authenticate upload");
+      const authData = await authRes.json();
+      
+      // 2. Prepare Form Data
+      const fileName = `event-logo-${event._id}-${Date.now()}`;
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("publicKey", authData.publicKey);
+      formData.append("signature", authData.signature);
+      formData.append("expire", authData.expire.toString());
+      formData.append("token", authData.token);
+      formData.append("fileName", fileName);
+      formData.append("folder", "/event-logos");
+
+      // 3. Direct upload to ImageKit
+      const uploadRes = await fetch("https://upload.imagekit.io/api/v1/files/upload", {
+        method: "POST",
+        body: formData,
+      });
+      
+      if (!uploadRes.ok) {
+        const errorData = await uploadRes.json();
+        throw new Error(errorData.message || "ImageKit upload failed");
+      }
+      
+      const uploadData = await uploadRes.json();
+      const logoUrl = uploadData.url;
+      const bgRemovedUrl = buildBgRemovedImageKitUrl(logoUrl);
+
+      // 4. Save to DB
+      const saveRes = await fetch(`/api/events/${event._id}/ticket-logo`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          logo_url: logoUrl,
+          logo_file_id: uploadData.fileId,
+          remove_background: event.remove_background ?? true, // default to true
+          bg_removed_logo_url: bgRemovedUrl
+        }),
+      });
+
+      if (!saveRes.ok) throw new Error("Failed to save logo data");
+
+      toast({ title: "Logo Updated", description: "Logo uploaded successfully." });
+      onUpdate();
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Upload Failed", description: err.message });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const toggleBackgroundRemoval = async (val: boolean) => {
+    setSavingSettings(true);
+    try {
+      const res = await fetch(`/api/events/${event._id}/ticket-logo`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ remove_background: val }),
+      });
+      if (!res.ok) throw new Error("Failed to update settings");
+      onUpdate();
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error", description: err.message });
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
+  const removeLogo = async () => {
+    try {
+      await fetch(`/api/events/${event._id}/ticket-logo`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ logo_url: null, logo_file_id: null, bg_removed_logo_url: null }),
+      });
+      onUpdate();
+    } catch (err) {
+      toast({ variant: "destructive", title: "Failed to remove logo" });
+    }
   };
 
   const templates = [
@@ -547,47 +575,81 @@ function TicketDesignView({ event, onUpdate, onUploadLogo }: { event: EventData,
         </div>
 
         <div className="space-y-4">
-          <Label>Event Logo</Label>
+          <Label className="text-white">Event Logo</Label>
           <div className="flex items-center gap-4">
-            <div className="h-16 w-16 rounded-xl border border-white/10 bg-black/40 flex items-center justify-center overflow-hidden">
-              {event.logo_url ? <img src={event.logo_url} className="h-full w-full object-cover" alt="Logo" /> : <Plus className="h-6 w-6 text-white/20" />}
+            <div className="h-20 w-20 rounded-xl border border-white/10 bg-black/40 flex items-center justify-center overflow-hidden">
+              {event.logo_url ? (
+                <img 
+                  src={event.remove_background ? (event.bg_removed_logo_url || event.logo_url) : event.logo_url} 
+                  className="h-full w-full object-contain" 
+                  alt="Logo" 
+                />
+              ) : (
+                <div className="flex flex-col items-center gap-1 opacity-20">
+                  <Mail className="h-6 w-6" />
+                  <span className="text-[8px] uppercase">No Logo</span>
+                </div>
+              )}
             </div>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              disabled={uploading}
-              onClick={() => fileInputRef.current?.click()}
-              className="rounded-full border-white/10 hover:bg-white/5 font-semibold"
-            >
-              {uploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
-              {event.logo_url ? "Change Logo" : "Upload Logo"}
-            </Button>
-            <input 
-              ref={fileInputRef} 
-              type="file" 
-              className="hidden" 
-              accept="image/png,image/jpeg,image/webp"
-              onChange={async e => {
-                const file = e.target.files?.[0];
-                if (file) {
-                  setUploading(true);
-                  await onUploadLogo(file);
-                  setUploading(false);
-                }
-              }} 
-            />
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  disabled={uploading}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="rounded-full border-white/10 hover:bg-white/5 font-semibold text-white cursor-pointer"
+                >
+                  {uploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
+                  {event.logo_url ? "Change Logo" : "Upload Logo"}
+                </Button>
+                {event.logo_url && (
+                  <Button variant="ghost" size="icon" onClick={removeLogo} className="text-red-500 hover:bg-red-500/10 rounded-full cursor-pointer">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+              <input 
+                ref={fileInputRef} 
+                type="file" 
+                className="hidden" 
+                accept="image/png,image/jpeg,image/webp"
+                onChange={async e => {
+                  const file = e.target.files?.[0];
+                  if (file) await handleLogoUpload(file);
+                }} 
+              />
+              <p className="text-[10px] text-muted-foreground">Max 2MB. Optimized for preview.</p>
+            </div>
           </div>
-          <p className="text-[10px] text-muted-foreground">Automatically optimized for WebP. Max 2MB.</p>
+
+          {event.logo_url && (
+            <div className="flex items-center justify-between p-3 rounded-xl border border-white/5 bg-accent/20">
+              <div className="flex items-center gap-2">
+                <Scissors className="h-4 w-4 text-primary" />
+                <div className="space-y-0.5">
+                  <p className="text-xs font-bold text-white">Remove background</p>
+                  <p className="text-[10px] text-muted-foreground">Clean logo for templates</p>
+                </div>
+              </div>
+              <Switch 
+                checked={!!event.remove_background} 
+                onCheckedChange={toggleBackgroundRemoval}
+                disabled={savingSettings}
+                className="cursor-pointer"
+              />
+            </div>
+          )}
         </div>
 
         <div className="space-y-4">
-          <Label>Template Picker</Label>
+          <Label className="text-white">Template Picker</Label>
           <div className="grid grid-cols-2 gap-3">
             {templates.map(t => (
               <button
                 key={t.id}
                 onClick={() => handleTemplateChange(t.id)}
-                className={`flex flex-col items-center gap-3 p-4 rounded-2xl border transition-all ${templateId === t.id ? 'border-[#36f4a4] bg-[#36f4a4]/5' : 'border-white/5 bg-white/2'}`}
+                className={`flex flex-col items-center gap-3 p-4 rounded-2xl border transition-all cursor-pointer ${templateId === t.id ? 'border-[#36f4a4] bg-[#36f4a4]/5' : 'border-white/5 bg-white/2'}`}
               >
                 <div className={`h-12 w-full rounded-lg ${t.color}`} />
                 <span className="text-sm font-bold text-white">{t.name}</span>
@@ -602,7 +664,7 @@ function TicketDesignView({ event, onUpdate, onUploadLogo }: { event: EventData,
               <Mail className="h-4 w-4 text-blue-400" />
               <span className="text-xs font-medium text-white/70">Need a custom branded design?</span>
             </div>
-            <Button asChild variant="link" size="sm" className="text-blue-400 text-xs p-0 h-auto font-bold">
+            <Button asChild variant="link" size="sm" className="text-blue-400 text-xs p-0 h-auto font-bold cursor-pointer">
               <a href="mailto:support@nochbot.space">Contact Admin</a>
             </Button>
           </CardContent>
@@ -612,9 +674,15 @@ function TicketDesignView({ event, onUpdate, onUploadLogo }: { event: EventData,
       <div className="relative">
         <div className="sticky top-24">
           <h3 className="text-xs font-bold uppercase tracking-widest text-white/50 mb-4 text-center">Live Ticket Preview</h3>
-          <div className="mx-auto flex justify-center">
+          <div className="mx-auto flex justify-center scale-90 sm:scale-100">
              <TicketPreview event={event} templateId={templateId} />
           </div>
+          {savingSettings && (
+            <div className="mt-4 flex items-center justify-center gap-2 text-xs text-primary animate-pulse">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Processing background removal...
+            </div>
+          )}
         </div>
       </div>
     </div>
