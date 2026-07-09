@@ -46,7 +46,7 @@ export default function EventsPage() {
           <h1 className="text-4xl font-black tracking-tight">Events</h1>
           <p className="mt-1 text-muted-foreground">Manage your ticketed experiences</p>
         </div>
-        <Button asChild className="rounded-full bg-white text-black hover:bg-zinc-200">
+        <Button asChild className="rounded-full bg-white text-black hover:bg-zinc-200 cursor-pointer">
           <Link href="/dashboard/events/new">
             <Plus className="mr-2 h-4 w-4" /> Create Event
           </Link>
@@ -63,7 +63,7 @@ export default function EventsPage() {
               <p className="text-lg font-bold">No events yet</p>
               <p className="text-sm text-muted-foreground">Create your first event to start selling tickets</p>
             </div>
-            <Button asChild variant="outline" className="rounded-full">
+            <Button asChild variant="outline" className="rounded-full cursor-pointer">
               <Link href="/dashboard/events/new">Get Started</Link>
             </Button>
           </CardContent>
@@ -77,7 +77,7 @@ export default function EventsPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05 }}
             >
-              <Link href={`/dashboard/events/${event._id}`}>
+              <Link href={`/dashboard/events/${event._id}`} className="cursor-pointer block">
                 <Card className="group border-border bg-card/50 transition-all hover:border-primary/50 hover:bg-card">
                   <CardContent className="p-6">
                     <div className="mb-4 flex items-start justify-between">

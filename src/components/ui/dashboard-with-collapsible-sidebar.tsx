@@ -21,6 +21,7 @@ import {
   LogOut,
   Code2,
   FileText,
+  Calendar,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -79,8 +80,9 @@ const Sidebar = ({ user }: { user?: any }) => {
     { icon: Home, title: "Overview", href: "/dashboard" },
     { icon: Bot, title: "Bot Config", href: "/dashboard/configure" },
     { icon: Code2, title: "Embed Codes", href: "/dashboard/embed" },
+    { icon: Calendar, title: "Events", href: "/dashboard/events" },
     { icon: BarChart3, title: "Analytics", href: "/dashboard/analytics" },
-    { icon: FileText, title: "PDF RAG", href: "/dashboard/pdf" },  // ← ADD
+    { icon: FileText, title: "PDF RAG", href: "/dashboard/pdf" },
     { icon: TrendingUp, title: "PDF Analytics", href: "/dashboard/pdf-analytics" },
     { icon: MessageSquare, title: "History", href: "/dashboard/history", notifs: 4 },
   ];

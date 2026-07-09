@@ -17,6 +17,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -29,7 +36,7 @@ const eventSchema = z.object({
   capacity: z.coerce.number().min(1, "Capacity must be at least 1"),
   is_paid: z.boolean().default(false),
   price: z.coerce.number().optional().nullable(),
-  currency: z.string().default("USD"),
+  currency: z.string().default("INR"),
   allow_group_booking: z.boolean().default(true),
   max_tickets_per_booking: z.coerce.number().min(1).default(5),
 }).superRefine((data, ctx) => {
@@ -67,7 +74,7 @@ export default function NewEventPage() {
     resolver: zodResolver(eventSchema),
     defaultValues: {
       is_paid: false,
-      currency: "USD",
+      currency: "INR",
       allow_group_booking: true,
       max_tickets_per_booking: 5,
     },
@@ -101,7 +108,7 @@ export default function NewEventPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-8 pb-20">
       <div className="flex items-center gap-4">
-        <Button asChild variant="ghost" size="icon" className="rounded-full">
+        <Button asChild variant="ghost" size="icon" className="rounded-full cursor-pointer">
           <Link href="/dashboard/events">
             <ArrowLeft className="h-5 w-5" />
           </Link>
@@ -172,11 +179,12 @@ export default function NewEventPage() {
                   <p className="text-xs text-red-500">{form.formState.errors.capacity.message}</p>
                 )}
               </div>
-              <div className="flex items-center justify-between rounded-xl border border-white/5 p-4 bg-accent/20 h-10 self-end">
+              <div className="flex items-center justify-between rounded-xl border border-white/5 p-4 bg-accent/20 h-14 self-end">
                 <div className="space-y-0.5">
                   <Label className="text-white/70">Allow Group Booking</Label>
                 </div>
                 <Switch 
+                  className="cursor-pointer"
                   checked={form.watch("allow_group_booking")} 
                   onCheckedChange={(val) => form.setValue("allow_group_booking", val)} 
                 />
@@ -201,6 +209,7 @@ export default function NewEventPage() {
                 <p className="text-xs text-muted-foreground">Charge for tickets via integrated gateways</p>
               </div>
               <Switch 
+                className="cursor-pointer"
                 checked={form.watch("is_paid")} 
                 onCheckedChange={(val) => form.setValue("is_paid", val)} 
               />
@@ -218,7 +227,24 @@ export default function NewEventPage() {
                   </div>
                   <div className="grid gap-2">
                     <Label className="text-white/70">Currency</Label>
-                    <Input {...form.register("currency")} className="bg-black/40 border-white/10" />
+                    <Controller
+                      control={form.control}
+                      name="currency"
+                      render={({ field }) => (
+                        <Select value={field.value} onValueChange={field.onChange}>
+                          <SelectTrigger className="bg-black/40 border-white/10 cursor-pointer">
+                            <SelectValue placeholder="Select currency" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-black border-white/10 text-white">
+                            <SelectItem className="cursor-pointer" value="INR">INR (₹)</SelectItem>
+                            <SelectItem className="cursor-pointer" value="USD">USD ($)</SelectItem>
+                            <SelectItem className="cursor-pointer" value="EUR">EUR (€)</SelectItem>
+                            <SelectItem className="cursor-pointer" value="GBP">GBP (£)</SelectItem>
+                            <SelectItem className="cursor-pointer" value="JPY">JPY (¥)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
                   </div>
                 </motion.div>
               )}
@@ -227,10 +253,10 @@ export default function NewEventPage() {
         </Card>
 
         <div className="flex justify-end gap-4">
-          <Button asChild variant="outline" className="rounded-full border-white/10 text-white/70 hover:bg-white/5">
+          <Button asChild variant="outline" className="rounded-full border-white/10 text-white/70 hover:bg-white/5 cursor-pointer">
             <Link href="/dashboard/events">Cancel</Link>
           </Button>
-          <Button type="submit" disabled={loading} className="rounded-full bg-white text-black hover:bg-zinc-200 min-w-[140px] font-bold">
+          <Button type="submit" disabled={loading} className="rounded-full bg-white text-black hover:bg-zinc-200 min-w-[140px] font-bold cursor-pointer">
             {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
             Create Draft
           </Button>
@@ -260,7 +286,7 @@ function DateTimePicker({ date, setDate, error }: { date?: Date, setDate: (d: Da
           <Button
             variant="outline"
             className={cn(
-              "w-full justify-start text-left font-normal bg-black/40 border-white/10 rounded-lg h-9 px-3",
+              "w-full justify-start text-left font-normal bg-black/40 border-white/10 rounded-lg h-9 px-3 cursor-pointer",
               !date && "text-muted-foreground"
             )}
           >

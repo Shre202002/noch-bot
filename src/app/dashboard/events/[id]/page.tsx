@@ -71,6 +71,7 @@ interface EventData {
   capacity: number;
   is_paid: boolean;
   price: number | null;
+  currency: string;
   form_fields: FormField[];
 }
 
@@ -255,7 +256,7 @@ export default function EventDetailPage() {
     <div className="mx-auto max-w-5xl space-y-8 pb-20">
       <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-4">
-          <Button asChild variant="ghost" size="icon" className="rounded-full">
+          <Button asChild variant="ghost" size="icon" className="rounded-full cursor-pointer">
             <Link href="/dashboard/events">
               <ArrowLeft className="h-5 w-5" />
             </Link>
@@ -275,7 +276,7 @@ export default function EventDetailPage() {
           <Button 
             onClick={handlePublish} 
             disabled={publishing}
-            className="rounded-full bg-[#36f4a4] text-black hover:bg-[#36f4a4]/90 font-bold px-8 h-10"
+            className="rounded-full bg-[#36f4a4] text-black hover:bg-[#36f4a4]/90 font-bold px-8 h-10 cursor-pointer"
           >
             {publishing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Rocket className="mr-2 h-4 w-4" />}
             Publish Event
@@ -285,13 +286,13 @@ export default function EventDetailPage() {
 
       <Tabs defaultValue="details" className="space-y-6">
         <TabsList className="bg-accent/20 border border-white/5 p-1 h-auto rounded-full">
-          <TabsTrigger value="details" className="rounded-full px-6 py-2 data-[state=active]:bg-background">
+          <TabsTrigger value="details" className="rounded-full px-6 py-2 data-[state=active]:bg-background cursor-pointer">
             <Settings className="mr-2 h-4 w-4" /> Details
           </TabsTrigger>
-          <TabsTrigger value="fields" className="rounded-full px-6 py-2 data-[state=active]:bg-background">
+          <TabsTrigger value="fields" className="rounded-full px-6 py-2 data-[state=active]:bg-background cursor-pointer">
             <FormInput className="mr-2 h-4 w-4" /> Attendee Form
           </TabsTrigger>
-          <TabsTrigger value="gateway" className="rounded-full px-6 py-2 data-[state=active]:bg-background">
+          <TabsTrigger value="gateway" className="rounded-full px-6 py-2 data-[state=active]:bg-background cursor-pointer">
             <CreditCard className="mr-2 h-4 w-4" /> Payments
           </TabsTrigger>
         </TabsList>
@@ -311,7 +312,7 @@ export default function EventDetailPage() {
                 <Label className="text-white/70">Capacity</Label>
                 <Input type="number" value={capacity} onChange={(e) => setCapacity(Number(e.target.value))} className="bg-black/40 border-white/10" />
               </div>
-              <Button onClick={handleSaveDetails} disabled={saving} className="rounded-full px-8 h-10 font-bold">
+              <Button onClick={handleSaveDetails} disabled={saving} className="rounded-full px-8 h-10 font-bold cursor-pointer">
                 {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                 Save Changes
               </Button>
@@ -325,7 +326,7 @@ export default function EventDetailPage() {
               <h3 className="font-bold text-white">Attendee Questions</h3>
               <p className="text-xs text-muted-foreground">What details should the chatbot ask each guest?</p>
             </div>
-            <Button onClick={addField} size="sm" variant="outline" className="rounded-full border-white/10 hover:bg-white/5 font-semibold">
+            <Button onClick={addField} size="sm" variant="outline" className="rounded-full border-white/10 hover:bg-white/5 font-semibold cursor-pointer">
               <Plus className="mr-2 h-3 w-3" /> Add Field
             </Button>
           </div>
@@ -374,7 +375,7 @@ export default function EventDetailPage() {
                 </p>
               </div>
               {event.is_paid && (
-                <Button variant="outline" className="rounded-full border-white/10 font-bold hover:bg-white/5">
+                <Button variant="outline" className="rounded-full border-white/10 font-bold hover:bg-white/5 cursor-pointer">
                   Configure Gateway
                 </Button>
               )}
@@ -432,7 +433,7 @@ function SortableFieldItem({ field, onDelete, onUpdate }: {
             onClick={() => onDelete(field._id)}
             size="icon" 
             variant="ghost" 
-            className="h-8 w-8 text-muted-foreground hover:text-red-500 rounded-full"
+            className="h-8 w-8 text-muted-foreground hover:text-red-500 rounded-full cursor-pointer"
           >
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -464,7 +465,7 @@ function EditFieldDialog({ field, onSave }: { field: FormField, onSave: (updates
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-foreground rounded-full">
+        <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-foreground rounded-full cursor-pointer">
           <Pencil className="h-4 w-4" />
         </Button>
       </DialogTrigger>
@@ -482,16 +483,16 @@ function EditFieldDialog({ field, onSave }: { field: FormField, onSave: (updates
             <div className="space-y-2">
               <Label className="text-white/70 text-xs">Input Type</Label>
               <Select value={type} onValueChange={setType}>
-                <SelectTrigger className="bg-black/40 border-white/10 text-xs h-9">
+                <SelectTrigger className="bg-black/40 border-white/10 text-xs h-9 cursor-pointer">
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent className="bg-black border-white/10 text-white">
-                  <SelectItem value="text">Short Text</SelectItem>
-                  <SelectItem value="email">Email Address</SelectItem>
-                  <SelectItem value="phone">Phone Number</SelectItem>
-                  <SelectItem value="number">Number</SelectItem>
-                  <SelectItem value="date">Date</SelectItem>
-                  <SelectItem value="boolean">Yes/No Toggle</SelectItem>
+                  <SelectItem className="cursor-pointer" value="text">Short Text</SelectItem>
+                  <SelectItem className="cursor-pointer" value="email">Email Address</SelectItem>
+                  <SelectItem className="cursor-pointer" value="phone">Phone Number</SelectItem>
+                  <SelectItem className="cursor-pointer" value="number">Number</SelectItem>
+                  <SelectItem className="cursor-pointer" value="date">Date</SelectItem>
+                  <SelectItem className="cursor-pointer" value="boolean">Yes/No Toggle</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -499,15 +500,15 @@ function EditFieldDialog({ field, onSave }: { field: FormField, onSave: (updates
             <div className="space-y-2">
               <Label className="text-white/70 text-xs">Validation Rule</Label>
               <Select value={validationRule} onValueChange={setValidationRule}>
-                <SelectTrigger className="bg-black/40 border-white/10 text-xs h-9">
+                <SelectTrigger className="bg-black/40 border-white/10 text-xs h-9 cursor-pointer">
                   <SelectValue placeholder="No Validation" />
                 </SelectTrigger>
                 <SelectContent className="bg-black border-white/10 text-white">
-                  <SelectItem value="none">None</SelectItem>
-                  <SelectItem value="email_format">Email Format</SelectItem>
-                  <SelectItem value="phone_format">Phone Format</SelectItem>
-                  <SelectItem value="name_format">Name Format</SelectItem>
-                  <SelectItem value="custom_regex">Custom Regex</SelectItem>
+                  <SelectItem className="cursor-pointer" value="none">None</SelectItem>
+                  <SelectItem className="cursor-pointer" value="email_format">Email Format</SelectItem>
+                  <SelectItem className="cursor-pointer" value="phone_format">Phone Format</SelectItem>
+                  <SelectItem className="cursor-pointer" value="name_format">Name Format</SelectItem>
+                  <SelectItem className="cursor-pointer" value="custom_regex">Custom Regex</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -531,12 +532,12 @@ function EditFieldDialog({ field, onSave }: { field: FormField, onSave: (updates
               <Label className="text-white font-bold">Required Field</Label>
               <p className="text-[10px] text-muted-foreground">The bot won't skip this question.</p>
             </div>
-            <Switch checked={required} onCheckedChange={setRequired} />
+            <Switch className="cursor-pointer" checked={required} onCheckedChange={setRequired} />
           </div>
         </div>
         <DialogFooter>
           <Button 
-            className="w-full bg-[#36f4a4] text-black font-black h-11"
+            className="w-full bg-[#36f4a4] text-black font-black h-11 cursor-pointer"
             onClick={handleSave}
           >
             Save Field
