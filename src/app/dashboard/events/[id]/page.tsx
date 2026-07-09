@@ -99,6 +99,7 @@ export default function EventDetailPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [addingField, setAddingField] = useState(false);
   const [isGatewayConfigured, setIsGatewayConfigured] = useState(false);
 
   // Form states
@@ -216,6 +217,8 @@ export default function EventDetailPage() {
   };
 
   const addField = async () => {
+    if (addingField) return;
+    setAddingField(true);
     const key = `field_${Date.now()}`;
     try {
       const res = await fetch(`/api/events/${params.id}/form-fields`, {
@@ -223,16 +226,19 @@ export default function EventDetailPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           field_key: key,
-          label: "Full Name",
+          label: "Attendee Name",
           field_type: "text",
           is_required: true,
           validation_rule: "none",
         }),
       });
       if (!res.ok) throw new Error("Failed to add field");
-      fetchEvent();
+      await fetchEvent();
+      toast({ title: "Field Added", description: "You can now customize the question." });
     } catch (err: any) {
       toast({ variant: "destructive", title: "Error", description: err.message });
+    } finally {
+      setAddingField(false);
     }
   };
 
@@ -369,8 +375,15 @@ export default function EventDetailPage() {
               <h3 className="font-bold text-white text-lg">Form Builder</h3>
               <p className="text-sm text-muted-foreground">Define what information the bot collects from attendees.</p>
             </div>
-            <Button onClick={addField} size="sm" variant="outline" className="rounded-full border-white/10 hover:bg-white/5 font-semibold cursor-pointer text-white">
-              <Plus className="mr-2 h-3 w-3" /> Add Question
+            <Button 
+              onClick={addField} 
+              disabled={addingField}
+              size="sm" 
+              variant="outline" 
+              className="rounded-full border-white/10 hover:bg-white/5 font-semibold cursor-pointer text-white"
+            >
+              {addingField ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Plus className="mr-2 h-3 w-3" />}
+              Add Question
             </Button>
           </div>
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
