@@ -13,8 +13,9 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Using the exact env var names confirmed by the user
   const privateKey = process.env.IMAGEKIT_PRIVATE_KEY;
-  const publicKey = process.env.NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY;
+  const publicKey = process.env.IMAGEKIT_PUBLIC_KEY;
 
   if (!privateKey || !publicKey) {
     console.error("ImageKit credentials missing in environment variables.");

@@ -222,7 +222,6 @@ export default function EventDetailPage() {
   };
 
   const handleLogoUpload = async (file: File) => {
-    // PROTECTION: Validate size (2MB) and type
     const MAX_SIZE = 2 * 1024 * 1024;
     const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
@@ -237,35 +236,67 @@ export default function EventDetailPage() {
     }
 
     try {
-      const authRes = await fetch('/api/images/auth');
+      // 1. Convert to WebP client-side
+      const webpBlob = await new Promise<Blob>((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0);
+          canvas.toBlob((blob) => {
+            if (blob) resolve(blob);
+            else reject(new Error('WebP conversion failed'));
+          }, 'image/webp', 0.85);
+        };
+        img.onerror = () => reject(new Error('Failed to load image for conversion'));
+        img.src = URL.createObjectURL(file);
+      });
+
+      // 2. Get Signed Auth Data
+      const authRes = await fetch('/api/imagekit/auth');
+      if (!authRes.ok) throw new Error("Failed to authenticate upload");
       const authData = await authRes.json();
       
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("publicKey", process.env.NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY!);
-      formData.append("signature", authData.signature);
-      formData.append("expire", authData.expire);
-      formData.append("token", authData.token);
-      formData.append("fileName", `event-logo-${params.id}`);
-      formData.append("folder", "/event-logos");
+      // 3. Prepare Filename & Folder
+      const sanitizedName = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'event';
+      const shortId = (params.id as string).substring(0, 8);
+      const fileName = `${sanitizedName}-${shortId}.webp`;
 
-      const uploadRes = await fetch(process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT + "/upload", {
+      const formData = new FormData();
+      formData.append("file", webpBlob, fileName);
+      formData.append("publicKey", authData.publicKey);
+      formData.append("signature", authData.signature);
+      formData.append("expire", authData.expire.toString());
+      formData.append("token", authData.token);
+      formData.append("fileName", fileName);
+      formData.append("folder", "/Nochbot/Event-logos");
+
+      // 4. Direct Upload to ImageKit
+      const uploadRes = await fetch("https://upload.imagekit.io/api/v1/files/upload", {
         method: "POST",
         body: formData,
       });
+      
+      if (!uploadRes.ok) {
+        const errorData = await uploadRes.json();
+        throw new Error(errorData.message || "ImageKit upload failed");
+      }
+      
       const uploadData = await uploadRes.json();
       
-      if (!uploadRes.ok) throw new Error(uploadData.message || "ImageKit upload failed");
-
+      // 5. Update Event Record
       await fetch(`/api/events/${params.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ logo_url: uploadData.url }),
       });
       
-      toast({ title: "Logo Uploaded" });
+      toast({ title: "Logo Updated", description: "Successfully converted to WebP and uploaded." });
       fetchEvent();
     } catch (err: any) {
+      console.error("[upload_error]", err);
       toast({ variant: "destructive", title: "Upload Failed", description: err.message });
     }
   };
@@ -546,7 +577,7 @@ function TicketDesignView({ event, onUpdate, onUploadLogo }: { event: EventData,
               }} 
             />
           </div>
-          <p className="text-[10px] text-muted-foreground">PNG, JPEG or WebP. Max 2MB.</p>
+          <p className="text-[10px] text-muted-foreground">Automatically optimized for WebP. Max 2MB.</p>
         </div>
 
         <div className="space-y-4">
