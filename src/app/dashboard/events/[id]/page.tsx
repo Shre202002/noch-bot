@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
@@ -27,6 +28,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   DndContext,
   closestCenter,
@@ -95,6 +105,10 @@ export default function EventDetailPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [capacity, setCapacity] = useState(0);
+
+  // Field editing state
+  const [editingField, setEditingField] = useState<FormField | null>(null);
+  const [editDialogOpen, setEditIdDialogOpen] = useState(false);
 
   // Gateway form state
   const [gatewayProvider, setGatewayProvider] = useState("stripe");
@@ -222,6 +236,35 @@ export default function EventDetailPage() {
     }
   };
 
+  const updateField = async (updatedField: FormField) => {
+    try {
+      const res = await fetch(`/api/events/${params.id}/form-fields/${updatedField._id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedField),
+      });
+      if (!res.ok) throw new Error("Failed to update field");
+      toast({ title: "Updated", description: "Field saved successfully" });
+      setEditIdDialogOpen(false);
+      fetchEvent();
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error", description: err.message });
+    }
+  };
+
+  const deleteField = async (fieldId: string) => {
+    try {
+      const res = await fetch(`/api/events/${params.id}/form-fields/${fieldId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to delete field");
+      toast({ title: "Deleted", description: "Field removed" });
+      fetchEvent();
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error", description: err.message });
+    }
+  };
+
   const sensors = useSensors(useSensor(PointerSensor), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
 
   const handleDragEnd = async (event: DragEndEvent) => {
@@ -302,19 +345,19 @@ export default function EventDetailPage() {
             <CardContent className="p-6 space-y-6">
               <div className="grid gap-2">
                 <Label className="text-white/70">Event Name</Label>
-                <Input value={name} onChange={(e) => setName(e.target.value)} className="bg-black/40 border-white/10" />
+                <Input value={name} onChange={(e) => setName(e.target.value)} className="bg-black/40 border-white/10 text-white" />
               </div>
               <div className="grid gap-2">
                 <Label className="text-white/70">Description</Label>
-                <Textarea value={description} onChange={(e) => setDescription(e.target.value)} className="bg-black/40 border-white/10 min-h-[100px]" />
+                <Textarea value={description} onChange={(e) => setDescription(e.target.value)} className="bg-black/40 border-white/10 min-h-[100px] text-white" />
               </div>
               <div className="grid gap-2">
                 <Label className="text-white/70">Capacity</Label>
-                <Input type="number" value={capacity} onChange={(e) => setCapacity(Number(e.target.value))} className="bg-black/40 border-white/10" />
+                <Input type="number" value={capacity} onChange={(e) => setCapacity(Number(e.target.value))} className="bg-black/40 border-white/10 text-white" />
               </div>
-              <Button onClick={handleSaveDetails} disabled={saving} className="rounded-full px-8 h-10 font-bold cursor-pointer text-white">
+              <Button onClick={handleSaveDetails} disabled={saving} className="rounded-full px-8 h-10 font-bold cursor-pointer bg-white text-black hover:bg-zinc-200">
                 {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                Save Details
+                Save Changes
               </Button>
             </CardContent>
           </Card>
@@ -334,7 +377,15 @@ export default function EventDetailPage() {
             <div className="space-y-3">
               <SortableContext items={event.form_fields.map(f => f._id)} strategy={verticalListSortingStrategy}>
                 {event.form_fields.map((field) => (
-                  <SortableFieldItem key={field._id} field={field} onDelete={() => fetchEvent()} onUpdate={() => fetchEvent()} />
+                  <SortableFieldItem 
+                    key={field._id} 
+                    field={field} 
+                    onDelete={() => deleteField(field._id)} 
+                    onEdit={() => {
+                      setEditingField(field);
+                      setEditIdDialogOpen(true);
+                    }}
+                  />
                 ))}
               </SortableContext>
             </div>
@@ -413,11 +464,98 @@ export default function EventDetailPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Edit Field Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditIdDialogOpen}>
+        <DialogContent className="bg-black border-white/10 text-white">
+          <DialogHeader>
+            <DialogTitle>Edit Form Question</DialogTitle>
+            <DialogDescription>Modify how the bot asks this question to attendees.</DialogDescription>
+          </DialogHeader>
+          {editingField && (
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Question Label</Label>
+                <Input 
+                  value={editingField.label} 
+                  onChange={e => setEditingField({...editingField, label: e.target.value})} 
+                  className="bg-black/40 border-white/10 text-white"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Input Type</Label>
+                <Select 
+                  value={editingField.field_type} 
+                  onValueChange={v => setEditingField({...editingField, field_type: v})}
+                >
+                  <SelectTrigger className="bg-black/40 border-white/10 text-white cursor-pointer">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-black border-white/10 text-white">
+                    <SelectItem value="text">Short Text</SelectItem>
+                    <SelectItem value="email">Email Address</SelectItem>
+                    <SelectItem value="phone">Phone Number</SelectItem>
+                    <SelectItem value="number">Number</SelectItem>
+                    <SelectItem value="date">Date</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Validation Rule</Label>
+                <Select 
+                  value={editingField.validation_rule} 
+                  onValueChange={v => setEditingField({...editingField, validation_rule: v})}
+                >
+                  <SelectTrigger className="bg-black/40 border-white/10 text-white cursor-pointer">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-black border-white/10 text-white">
+                    <SelectItem value="none">No Validation</SelectItem>
+                    <SelectItem value="email_format">Email Format</SelectItem>
+                    <SelectItem value="phone_format">Phone Format</SelectItem>
+                    <SelectItem value="name_format">Name Format (Min 2 chars)</SelectItem>
+                    <SelectItem value="custom_regex">Custom Regex</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {editingField.validation_rule === "custom_regex" && (
+                <div className="space-y-2">
+                  <Label>Regex Pattern</Label>
+                  <Input 
+                    value={editingField.custom_regex || ""} 
+                    onChange={e => setEditingField({...editingField, custom_regex: e.target.value})} 
+                    placeholder="^[0-9]+$"
+                    className="bg-black/40 border-white/10 text-white"
+                  />
+                </div>
+              )}
+              <div className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/5">
+                <Label className="cursor-pointer" htmlFor="req-toggle">Required field</Label>
+                <Switch 
+                  id="req-toggle"
+                  checked={editingField.is_required} 
+                  onCheckedChange={v => setEditingField({...editingField, is_required: v})}
+                  className="cursor-pointer"
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEditIdDialogOpen(false)} className="text-white hover:bg-white/5 cursor-pointer">Cancel</Button>
+            <Button 
+              onClick={() => editingField && updateField(editingField)}
+              className="bg-white text-black hover:bg-zinc-200 font-bold cursor-pointer"
+            >
+              Save Field
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
-function SortableFieldItem({ field, onDelete, onUpdate }: { field: FormField, onDelete: () => void, onUpdate: () => void }) {
+function SortableFieldItem({ field, onDelete, onEdit }: { field: FormField, onDelete: () => void, onEdit: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: field._id });
   const style = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 10 : 1 };
 
@@ -429,8 +567,17 @@ function SortableFieldItem({ field, onDelete, onUpdate }: { field: FormField, on
           <p className="text-sm font-bold text-white">{field.label}</p>
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="text-[9px] h-4 border-white/10 text-white/50">{field.field_type.toUpperCase()}</Badge>
+            <Badge variant="outline" className="text-[9px] h-4 border-white/10 text-primary/70">{field.validation_rule.toUpperCase()}</Badge>
             {field.is_required && <span className="text-[9px] font-black text-red-500/50 uppercase">Required</span>}
           </div>
+        </div>
+        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <Button variant="ghost" size="icon" onClick={onEdit} className="text-white hover:bg-white/5 rounded-full cursor-pointer h-8 w-8">
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={onDelete} className="text-red-500 hover:bg-red-500/10 rounded-full cursor-pointer h-8 w-8">
+            <Trash2 className="h-4 w-4" />
+          </Button>
         </div>
       </CardContent>
     </Card>
