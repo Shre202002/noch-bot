@@ -8,7 +8,7 @@ import {
   ArrowLeft, Loader2, Save, Rocket, Plus, Trash2, 
   Settings, FormInput, CreditCard, GripVertical, Pencil,
   CalendarIcon, CheckCircle2, AlertCircle, Layout, QrCode,
-  ExternalLink, Upload, Mail, Scissors
+  ExternalLink, Upload, Mail, Scissors, Check, ShieldCheck, RefreshCcw
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,17 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import {
   DndContext,
   closestCenter,
@@ -102,6 +113,8 @@ export default function EventDetailPage() {
   const [addingField, setAddingField] = useState(false);
   const [deletingFieldId, setDeletingFieldId] = useState<string | null>(null);
   const [isGatewayConfigured, setIsGatewayConfigured] = useState(false);
+  const [configuredProvider, setConfiguredProvider] = useState<string | null>(null);
+  const [isEditingGateway, setIsEditingGateway] = useState(false);
 
   // Form states
   const [name, setName] = useState("");
@@ -130,6 +143,7 @@ export default function EventDetailPage() {
       const statusRes = await fetch('/api/events/payment-gateway-status');
       const statusData = await statusRes.json();
       setIsGatewayConfigured(statusData.is_configured);
+      setConfiguredProvider(statusData.provider);
     } catch (err) {
       toast({ variant: "destructive", title: "Failed to load event" });
     } finally {
@@ -190,8 +204,11 @@ export default function EventDetailPage() {
           webhook_secret: gatewayKeys.webhook_secret
         }),
       });
-      if (!res.ok) throw new Error("Failed to save gateway");
-      toast({ title: "Gateway Connected", description: "Your credentials have been encrypted and saved." });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to save gateway");
+      
+      toast({ title: "Gateway Connected", description: `Your ${gatewayProvider} account has been connected.` });
+      setIsEditingGateway(false);
       fetchEvent();
     } catch (err: any) {
       toast({ variant: "destructive", title: "Config Failed", description: err.message });
@@ -430,71 +447,126 @@ export default function EventDetailPage() {
         </TabsContent>
 
         <TabsContent value="gateway">
-          <Card className="border-border bg-card/30 backdrop-blur-sm">
-            <CardContent className="p-6 space-y-6">
-              <div className="flex items-center gap-4 mb-4">
-                <div className="h-10 w-10 rounded-full bg-blue-500/10 flex items-center justify-center"><CreditCard className="h-5 w-5 text-blue-400" /></div>
-                <div>
-                  <h3 className="font-bold text-white">Payment Gateway</h3>
-                  <p className="text-sm text-muted-foreground">Credentials are saved for your entire organization.</p>
+          {isGatewayConfigured && !isEditingGateway ? (
+            <Card className="border-[#36f4a4]/20 bg-[#36f4a4]/5 backdrop-blur-sm overflow-hidden">
+              <CardContent className="p-8 text-center space-y-6">
+                <div className="flex justify-center">
+                  <div className="h-20 w-20 rounded-full bg-[#36f4a4]/10 border-4 border-[#36f4a4]/20 flex items-center justify-center animate-in zoom-in duration-500">
+                    <ShieldCheck className="h-10 w-10 text-[#36f4a4]" />
+                  </div>
                 </div>
-              </div>
-              
-              <div className="grid gap-6">
-                <div className="space-y-2">
-                  <Label className="text-white">Provider</Label>
-                  <Select value={gatewayProvider} onValueChange={setGatewayProvider}>
-                    <SelectTrigger className="bg-black/40 border-white/10 text-white cursor-pointer"><SelectValue /></SelectTrigger>
-                    <SelectContent className="bg-black border-white/10 text-white">
-                      <SelectItem value="stripe">Stripe</SelectItem>
-                      <SelectItem value="razorpay">Razorpay</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div>
+                  <h3 className="text-2xl font-black text-white">Payment Gateway Verified</h3>
+                  <p className="text-muted-foreground mt-2 max-w-md mx-auto">
+                    Your <span className="text-[#36f4a4] font-bold uppercase">{configuredProvider}</span> integration is connected and secured with AES-256 encryption.
+                  </p>
                 </div>
                 
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label className="text-white">{gatewayProvider === 'stripe' ? 'Secret Key' : 'Key ID'}</Label>
-                    <Input 
-                      type="password"
-                      placeholder="sk_test_..." 
-                      value={gatewayKeys.key_id} 
-                      onChange={e => setGatewayKeys(p => ({ ...p, key_id: e.target.value }))}
-                      className="bg-black/40 border-white/10 text-white" 
-                    />
+                <div className="flex justify-center items-center gap-4 pt-4">
+                  <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-white/70 text-xs font-bold uppercase tracking-wider">
+                    <Check className="h-3 w-3 text-[#36f4a4]" />
+                    Ready for Checkout
                   </div>
-                  {gatewayProvider === 'razorpay' && (
+                  
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-white hover:bg-white/5 rounded-full cursor-pointer">
+                        <RefreshCcw className="h-3 w-3 mr-2" />
+                        Update Configuration
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent className="bg-black border-white/10 text-white">
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Update Payment Gateway?</AlertDialogTitle>
+                        <AlertDialogDescription className="text-zinc-400">
+                          Updating your credentials will overwrite the existing ones. This will affect all paid events in your organization. Are you sure you want to continue?
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel className="bg-transparent border-white/10 text-white hover:bg-white/5 cursor-pointer">Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => setIsEditingGateway(true)} className="bg-white text-black hover:bg-zinc-200 cursor-pointer font-bold">
+                          Yes, Update Gateway
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="border-border bg-card/30 backdrop-blur-sm">
+              <CardContent className="p-6 space-y-6">
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="h-10 w-10 rounded-full bg-blue-500/10 flex items-center justify-center"><CreditCard className="h-5 w-5 text-blue-400" /></div>
+                  <div>
+                    <h3 className="font-bold text-white">Payment Gateway</h3>
+                    <p className="text-sm text-muted-foreground">Credentials are saved for your entire organization.</p>
+                  </div>
+                </div>
+                
+                <div className="grid gap-6">
+                  <div className="space-y-2">
+                    <Label className="text-white">Provider</Label>
+                    <Select value={gatewayProvider} onValueChange={setGatewayProvider}>
+                      <SelectTrigger className="bg-black/40 border-white/10 text-white cursor-pointer"><SelectValue /></SelectTrigger>
+                      <SelectContent className="bg-black border-white/10 text-white">
+                        <SelectItem value="stripe">Stripe</SelectItem>
+                        <SelectItem value="razorpay">Razorpay</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
-                      <Label className="text-white">Key Secret</Label>
+                      <Label className="text-white">{gatewayProvider === 'stripe' ? 'Secret Key' : 'Key ID'}</Label>
                       <Input 
                         type="password"
-                        placeholder="••••••••" 
-                        value={gatewayKeys.key_secret} 
-                        onChange={e => setGatewayKeys(p => ({ ...p, key_secret: e.target.value }))}
+                        placeholder={gatewayProvider === 'stripe' ? "sk_test_..." : "rzp_test_..."} 
+                        value={gatewayKeys.key_id} 
+                        onChange={e => setGatewayKeys(p => ({ ...p, key_id: e.target.value }))}
                         className="bg-black/40 border-white/10 text-white" 
                       />
                     </div>
-                  )}
-                </div>
+                    {gatewayProvider === 'razorpay' && (
+                      <div className="space-y-2">
+                        <Label className="text-white">Key Secret</Label>
+                        <Input 
+                          type="password"
+                          placeholder="••••••••" 
+                          value={gatewayKeys.key_secret} 
+                          onChange={e => setGatewayKeys(p => ({ ...p, key_secret: e.target.value }))}
+                          className="bg-black/40 border-white/10 text-white" 
+                        />
+                      </div>
+                    )}
+                  </div>
 
-                <div className="space-y-2">
-                  <Label className="text-white">Webhook Secret (Recommended)</Label>
-                  <Input 
-                    type="password"
-                    placeholder="whsec_..." 
-                    value={gatewayKeys.webhook_secret} 
-                    onChange={e => setGatewayKeys(p => ({ ...p, webhook_secret: e.target.value }))}
-                    className="bg-black/40 border-white/10 text-white" 
-                  />
-                  <p className="text-[10px] text-muted-foreground italic">Use this to verify payment events securely.</p>
-                </div>
+                  <div className="space-y-2">
+                    <Label className="text-white">Webhook Secret (Recommended)</Label>
+                    <Input 
+                      type="password"
+                      placeholder="whsec_..." 
+                      value={gatewayKeys.webhook_secret} 
+                      onChange={e => setGatewayKeys(p => ({ ...p, webhook_secret: e.target.value }))}
+                      className="bg-black/40 border-white/10 text-white" 
+                    />
+                    <p className="text-[10px] text-muted-foreground italic">Use this to verify payment events securely.</p>
+                  </div>
 
-                <Button onClick={handleSaveGateway} disabled={saving} className="rounded-full bg-white text-black hover:bg-zinc-200 font-bold h-11 cursor-pointer">
-                  {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Verify & Connect Gateway"}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+                  <div className="flex gap-4">
+                    {isEditingGateway && (
+                      <Button variant="ghost" onClick={() => setIsEditingGateway(false)} className="text-white hover:bg-white/5 rounded-full cursor-pointer">
+                        Cancel
+                      </Button>
+                    )}
+                    <Button onClick={handleSaveGateway} disabled={saving} className="flex-1 rounded-full bg-white text-black hover:bg-zinc-200 font-bold h-11 cursor-pointer">
+                      {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Verify & Connect Gateway"}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
 
