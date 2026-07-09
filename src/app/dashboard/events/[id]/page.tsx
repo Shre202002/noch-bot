@@ -100,6 +100,7 @@ export default function EventDetailPage() {
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [addingField, setAddingField] = useState(false);
+  const [deletingFieldId, setDeletingFieldId] = useState<string | null>(null);
   const [isGatewayConfigured, setIsGatewayConfigured] = useState(false);
 
   // Form states
@@ -226,14 +227,28 @@ export default function EventDetailPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           field_key: key,
-          label: "Attendee Name",
+          label: "New Question",
           field_type: "text",
           is_required: true,
           validation_rule: "none",
         }),
       });
-      if (!res.ok) throw new Error("Failed to add field");
-      await fetchEvent();
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to add field");
+      
+      // Refresh event list to get full field objects
+      const refreshRes = await fetch(`/api/events/${params.id}`);
+      const refreshData = await refreshRes.json();
+      if (refreshData.data) {
+        setEvent(refreshData.data);
+        // Find the new field and open editor immediately
+        const newField = refreshData.data.form_fields.find((f: any) => f._id === data.id);
+        if (newField) {
+          setEditingField(newField);
+          setEditIdDialogOpen(true);
+        }
+      }
+
       toast({ title: "Field Added", description: "You can now customize the question." });
     } catch (err: any) {
       toast({ variant: "destructive", title: "Error", description: err.message });
@@ -259,6 +274,8 @@ export default function EventDetailPage() {
   };
 
   const deleteField = async (fieldId: string) => {
+    if (deletingFieldId) return;
+    setDeletingFieldId(fieldId);
     try {
       const res = await fetch(`/api/events/${params.id}/form-fields/${fieldId}`, {
         method: "DELETE",
@@ -268,6 +285,8 @@ export default function EventDetailPage() {
       fetchEvent();
     } catch (err: any) {
       toast({ variant: "destructive", title: "Error", description: err.message });
+    } finally {
+      setDeletingFieldId(null);
     }
   };
 
@@ -393,6 +412,7 @@ export default function EventDetailPage() {
                   <SortableFieldItem 
                     key={field._id} 
                     field={field} 
+                    isDeleting={deletingFieldId === field._id}
                     onDelete={() => deleteField(field._id)} 
                     onEdit={() => {
                       setEditingField(field);
@@ -547,7 +567,7 @@ export default function EventDetailPage() {
                 <Switch 
                   id="req-toggle"
                   checked={editingField.is_required} 
-                  onCheckedChange={v => setEditingField({...editingField, is_required: v})}
+                  onCheckedChange={(v: boolean) => setEditingField({...editingField, is_required: v})}
                   className="cursor-pointer"
                 />
               </div>
@@ -568,7 +588,17 @@ export default function EventDetailPage() {
   );
 }
 
-function SortableFieldItem({ field, onDelete, onEdit }: { field: FormField, onDelete: () => void, onEdit: () => void }) {
+function SortableFieldItem({ 
+  field, 
+  onDelete, 
+  onEdit, 
+  isDeleting 
+}: { 
+  field: FormField, 
+  onDelete: () => void, 
+  onEdit: () => void,
+  isDeleting: boolean
+}) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: field._id });
   const style = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 10 : 1 };
 
@@ -588,8 +618,14 @@ function SortableFieldItem({ field, onDelete, onEdit }: { field: FormField, onDe
           <Button variant="ghost" size="icon" onClick={onEdit} className="text-white hover:bg-white/5 rounded-full cursor-pointer h-8 w-8">
             <Pencil className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={onDelete} className="text-red-500 hover:bg-red-500/10 rounded-full cursor-pointer h-8 w-8">
-            <Trash2 className="h-4 w-4" />
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={onDelete} 
+            disabled={isDeleting}
+            className="text-red-500 hover:bg-red-500/10 rounded-full cursor-pointer h-8 w-8"
+          >
+            {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
           </Button>
         </div>
       </CardContent>
