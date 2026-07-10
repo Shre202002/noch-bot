@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/request";
 import { getDb } from "@/lib/db";
 import { BookingSession } from "@/models/BookingSession";
 import { ObjectId } from "mongodb";
@@ -37,6 +37,23 @@ export async function POST(req: NextRequest) {
 
     const db = await getDb();
 
+    // 1. If eventId is provided, validate it exists and is published by this user
+    let validEventId: ObjectId | undefined;
+    if (eventId && ObjectId.isValid(eventId)) {
+      const event = await db.collection("events").findOne({
+        _id: new ObjectId(eventId),
+        org_id: userId,
+        status: "published"
+      });
+      if (!event) {
+        return NextResponse.json({ error: "Selected event is not available" }, { status: 404, headers: corsHeaders });
+      }
+      if (new Date(event.end_at) < new Date()) {
+        return NextResponse.json({ error: "Event has already ended" }, { status: 410, headers: corsHeaders });
+      }
+      validEventId = event._id;
+    }
+
     // Check for existing active session
     let session = await db.collection("booking_sessions").findOne({
       org_id: userId,
@@ -46,12 +63,12 @@ export async function POST(req: NextRequest) {
     });
 
     if (session) {
-      if (eventId && ObjectId.isValid(eventId)) {
+      if (validEventId) {
         await db.collection("booking_sessions").updateOne(
           { _id: session._id },
           { 
             $set: { 
-              event_id: new ObjectId(eventId),
+              event_id: validEventId,
               current_step: "quantity",
               updated_at: new Date()
             }
@@ -68,8 +85,8 @@ export async function POST(req: NextRequest) {
         visitor_id: visitorId,
         chat_session_id: chatSessionId,
         status: "started",
-        current_step: eventId && ObjectId.isValid(eventId) ? "quantity" : "select_event",
-        event_id: eventId && ObjectId.isValid(eventId) ? new ObjectId(eventId) : undefined,
+        current_step: validEventId ? "quantity" : "select_event",
+        event_id: validEventId,
         answers: [],
         current_field_index: 0,
         quantity: 1,

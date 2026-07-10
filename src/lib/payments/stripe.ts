@@ -1,5 +1,5 @@
 import Stripe from 'stripe';
-import { PaymentGatewayAdapter, CheckoutParams, WebhookResult } from './adapter';
+import { PaymentGatewayAdapter, CheckoutParams, WebhookResult, CheckoutResult } from './adapter';
 
 export class StripeAdapter implements PaymentGatewayAdapter {
   private getClient(secretKey: string): Stripe {
@@ -8,7 +8,7 @@ export class StripeAdapter implements PaymentGatewayAdapter {
     });
   }
 
-  async createCheckoutSession(params: CheckoutParams, credentials: Record<string, string>) {
+  async createCheckoutSession(params: CheckoutParams, credentials: Record<string, string>): Promise<CheckoutResult> {
     const stripe = this.getClient(credentials.secret_key);
 
     const session = await stripe.checkout.sessions.create({
@@ -21,7 +21,8 @@ export class StripeAdapter implements PaymentGatewayAdapter {
             name: params.eventName,
             description: `Booking for ${params.quantity} ticket(s)`,
           },
-          unit_amount: Math.round(params.amount * 100),
+          // Fix: amount is the total booking amount. Stripe takes unit_amount * quantity.
+          unit_amount: Math.round((params.amount / params.quantity) * 100),
         },
         quantity: params.quantity,
       }],
@@ -36,7 +37,9 @@ export class StripeAdapter implements PaymentGatewayAdapter {
 
     return {
       checkoutUrl: session.url!,
+      providerOrderId: session.id,
       providerReference: session.id,
+      rawResponse: session
     };
   }
 

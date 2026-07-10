@@ -1,8 +1,8 @@
 import crypto from 'crypto';
-import { PaymentGatewayAdapter, CheckoutParams, WebhookResult } from './adapter';
+import { PaymentGatewayAdapter, CheckoutParams, WebhookResult, CheckoutResult } from './adapter';
 
 export class RazorpayAdapter implements PaymentGatewayAdapter {
-  async createCheckoutSession(params: CheckoutParams, credentials: Record<string, string>) {
+  async createCheckoutSession(params: CheckoutParams, credentials: Record<string, string>): Promise<CheckoutResult> {
     const auth = Buffer.from(`${credentials.key_id}:${credentials.key_secret}`).toString('base64');
     
     const response = await fetch('https://api.razorpay.com/v1/orders', {
@@ -27,11 +27,14 @@ export class RazorpayAdapter implements PaymentGatewayAdapter {
     }
 
     const order = await response.json();
+    const appBaseUrl = process.env.NEXTAUTH_URL || '';
 
     return {
-      // Razorpay uses a client-side SDK. checkoutUrl is empty, Order ID is the reference.
-      checkoutUrl: '', 
+      // Use internal payment page for SDK-based Razorpay flow
+      checkoutUrl: `${appBaseUrl}/booking/pay/${params.bookingId}`,
+      providerOrderId: order.id,
       providerReference: order.id,
+      rawResponse: order
     };
   }
 

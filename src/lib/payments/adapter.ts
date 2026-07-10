@@ -22,23 +22,25 @@ export interface WebhookResult {
   rawPayload: any;
 }
 
+export interface CheckoutResult {
+  checkoutUrl: string;
+  providerOrderId?: string;
+  providerPaymentId?: string;
+  providerReference?: string;
+  rawResponse?: any;
+}
+
 export interface PaymentGatewayAdapter {
   /**
    * Creates a checkout session or order on the provider's platform.
-   * For redirect-based providers (Stripe, PayPal), checkoutUrl is populated.
-   * For SDK-based providers (Razorpay, Cashfree), providerReference contains the Session/Order ID.
    */
   createCheckoutSession(
     params: CheckoutParams, 
     credentials: Record<string, string>
-  ): Promise<{ 
-    checkoutUrl: string; 
-    providerReference: string; 
-  }>;
+  ): Promise<CheckoutResult>;
 
   /**
    * Atomically verifies the cryptographic signature and parses the payload.
-   * Returns a normalized WebhookResult on success, or null if verification fails.
    */
   verifyAndParseWebhook(
     rawBody: string, 

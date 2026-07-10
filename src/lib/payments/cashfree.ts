@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { PaymentGatewayAdapter, CheckoutParams, WebhookResult } from './adapter';
+import { PaymentGatewayAdapter, CheckoutParams, WebhookResult, CheckoutResult } from './adapter';
 
 export class CashfreeAdapter implements PaymentGatewayAdapter {
   private getApiBase(): string {
@@ -8,7 +8,7 @@ export class CashfreeAdapter implements PaymentGatewayAdapter {
       : 'https://sandbox.cashfree.com/pg';
   }
 
-  async createCheckoutSession(params: CheckoutParams, credentials: Record<string, string>) {
+  async createCheckoutSession(params: CheckoutParams, credentials: Record<string, string>): Promise<CheckoutResult> {
     const baseUrl = process.env.NEXTAUTH_URL || '';
     
     const response = await fetch(`${this.getApiBase()}/orders`, {
@@ -44,11 +44,14 @@ export class CashfreeAdapter implements PaymentGatewayAdapter {
     }
 
     const order = await response.json();
+    const appBaseUrl = process.env.NEXTAUTH_URL || '';
 
     return {
-      // Cashfree V3 uses an SDK-based flow. payment_session_id is used by the JS SDK.
-      checkoutUrl: '', 
+      // Cashfree V3 uses an SDK-based flow.
+      checkoutUrl: `${appBaseUrl}/booking/pay/${params.bookingId}`, 
+      providerOrderId: order.order_id,
       providerReference: order.payment_session_id,
+      rawResponse: order
     };
   }
 

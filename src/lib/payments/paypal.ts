@@ -1,4 +1,4 @@
-import { PaymentGatewayAdapter, CheckoutParams, WebhookResult } from './adapter';
+import { PaymentGatewayAdapter, CheckoutParams, WebhookResult, CheckoutResult } from './adapter';
 
 export class PaypalAdapter implements PaymentGatewayAdapter {
   private getApiBase(): string {
@@ -23,7 +23,7 @@ export class PaypalAdapter implements PaymentGatewayAdapter {
     return data.access_token;
   }
 
-  async createCheckoutSession(params: CheckoutParams, credentials: Record<string, string>) {
+  async createCheckoutSession(params: CheckoutParams, credentials: Record<string, string>): Promise<CheckoutResult> {
     const accessToken = await this.getAccessToken(credentials);
     
     const response = await fetch(`${this.getApiBase()}/v2/checkout/orders`, {
@@ -61,7 +61,9 @@ export class PaypalAdapter implements PaymentGatewayAdapter {
 
     return {
       checkoutUrl: approveLink.href,
+      providerOrderId: order.id,
       providerReference: order.id,
+      rawResponse: order
     };
   }
 

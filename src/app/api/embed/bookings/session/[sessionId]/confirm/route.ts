@@ -4,6 +4,8 @@ import { getDb } from "@/lib/db";
 import { Booking } from "@/models/Booking";
 import { stripeAdapter } from "@/lib/payments/stripe";
 import { razorpayAdapter } from "@/lib/payments/razorpay";
+import { paypalAdapter } from "@/lib/payments/paypal";
+import { cashfreeAdapter } from "@/lib/payments/cashfree";
 import { decryptCredentials } from "@/lib/credentialCrypto";
 import crypto from "crypto";
 
@@ -11,6 +13,13 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
+};
+
+const adapters: Record<string, any> = {
+  stripe: stripeAdapter,
+  razorpay: razorpayAdapter,
+  paypal: paypalAdapter,
+  cashfree: cashfreeAdapter
 };
 
 export async function OPTIONS() {
@@ -47,12 +56,21 @@ export async function POST(
       return NextResponse.json({ error: "Invalid or expired booking session" }, { status: 404, headers: corsHeaders });
     }
 
-    const event = await db.collection("events").findOne({ _id: session.event_id });
-    if (!event || event.status !== "published") {
+    const event = await db.collection("events").findOne({ 
+      _id: session.event_id,
+      org_id: userId,
+      status: "published"
+    });
+
+    if (!event) {
       return NextResponse.json({ error: "Event is no longer available" }, { status: 410, headers: corsHeaders });
     }
 
-    // Capacity Check
+    if (new Date(event.end_at) < new Date()) {
+      return NextResponse.json({ error: "Event has already ended" }, { status: 410, headers: corsHeaders });
+    }
+
+    // Capacity Check using Aggregation
     const activeBookingsResult = await db.collection("bookings").aggregate([
       {
         $match: {
@@ -137,14 +155,14 @@ export async function POST(
       is_active: true 
     });
 
-    if (!gateway) {
+    if (!gateway || !adapters[gateway.provider]) {
       await db.collection("bookings").updateOne({ _id: bookingId }, { $set: { status: "failed", payment_status: "failed" } });
       await db.collection("booking_sessions").updateOne({ _id: session._id }, { $set: { status: "failed", current_step: "payment", updated_at: new Date() } });
-      return NextResponse.json({ error: "Payment gateway not configured" }, { status: 500, headers: corsHeaders });
+      return NextResponse.json({ error: "Payment gateway not configured or unsupported" }, { status: 500, headers: corsHeaders });
     }
 
     const credentials = await decryptCredentials(gateway.credentials);
-    const adapter = gateway.provider === "stripe" ? stripeAdapter : razorpayAdapter;
+    const adapter = adapters[gateway.provider];
 
     try {
       const checkout = await adapter.createCheckoutSession({
@@ -155,13 +173,14 @@ export async function POST(
         eventName: event.name,
         quantity: session.quantity,
         successUrl: `${process.env.NEXTAUTH_URL}/booking/success?bid=${bookingId}`,
-        cancelUrl: `${process.env.NEXTAUTH_URL}/booking/cancel?bid=${bookingId}`
+        cancelUrl: `${process.env.NEXTAUTH_URL}/booking/cancel?bid=${bookingId}`,
+        customerEmail: session.answers.find((a: any) => a.validation_rule === 'email_format')?.value
       }, credentials);
 
       const paymentObj = {
         provider: gateway.provider,
         checkout_url: checkout.checkoutUrl,
-        provider_order_id: checkout.providerReference, 
+        provider_order_id: checkout.providerOrderId, 
         provider_reference: checkout.providerReference
       };
 
@@ -188,13 +207,14 @@ export async function POST(
         event_id: event._id,
         booking_id: bookingId,
         provider: gateway.provider,
-        mode: gateway.mode || (gateway.credentials.includes("sk_live") ? "live" : "test"),
+        mode: gateway.mode,
         amount: amountTotal,
         currency: event.currency,
-        provider_order_id: checkout.providerReference,
+        provider_order_id: checkout.providerOrderId,
         provider_reference: checkout.providerReference,
         checkout_url: checkout.checkoutUrl,
         status: "checkout_pending",
+        raw_create_response: checkout.rawResponse,
         created_at: new Date(),
         updated_at: new Date()
       });
@@ -206,6 +226,7 @@ export async function POST(
         checkoutUrl: checkout.checkoutUrl
       }, { headers: corsHeaders });
     } catch (paymentErr: any) {
+      console.error("[checkout_error]", paymentErr);
       await db.collection("bookings").updateOne({ _id: bookingId }, { $set: { status: "failed", payment_status: "failed" } });
       await db.collection("booking_sessions").updateOne({ _id: session._id }, { $set: { status: "failed", current_step: "payment", updated_at: new Date() } });
       return NextResponse.json({ error: "Failed to initiate payment session." }, { status: 500, headers: corsHeaders });
