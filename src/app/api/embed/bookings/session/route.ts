@@ -3,13 +3,23 @@ import { getDb } from "@/lib/db";
 import { BookingSession } from "@/models/BookingSession";
 import { ObjectId } from "mongodb";
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: corsHeaders });
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { userId, visitorId, chatSessionId, websiteUrl, eventId } = body;
+    const { userId, visitorId, chatSessionId, eventId } = body;
 
     if (!userId || !visitorId) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400, headers: corsHeaders });
     }
 
     const db = await getDb();
@@ -23,7 +33,6 @@ export async function POST(req: NextRequest) {
     });
 
     if (session) {
-      // If a specific eventId was passed, update the session
       if (eventId && ObjectId.isValid(eventId)) {
         await db.collection("booking_sessions").updateOne(
           { _id: session._id },
@@ -66,8 +75,8 @@ export async function POST(req: NextRequest) {
       current_step: session!.current_step,
       event_id: session!.event_id?.toString(),
       expires_at: session!.expires_at,
-    });
+    }, { headers: corsHeaders });
   } catch (error) {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500, headers: corsHeaders });
   }
 }

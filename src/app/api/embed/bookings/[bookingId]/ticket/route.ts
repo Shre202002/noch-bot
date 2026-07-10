@@ -2,24 +2,39 @@ import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/db";
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: corsHeaders });
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ bookingId: string }> }
 ) {
   const { bookingId } = await params;
+  const { searchParams } = new URL(req.url);
+  const userId = searchParams.get('userId');
+  const visitorId = searchParams.get('visitorId');
 
   if (!ObjectId.isValid(bookingId)) {
-    return NextResponse.json({ error: "Invalid booking ID" }, { status: 400 });
+    return NextResponse.json({ error: "Invalid booking ID" }, { status: 400, headers: corsHeaders });
   }
 
   try {
     const db = await getDb();
     const booking = await db.collection("bookings").findOne({
-      _id: new ObjectId(bookingId)
+      _id: new ObjectId(bookingId),
+      org_id: userId,
+      visitor_id: visitorId
     });
 
     if (!booking) {
-      return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+      return NextResponse.json({ error: "Booking not found" }, { status: 404, headers: corsHeaders });
     }
 
     const isConfirmed = booking.status === "confirmed";
@@ -28,11 +43,9 @@ export async function GET(
     if (!isConfirmed || !isPaidIfRequired) {
       return NextResponse.json({ 
         error: "Ticket is not available until booking is confirmed and paid." 
-      }, { status: 409 });
+      }, { status: 409, headers: corsHeaders });
     }
 
-    // In a real implementation, this would generate a PDF or dynamic image.
-    // For now, we return the booking data which the client can use to render a ticket view.
     return NextResponse.json({
       success: true,
       ticket_data: {
@@ -45,8 +58,8 @@ export async function GET(
         ticket_codes: booking.ticket_codes,
         template_id: booking.event_snapshot.ticket_template_id
       }
-    });
+    }, { headers: corsHeaders });
   } catch (error) {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500, headers: corsHeaders });
   }
 }

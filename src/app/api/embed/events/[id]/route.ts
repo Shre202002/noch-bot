@@ -2,6 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/db";
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: corsHeaders });
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -11,7 +21,7 @@ export async function GET(
   const userId = searchParams.get('userId');
 
   if (!ObjectId.isValid(id)) {
-    return NextResponse.json({ error: "Invalid event ID" }, { status: 400 });
+    return NextResponse.json({ error: "Invalid event ID" }, { status: 400, headers: corsHeaders });
   }
 
   try {
@@ -23,7 +33,7 @@ export async function GET(
     });
 
     if (!event) {
-      return NextResponse.json({ error: "Event not found" }, { status: 404 });
+      return NextResponse.json({ error: "Event not found" }, { status: 404, headers: corsHeaders });
     }
 
     const fields = await db.collection("event_form_fields")
@@ -53,8 +63,8 @@ export async function GET(
         options: f.options,
         order_index: f.order_index,
       }))
-    });
+    }, { headers: corsHeaders });
   } catch (error) {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500, headers: corsHeaders });
   }
 }

@@ -3,12 +3,22 @@ import { getDb } from "@/lib/db";
 
 export const dynamic = 'force-dynamic';
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: corsHeaders });
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const userId = searchParams.get('userId');
 
   if (!userId) {
-    return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+    return NextResponse.json({ error: "Missing userId" }, { status: 400, headers: corsHeaders });
   }
 
   try {
@@ -16,7 +26,8 @@ export async function GET(req: NextRequest) {
     const events = await db.collection("events")
       .find({ 
         org_id: userId, 
-        status: "published" 
+        status: "published",
+        end_at: { $gt: new Date() }
       })
       .project({
         _id: 1,
@@ -48,8 +59,8 @@ export async function GET(req: NextRequest) {
       ticket_template_id: e.ticket_template_id,
     }));
 
-    return NextResponse.json({ events: formattedEvents });
+    return NextResponse.json({ events: formattedEvents }, { headers: corsHeaders });
   } catch (error) {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500, headers: corsHeaders });
   }
 }
