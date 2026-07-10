@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Groq from "groq-sdk";
-import { readKnowledge, findAccountById } from "@/lib/storage";
+import { findAccountById } from "@/lib/storage";
 import { embedText } from "@/lib/embeddings";
 import { qdrant, ensureCollection, COLLECTION } from "@/lib/qdrant";
 import {
@@ -16,7 +16,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
-const BOOKING_KEYWORDS = ["book", "ticket", "register", "attend", "reserve", "seat", "buy"];
+const BOOKING_KEYWORDS = ["book", "ticket", "register", "attend", "reserve", "seat", "buy", "join"];
 
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: corsHeaders });
@@ -43,9 +43,8 @@ export async function POST(req: NextRequest) {
     const lowerMsg = userMessage.toLowerCase();
     
     // Intent Detection for Booking
-    const isBookingIntent = BOOKING_KEYWORDS.some(k => lowerMsg.includes(lowerMsg.includes('help') ? '____' : k));
+    const isBookingIntent = BOOKING_KEYWORDS.some(k => lowerMsg.includes(k));
     
-    // Derby conversation website
     const website = sourceUrl ? (() => { try { return new URL(sourceUrl).hostname; } catch { return "unknown"; } })() : "unknown";
     const effectiveSessionId = sessionId || `auto_${userId}_${Date.now()}`;
 
@@ -75,13 +74,19 @@ export async function POST(req: NextRequest) {
     const completion = await groq.chat.completions.create({
       model: "llama-3.3-70b-versatile",
       messages: [
-        { role: "system", content: `You are the AI assistant for this website. Use context: ${contextText}` },
+        { 
+          role: "system", 
+          content: `You are the AI assistant for this website. 
+          Respond naturally based on this context: ${contextText}.
+          If the user wants to book, buy, or register for an event, just say you can help with that.
+          Do not mention internal IDs or technical details.` 
+        },
         ...messages
       ],
       temperature: 0.4,
     });
 
-    const text = completion.choices[0]?.message?.content || "No response.";
+    const text = completion.choices[0]?.message?.content || "I'm sorry, I couldn't process that.";
 
     // Determine Action
     let action = null;
@@ -97,6 +102,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ text, action, usage: rateCheck }, { headers: corsHeaders });
   } catch (err: any) {
+    console.error("[chat_api] error:", err);
     return NextResponse.json({ error: "Internal error" }, { status: 500, headers: corsHeaders });
   }
 }
