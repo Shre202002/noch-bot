@@ -4,7 +4,7 @@ import { getDb } from "@/lib/db";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET",
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
@@ -20,6 +20,10 @@ export async function GET(
   const { searchParams } = new URL(req.url);
   const userId = searchParams.get('userId');
   const visitorId = searchParams.get('visitorId');
+
+  if (!userId || !visitorId) {
+    return NextResponse.json({ error: "Missing identity parameters" }, { status: 400, headers: corsHeaders });
+  }
 
   if (!ObjectId.isValid(bookingId)) {
     return NextResponse.json({ error: "Invalid booking ID" }, { status: 400, headers: corsHeaders });
@@ -60,6 +64,7 @@ export async function GET(
       }
     }, { headers: corsHeaders });
   } catch (error) {
+    console.error("[ticket_api_error]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500, headers: corsHeaders });
   }
 }

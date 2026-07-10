@@ -5,12 +5,25 @@ import { ObjectId } from "mongodb";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: corsHeaders });
+}
+
+function serializeBookingSession(session: any) {
+  return {
+    session_id: session._id.toString(),
+    event_id: session.event_id?.toString(),
+    status: session.status,
+    current_step: session.current_step,
+    current_field_index: session.current_field_index || 0,
+    quantity: session.quantity || 1,
+    answers: session.answers || [],
+    expires_at: session.expires_at instanceof Date ? session.expires_at.toISOString() : session.expires_at
+  };
 }
 
 export async function POST(req: NextRequest) {
@@ -19,7 +32,7 @@ export async function POST(req: NextRequest) {
     const { userId, visitorId, chatSessionId, eventId } = body;
 
     if (!userId || !visitorId) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400, headers: corsHeaders });
+      return NextResponse.json({ error: "Missing required identity fields" }, { status: 400, headers: corsHeaders });
     }
 
     const db = await getDb();
@@ -55,7 +68,7 @@ export async function POST(req: NextRequest) {
         visitor_id: visitorId,
         chat_session_id: chatSessionId,
         status: "started",
-        current_step: eventId ? "quantity" : "select_event",
+        current_step: eventId && ObjectId.isValid(eventId) ? "quantity" : "select_event",
         event_id: eventId && ObjectId.isValid(eventId) ? new ObjectId(eventId) : undefined,
         answers: [],
         current_field_index: 0,
@@ -69,14 +82,9 @@ export async function POST(req: NextRequest) {
       session = { ...newSession, _id: result.insertedId };
     }
 
-    return NextResponse.json({
-      session_id: session!._id!.toString(),
-      status: session!.status,
-      current_step: session!.current_step,
-      event_id: session!.event_id?.toString(),
-      expires_at: session!.expires_at,
-    }, { headers: corsHeaders });
+    return NextResponse.json(serializeBookingSession(session), { headers: corsHeaders });
   } catch (error) {
+    console.error("[post_session_error]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500, headers: corsHeaders });
   }
 }

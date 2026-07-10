@@ -4,7 +4,7 @@ import { getDb } from "@/lib/db";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET",
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
@@ -21,6 +21,10 @@ export async function GET(
   const userId = searchParams.get('userId');
   const visitorId = searchParams.get('visitorId');
 
+  if (!userId || !visitorId) {
+    return NextResponse.json({ error: "Missing identity parameters" }, { status: 400, headers: corsHeaders });
+  }
+
   if (!ObjectId.isValid(bookingId)) {
     return NextResponse.json({ error: "Invalid booking ID" }, { status: 400, headers: corsHeaders });
   }
@@ -35,8 +39,8 @@ export async function GET(
 
     if (!booking) return NextResponse.json({ error: "Not found" }, { status: 404, headers: corsHeaders });
 
-    // Handle Expiry
-    if (booking.status === "pending_payment" && booking.expires_at && booking.expires_at < new Date()) {
+    // Handle Expiry for stale payment attempts
+    if (booking.status === "pending_payment" && booking.expires_at && new Date(booking.expires_at) < new Date()) {
       await db.collection("bookings").updateOne(
         { _id: booking._id },
         { $set: { status: "expired", payment_status: "failed", updated_at: new Date() } }
@@ -59,6 +63,7 @@ export async function GET(
       download_url: canDownload ? `/api/embed/bookings/${bookingId}/ticket?userId=${userId}&visitorId=${visitorId}` : undefined
     }, { headers: corsHeaders });
   } catch (error) {
+    console.error("[status_api_error]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500, headers: corsHeaders });
   }
 }

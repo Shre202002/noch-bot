@@ -9,7 +9,7 @@ import crypto from "crypto";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
@@ -29,6 +29,11 @@ export async function POST(
   try {
     const body = await req.json();
     const { userId, visitorId } = body;
+
+    if (!userId || !visitorId) {
+      return NextResponse.json({ error: "Missing identity" }, { status: 400, headers: corsHeaders });
+    }
+
     const db = await getDb();
 
     const session = await db.collection("booking_sessions").findOne({
@@ -116,7 +121,7 @@ export async function POST(
     if (!event.is_paid) {
       await db.collection("booking_sessions").updateOne(
         { _id: session._id },
-        { $set: { status: "confirmed", current_step: "complete" } }
+        { $set: { status: "confirmed", current_step: "complete", booking_id: bookingId, updated_at: new Date() } }
       );
       return NextResponse.json({
         status: "confirmed",
@@ -134,6 +139,7 @@ export async function POST(
 
     if (!gateway) {
       await db.collection("bookings").updateOne({ _id: bookingId }, { $set: { status: "failed", payment_status: "failed" } });
+      await db.collection("booking_sessions").updateOne({ _id: session._id }, { $set: { status: "failed", current_step: "payment", updated_at: new Date() } });
       return NextResponse.json({ error: "Payment gateway not configured" }, { status: 500, headers: corsHeaders });
     }
 
@@ -152,16 +158,27 @@ export async function POST(
         cancelUrl: `${process.env.NEXTAUTH_URL}/booking/cancel?bid=${bookingId}`
       }, credentials);
 
+      const paymentObj = {
+        provider: gateway.provider,
+        checkout_url: checkout.checkoutUrl,
+        provider_order_id: checkout.providerReference, 
+        provider_reference: checkout.providerReference
+      };
+
       await db.collection("bookings").updateOne(
         { _id: bookingId },
+        { $set: { payment: paymentObj } }
+      );
+
+      await db.collection("booking_sessions").updateOne(
+        { _id: session._id },
         { 
           $set: { 
-            payment: {
-              provider: gateway.provider,
-              checkout_url: checkout.checkoutUrl,
-              provider_order_id: checkout.providerReference, // Generic mapping
-              provider_reference: checkout.providerReference
-            }
+            status: "checkout_pending", 
+            current_step: "payment", 
+            booking_id: bookingId, 
+            checkout_url: checkout.checkoutUrl,
+            updated_at: new Date() 
           } 
         }
       );
@@ -171,6 +188,7 @@ export async function POST(
         event_id: event._id,
         booking_id: bookingId,
         provider: gateway.provider,
+        mode: gateway.mode || (gateway.credentials.includes("sk_live") ? "live" : "test"),
         amount: amountTotal,
         currency: event.currency,
         provider_order_id: checkout.providerReference,
@@ -189,10 +207,12 @@ export async function POST(
       }, { headers: corsHeaders });
     } catch (paymentErr: any) {
       await db.collection("bookings").updateOne({ _id: bookingId }, { $set: { status: "failed", payment_status: "failed" } });
+      await db.collection("booking_sessions").updateOne({ _id: session._id }, { $set: { status: "failed", current_step: "payment", updated_at: new Date() } });
       return NextResponse.json({ error: "Failed to initiate payment session." }, { status: 500, headers: corsHeaders });
     }
 
   } catch (error: any) {
+    console.error("[confirm_api_error]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500, headers: corsHeaders });
   }
 }
