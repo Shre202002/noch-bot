@@ -30,7 +30,7 @@ export class RazorpayAdapter implements PaymentGatewayAdapter {
     const appBaseUrl = process.env.NEXTAUTH_URL || '';
 
     return {
-      // Use internal payment page for SDK-based Razorpay flow
+      // Use internal payment bridge page for SDK-based Razorpay flow
       checkoutUrl: `${appBaseUrl}/booking/pay/${params.bookingId}`,
       providerOrderId: order.id,
       providerReference: order.id,

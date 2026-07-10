@@ -36,9 +36,6 @@ export async function GET(
       return NextResponse.json({ error: "Payment configuration lost" }, { status: 500 });
     }
 
-    // Extract key_id from encrypted credentials (we don't need secret here)
-    // For simplicity in this step, we'll assume the user might need to decrypt it 
-    // but we'll return only safe data.
     const { decryptCredentials } = await import("@/lib/credentialCrypto");
     const credentials = await decryptCredentials(gateway.credentials);
 

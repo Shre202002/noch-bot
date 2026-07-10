@@ -47,7 +47,6 @@ export class CashfreeAdapter implements PaymentGatewayAdapter {
     const appBaseUrl = process.env.NEXTAUTH_URL || '';
 
     return {
-      // Cashfree V3 uses an SDK-based flow.
       checkoutUrl: `${appBaseUrl}/booking/pay/${params.bookingId}`, 
       providerOrderId: order.order_id,
       providerReference: order.payment_session_id,

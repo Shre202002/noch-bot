@@ -56,6 +56,7 @@ export async function POST(
       return NextResponse.json({ error: "Invalid or expired booking session" }, { status: 404, headers: corsHeaders });
     }
 
+    // 1. HARDEN EVENT LOOKUP: Check ownership, published status and expiration
     const event = await db.collection("events").findOne({ 
       _id: session.event_id,
       org_id: userId,
@@ -156,6 +157,7 @@ export async function POST(
     });
 
     if (!gateway || !adapters[gateway.provider]) {
+      // HANDLE CHECKOUT FAILURE
       await db.collection("bookings").updateOne({ _id: bookingId }, { $set: { status: "failed", payment_status: "failed" } });
       await db.collection("booking_sessions").updateOne({ _id: session._id }, { $set: { status: "failed", current_step: "payment", updated_at: new Date() } });
       return NextResponse.json({ error: "Payment gateway not configured or unsupported" }, { status: 500, headers: corsHeaders });
@@ -177,6 +179,7 @@ export async function POST(
         customerEmail: session.answers.find((a: any) => a.validation_rule === 'email_format')?.value
       }, credentials);
 
+      // SAVE COMPLETE PAYMENT OBJECT ON BOOKING
       const paymentObj = {
         provider: gateway.provider,
         checkout_url: checkout.checkoutUrl,
@@ -202,6 +205,7 @@ export async function POST(
         }
       );
 
+      // SAVE COMPLETE PAYMENT ATTEMPT DATA
       await db.collection("payment_attempts").insertOne({
         org_id: userId,
         event_id: event._id,

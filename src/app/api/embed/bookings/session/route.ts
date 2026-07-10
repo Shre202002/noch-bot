@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/request";
+import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { BookingSession } from "@/models/BookingSession";
 import { ObjectId } from "mongodb";
