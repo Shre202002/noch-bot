@@ -71,11 +71,16 @@ export async function POST(req: NextRequest) {
 
     if (session) {
       if (validEventId) {
+        // FIXED: Reset session state when updating to a new eventId to ensure clean data
         await db.collection("booking_sessions").updateOne(
           { _id: session._id },
           { 
             $set: { 
               event_id: validEventId,
+              status: "started",
+              quantity: 1,
+              answers: [],
+              current_field_index: 0,
               current_step: "quantity",
               updated_at: new Date()
             }

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { Loader2, ShieldCheck, AlertCircle } from "lucide-react";
+import { Loader2, ShieldCheck, AlertCircle } from "lucide-center";
 
 /**
  * @fileOverview Secure internal payment bridge page for SDK-based gateways (Razorpay).
@@ -18,8 +18,9 @@ function PaymentBridgeContent() {
 
   useEffect(() => {
     async function initPayment() {
+      // FIXED: Requirement - "If token is missing, show 'Invalid payment link'."
       if (!token) {
-        setError("Invalid payment access link.");
+        setError("Invalid payment link.");
         setLoading(false);
         return;
       }

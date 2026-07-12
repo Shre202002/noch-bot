@@ -27,7 +27,10 @@ export class RazorpayAdapter implements PaymentGatewayAdapter {
     }
 
     const order = await response.json();
-    const appBaseUrl = process.env.NEXTAUTH_URL || '';
+    
+    // FIXED: Require NEXTAUTH_URL for bridge logic
+    const appBaseUrl = process.env.NEXTAUTH_URL;
+    if (!appBaseUrl) throw new Error("NEXTAUTH_URL is required for Razorpay payment bridge checkoutUrl");
 
     return {
       // Use internal payment bridge page for SDK-based Razorpay flow
