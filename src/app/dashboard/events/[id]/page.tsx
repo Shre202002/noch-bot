@@ -8,7 +8,7 @@ import {
   Settings, FormInput, CreditCard, GripVertical, Pencil,
   CalendarIcon, CheckCircle2, AlertCircle, Layout,
   Mail, Scissors, Check, ShieldCheck, RefreshCcw,
-  Palette, RotateCcw
+  Palette, RotateCcw, Upload
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
