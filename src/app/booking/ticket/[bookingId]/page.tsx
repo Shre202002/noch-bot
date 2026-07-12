@@ -9,11 +9,10 @@ import {
   CheckCircle2, ShieldCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
 
 interface TicketData {
+  booking_id: string;
   booking_code: string;
   event_name: string;
   date: string;
@@ -24,6 +23,17 @@ interface TicketData {
   quantity: number;
   ticket_codes: string[];
   template_id: string;
+  logo_url: string | null;
+  bg_removed_logo_url?: string | null;
+  remove_background?: boolean;
+  ticket_color_palette?: {
+    background_color: string;
+    text_color: string;
+    accent_color: string;
+    border_color: string;
+    muted_text_color: string;
+    qr_background_color: string;
+  };
 }
 
 function TicketViewContent() {
@@ -102,12 +112,156 @@ function TicketViewContent() {
     minute: '2-digit'
   });
 
+  const palette = data.ticket_color_palette || {
+    background_color: "#111111",
+    text_color: "#ffffff",
+    accent_color: "#36f4a4",
+    border_color: "rgba(255,255,255,0.1)",
+    muted_text_color: "#71717a",
+    qr_background_color: "#ffffff"
+  };
+
+  const displayLogo = data.remove_background ? data.bg_removed_logo_url || data.logo_url : data.logo_url;
+
+  const renderTemplate = (code: string, index: number) => {
+    switch (data.template_id) {
+      case 'minimal':
+        return (
+          <div 
+            className="flex w-full flex-col md:flex-row rounded-xl overflow-hidden shadow-xl"
+            style={{ backgroundColor: "#ffffff", color: "#000000", border: `1px solid ${palette.border_color}` }}
+          >
+            <div className="w-full md:w-48 p-6 flex flex-col items-center justify-center bg-zinc-50 border-b md:border-b-0 md:border-r border-dashed border-zinc-200">
+              <div className="p-1 bg-white border border-zinc-100 rounded">
+                <QRCodeSVG value={code} size={120} />
+              </div>
+              <p className="mt-4 text-[9px] font-bold uppercase text-zinc-400 tracking-tighter">Ticket {index + 1} of {data.quantity}</p>
+            </div>
+            <div className="flex-1 p-8 relative">
+              <div className="flex justify-between items-start mb-6">
+                <h2 className="text-2xl font-black italic tracking-tighter leading-tight uppercase">{data.event_name}</h2>
+                {displayLogo && <img src={displayLogo} alt="Logo" className="h-10 w-auto object-contain opacity-80" />}
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-[10px] font-bold uppercase text-zinc-400 mb-1">Attendee</p>
+                  <p className="text-sm font-bold truncate">{data.attendee.answers.find(a => a.label.toLowerCase().includes('name'))?.value || "N/A"}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase text-zinc-400 mb-1">Date</p>
+                  <p className="text-sm font-bold truncate">{new Date(data.date).toLocaleDateString()}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      case 'modern':
+        return (
+          <div 
+            className="flex w-full flex-col md:flex-row rounded-2xl overflow-hidden shadow-2xl"
+            style={{ backgroundColor: palette.background_color, color: palette.text_color }}
+          >
+            <div className="w-full md:w-40 p-6 flex items-center justify-center" style={{ backgroundColor: palette.qr_background_color }}>
+              <QRCodeSVG value={code} size={100} fgColor={palette.background_color} />
+            </div>
+            <div className="flex-1 p-8">
+              <div className="flex justify-between items-end">
+                <div>
+                  <p className="text-[10px] font-black uppercase opacity-60 mb-2" style={{ color: palette.accent_color }}>Admission Pass</p>
+                  <h2 className="text-3xl font-black leading-none uppercase tracking-tighter mb-4">{data.event_name}</h2>
+                  <div className="flex items-center gap-4 text-xs font-bold opacity-80">
+                    <span className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" /> {new Date(data.date).toLocaleDateString()}</span>
+                    <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> {data.venue || "Global"}</span>
+                  </div>
+                </div>
+                {displayLogo && <img src={displayLogo} alt="Logo" className="h-12 w-auto object-contain brightness-0 invert opacity-40" />}
+              </div>
+            </div>
+          </div>
+        );
+      case 'classic':
+        return (
+          <div 
+            className="w-full border-2 rounded-3xl overflow-hidden shadow-xl relative"
+            style={{ backgroundColor: "#fdfbf7", color: "#433322", borderColor: "#e5e0d8" }}
+          >
+             <div className="absolute -left-3 top-[40%] h-6 w-6 rounded-full bg-[#0a0a0a]" />
+             <div className="absolute -right-3 top-[40%] h-6 w-6 rounded-full bg-[#0a0a0a]" />
+             <div className="p-8 text-center border-b-2 border-dashed border-[#e5e0d8]">
+                <h2 className="text-3xl font-serif italic mb-1">{data.event_name}</h2>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-[#a09488]">Admission Pass • #{data.booking_code}</p>
+             </div>
+             <div className="p-8 flex flex-col md:flex-row items-center gap-8">
+                <div className="p-2 bg-white border border-[#e5e0d8] rounded-lg">
+                  <QRCodeSVG value={code} size={130} />
+                </div>
+                <div className="flex-1 space-y-4 text-left w-full">
+                  <div>
+                    <p className="text-[9px] font-bold uppercase text-[#a09488]">Attendee Details</p>
+                    <p className="text-sm font-bold">{data.attendee.answers.slice(0, 2).map(a => a.value).join(" • ")}</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-bold uppercase text-[#a09488]">Venue & Date</p>
+                    <p className="text-xs font-medium">{data.venue || "TBA"} • {formattedDate}</p>
+                  </div>
+                </div>
+             </div>
+          </div>
+        );
+      case 'dark':
+      default:
+        return (
+          <div 
+            className="relative flex flex-col md:flex-row bg-[#111111] border border-white/5 rounded-[2rem] overflow-hidden shadow-2xl hover:border-[#36f4a4]/20 transition-all duration-500"
+          >
+            <div className="w-full md:w-64 p-8 flex flex-col items-center justify-center bg-white text-black border-b md:border-b-0 md:border-r border-dashed border-zinc-300">
+              <div className="p-3 bg-white rounded-xl shadow-inner border border-zinc-100 mb-4">
+                <QRCodeSVG value={code} size={160} level="H" />
+              </div>
+              <div className="text-center space-y-1">
+                <p className="text-[10px] font-black uppercase tracking-widest opacity-40">Scan to Check-in</p>
+                <p className="text-sm font-mono font-bold tracking-tighter">{code}</p>
+              </div>
+            </div>
+            <div className="flex-1 p-8 md:p-12 relative flex flex-col justify-between">
+              <div className="space-y-8">
+                <div className="flex justify-between items-start">
+                  <div className="space-y-2">
+                    <p className="text-[#36f4a4] text-xs font-black uppercase tracking-[0.2em]">Admission Pass</p>
+                    <h2 className="text-3xl font-black tracking-tight">{data.event_name}</h2>
+                  </div>
+                  {displayLogo && <img src={displayLogo} alt="Logo" className="h-12 w-auto object-contain" />}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                  <div className="flex items-start gap-3">
+                    <Calendar className="h-5 w-5 text-zinc-500 mt-0.5" />
+                    <div>
+                      <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Date & Time</p>
+                      <p className="text-sm font-bold text-zinc-200">{formattedDate}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <MapPin className="h-5 w-5 text-zinc-500 mt-0.5" />
+                    <div>
+                      <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Venue</p>
+                      <p className="text-sm font-bold text-zinc-200">{data.venue || "Global Event (Online)"}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-12 flex items-center gap-2 text-[9px] font-bold text-zinc-600 uppercase tracking-widest">
+                <ShieldCheck className="h-3 w-3" /> Encrypted & Verified by NochBot
+              </div>
+            </div>
+          </div>
+        );
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white p-6 md:p-12 selection:bg-[#36f4a4]/30">
+    <div className="min-h-screen bg-[#0a0a0a] text-white p-6 md:p-12">
       <div className="max-w-4xl mx-auto space-y-12">
-        
-        {/* Header - Hidden on Print */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 print:hidden animate-in fade-in slide-in-from-top-4 duration-500">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 print:hidden">
           <div>
             <div className="flex items-center gap-2 text-[#36f4a4] mb-2">
               <CheckCircle2 className="h-5 w-5" />
@@ -122,119 +276,21 @@ function TicketViewContent() {
             >
               <Printer className="mr-2 h-4 w-4" /> Print Tickets
             </Button>
-            <Button 
-              variant="outline" 
-              disabled
-              className="border-white/10 text-white/50 rounded-full px-6 cursor-not-allowed"
-            >
-              <Download className="mr-2 h-4 w-4" /> Save as PDF
-            </Button>
           </div>
         </div>
 
-        {/* Tickets Grid */}
         <div className="grid gap-8">
           {data.ticket_codes.map((code, index) => (
-            <div 
-              key={code} 
-              className="relative flex flex-col md:flex-row bg-[#111111] border border-white/5 rounded-[2rem] overflow-hidden shadow-2xl hover:border-[#36f4a4]/20 transition-all duration-500 animate-in fade-in slide-in-from-bottom-8"
-              style={{ animationDelay: `${index * 150}ms` }}
-            >
-              {/* Left Section - QR Code */}
-              <div className="w-full md:w-64 p-8 flex flex-col items-center justify-center bg-white text-black border-b md:border-b-0 md:border-r border-dashed border-zinc-300">
-                <div className="p-3 bg-white rounded-xl shadow-inner border border-zinc-100 mb-4">
-                  <QRCodeSVG value={code} size={160} level="H" />
-                </div>
-                <div className="text-center space-y-1">
-                  <p className="text-[10px] font-black uppercase tracking-widest opacity-40">Scan to Check-in</p>
-                  <p className="text-sm font-mono font-bold tracking-tighter">{code}</p>
-                </div>
-                
-                {/* Visual Perforation Dots */}
-                <div className="hidden md:block absolute -right-3 top-0 bottom-0 flex flex-col justify-around py-4 opacity-20 pointer-events-none">
-                  {[...Array(12)].map((_, i) => (
-                    <div key={i} className="h-1.5 w-1.5 rounded-full bg-black" />
-                  ))}
-                </div>
-              </div>
-
-              {/* Right Section - Details */}
-              <div className="flex-1 p-8 md:p-12 relative flex flex-col justify-between">
-                {/* Template Badge */}
-                <div className="absolute top-6 right-8 opacity-20 hidden md:block">
-                  <Badge variant="outline" className="border-white/20 text-[10px] uppercase font-bold tracking-widest">
-                    Ticket {index + 1} of {data.quantity}
-                  </Badge>
-                </div>
-
-                <div className="space-y-8">
-                  <div className="space-y-2">
-                    <p className="text-[#36f4a4] text-xs font-black uppercase tracking-[0.2em]">Admission Pass</p>
-                    <h2 className="text-3xl font-black tracking-tight">{data.event_name}</h2>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-                    <div className="flex items-start gap-3">
-                      <Calendar className="h-5 w-5 text-zinc-500 mt-0.5" />
-                      <div>
-                        <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Date & Time</p>
-                        <p className="text-sm font-bold text-zinc-200">{formattedDate}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <MapPin className="h-5 w-5 text-zinc-500 mt-0.5" />
-                      <div>
-                        <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Venue</p>
-                        <p className="text-sm font-bold text-zinc-200">{data.venue || "Global Event (Online)"}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="pt-8 border-t border-white/5 grid grid-cols-1 sm:grid-cols-2 gap-8">
-                    <div className="flex items-start gap-3">
-                      <User className="h-5 w-5 text-zinc-500 mt-0.5" />
-                      <div>
-                        <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Attendee</p>
-                        <div className="space-y-1">
-                          {data.attendee.answers.slice(0, 3).map((ans, i) => (
-                            <p key={i} className="text-xs font-medium text-zinc-300">
-                              <span className="text-zinc-500 font-bold mr-1">{ans.label}:</span> {ans.value}
-                            </p>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <FileText className="h-5 w-5 text-zinc-500 mt-0.5" />
-                      <div>
-                        <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Booking Info</p>
-                        <p className="text-xs font-medium text-zinc-300">Order Ref: <span className="font-bold text-[#36f4a4]">{data.booking_code}</span></p>
-                        <p className="text-xs font-medium text-zinc-400 mt-1">Issued: {new Date().toLocaleDateString()}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-12 flex items-center gap-2 text-[9px] font-bold text-zinc-600 uppercase tracking-widest">
-                  <ShieldCheck className="h-3 w-3" /> Encrypted & Verified by NochBot
-                </div>
-              </div>
+            <div key={code}>
+              {renderTemplate(code, index)}
             </div>
           ))}
         </div>
 
-        {/* Footer Info */}
-        <div className="text-center space-y-4 pt-12 print:hidden border-t border-white/5 animate-in fade-in duration-1000 delay-500">
+        <div className="text-center space-y-4 pt-12 print:hidden border-t border-white/5">
           <p className="text-zinc-500 text-xs italic">
             Please present the QR code(s) above at the entrance. Each code is valid for one-time check-in.
           </p>
-          <div className="flex items-center justify-center gap-6">
-            <span className="text-[10px] text-zinc-700 font-bold uppercase tracking-widest">Secure Booking</span>
-            <div className="h-1 w-1 rounded-full bg-zinc-800" />
-            <span className="text-[10px] text-zinc-700 font-bold uppercase tracking-widest">Instant Delivery</span>
-            <div className="h-1 w-1 rounded-full bg-zinc-800" />
-            <span className="text-[10px] text-zinc-700 font-bold uppercase tracking-widest">Support: support@nochbot.space</span>
-          </div>
         </div>
       </div>
 
@@ -242,14 +298,8 @@ function TicketViewContent() {
         @media print {
           body { background: white !important; color: black !important; }
           .min-h-screen { min-height: auto !important; padding: 0 !important; background: white !important; }
-          .bg-[#111111] { background: white !important; border: 1px solid #e5e7eb !important; }
           .text-white { color: black !important; }
-          .text-zinc-400, .text-zinc-500 { color: #4b5563 !important; }
-          .shadow-2xl { shadow: none !important; }
-          .border-white\\/5 { border-color: #e5e7eb !important; }
-          .QRCodeSVG { width: 140px !important; height: 140px !important; }
-          .flex-col { flex-direction: column !important; }
-          .md\\:flex-row { flex-direction: row !important; }
+          .print\:hidden { display: none !important; }
         }
       `}</style>
     </div>

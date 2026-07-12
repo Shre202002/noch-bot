@@ -56,6 +56,7 @@ export async function GET(
       (booking.payment_status === "not_required" || booking.payment_status === "paid");
 
     return NextResponse.json({
+      booking_id: booking._id.toString(),
       status: booking.status,
       payment_status: booking.payment_status,
       booking_code: booking.booking_code,

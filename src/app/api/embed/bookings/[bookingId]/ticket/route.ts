@@ -50,9 +50,13 @@ export async function GET(
       }, { status: 409, headers: corsHeaders });
     }
 
+    // Fetch latest design branding from event
+    const event = await db.collection("events").findOne({ _id: booking.event_id });
+
     return NextResponse.json({
       success: true,
       ticket_data: {
+        booking_id: booking._id.toString(),
         booking_code: booking.booking_code,
         event_name: booking.event_snapshot.name,
         date: booking.event_snapshot.start_at,
@@ -60,7 +64,11 @@ export async function GET(
         attendee: booking.attendee,
         quantity: booking.quantity,
         ticket_codes: booking.ticket_codes,
-        template_id: booking.event_snapshot.ticket_template_id
+        template_id: event?.ticket_template_id || booking.event_snapshot.ticket_template_id || "dark",
+        logo_url: event?.logo_url,
+        bg_removed_logo_url: event?.bg_removed_logo_url,
+        remove_background: !!event?.remove_background,
+        ticket_color_palette: event?.ticket_color_palette
       }
     }, { headers: corsHeaders });
   } catch (error) {
