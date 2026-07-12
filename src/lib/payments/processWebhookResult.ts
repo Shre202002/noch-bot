@@ -20,68 +20,77 @@ export async function processPaymentWebhookResult({
 }: ProcessParams) {
   const db = await getDb();
 
-  // 1. Idempotency Check
-  const existingEvent = await db.collection('payment_webhook_events').findOne({
-    provider,
-    org_id: orgId,
-    provider_event_id: result.providerEventId
-  });
-
-  if (existingEvent && existingEvent.processed) {
-    return { success: true, message: 'Already processed' };
-  }
-
-  // Record the event if it doesn't exist
-  if (!existingEvent) {
+  // 1. Idempotency Check (Race-safe via insert attempt)
+  try {
     await db.collection('payment_webhook_events').insertOne({
       provider,
       org_id: orgId,
       provider_event_id: result.providerEventId,
-      booking_id: result.bookingId ? new ObjectId(result.bookingId) : null,
+      booking_id: result.bookingId && ObjectId.isValid(result.bookingId) ? new ObjectId(result.bookingId) : null,
       status: result.status,
       processed: false,
       raw_payload: result.rawPayload,
       created_at: new Date()
     });
+  } catch (err: any) {
+    if (err.code === 11000) {
+      return { success: true, message: 'Already received' };
+    }
+    throw err;
   }
 
   // 2. Identify Booking
-  let bookingId: ObjectId | null = null;
+  let booking: any = null;
+  
   if (result.bookingId && ObjectId.isValid(result.bookingId)) {
-    bookingId = new ObjectId(result.bookingId);
-  }
-
-  // If no direct bookingId, try to match by provider order ID
-  if (!bookingId && result.rawPayload) {
-    const providerOrderId = result.rawPayload.payload?.order?.entity?.id || 
-                            result.rawPayload.payload?.payment?.entity?.order_id ||
-                            result.rawPayload.id; // Stripe session ID
-    
-    const matchedBooking = await db.collection('bookings').findOne({
-      org_id: orgId,
-      "payment.provider_order_id": providerOrderId
+    booking = await db.collection('bookings').findOne({
+      _id: new ObjectId(result.bookingId),
+      org_id: orgId
     });
-    if (matchedBooking) bookingId = matchedBooking._id!;
   }
 
-  if (!bookingId) {
-    console.warn(`[webhook_${provider}] Could not identify booking for event: ${result.providerEventId}`);
-    return { success: false, message: 'Booking not found' };
+  // Fallback: match by provider order ID if direct bookingId failed
+  if (!booking && result.providerOrderId) {
+    booking = await db.collection('bookings').findOne({
+      org_id: orgId,
+      "payment.provider_order_id": result.providerOrderId
+    });
   }
+
+  if (!booking) {
+    await db.collection('payment_webhook_events').updateOne(
+      { provider, org_id: orgId, provider_event_id: result.providerEventId },
+      { $set: { processed: true, processing_status: 'unmatched', processed_at: new Date() } }
+    );
+    return { success: true, message: 'Booking not found' };
+  }
+
+  const bookingId = booking._id;
 
   // 3. Process Status Transition
   if (result.status === 'paid') {
-    // ATOMIC UPDATE: Only confirm if currently pending and not expired
     const now = new Date();
+    const isExpired = booking.expires_at && booking.expires_at < now;
+
+    if (isExpired) {
+      // Paid but late - log for manual reconciliation
+      await db.collection('payment_webhook_events').updateOne(
+        { provider, org_id: orgId, provider_event_id: result.providerEventId },
+        { $set: { processed: true, processing_status: 'late_payment', processed_at: now } }
+      );
+      await db.collection('payment_attempts').updateOne(
+        { booking_id: bookingId, provider, status: 'checkout_pending' },
+        { $set: { status: 'paid_after_expiry', provider_payment_id: result.providerPaymentId, updated_at: now } }
+      );
+      return { success: true, message: 'Payment after expiry' };
+    }
+
+    // ATOMIC UPDATE: Only confirm if currently pending
     const updateResult = await db.collection('bookings').findOneAndUpdate(
       {
         _id: bookingId,
         org_id: orgId,
-        status: 'pending_payment',
-        $or: [
-          { expires_at: { $gt: now } },
-          { expires_at: { $exists: false } }
-        ]
+        status: 'pending_payment'
       },
       {
         $set: {
@@ -89,7 +98,8 @@ export async function processPaymentWebhookResult({
           payment_status: 'paid',
           confirmed_at: now,
           updated_at: now,
-          "payment.provider_payment_id": result.providerEventId,
+          "payment.provider_payment_id": result.providerPaymentId,
+          "payment.provider_order_id": result.providerOrderId || booking.payment?.provider_order_id,
           "payment.raw_webhook_event_id": result.providerEventId
         }
       },
@@ -97,10 +107,10 @@ export async function processPaymentWebhookResult({
     );
 
     if (updateResult) {
-      const booking = updateResult as any;
+      const updatedBooking = updateResult as any;
       
-      // Generate tickets and populate the codes array on the booking
-      const tickets = await issueTicketsForBooking(booking);
+      // Generate tickets
+      const tickets = await issueTicketsForBooking(updatedBooking);
       const ticketCodes = tickets.map(t => t.ticket_code);
       
       await db.collection('bookings').updateOne(
@@ -108,26 +118,24 @@ export async function processPaymentWebhookResult({
         { $set: { ticket_codes: ticketCodes } }
       );
 
-      // Update related records
+      // Update related sessions
       await db.collection('booking_sessions').updateOne(
         { booking_id: bookingId },
         { $set: { status: 'confirmed', current_step: 'complete', updated_at: now } }
       );
 
+      // Update payment attempt record
       await db.collection('payment_attempts').updateOne(
-        { booking_id: bookingId, provider },
+        { booking_id: bookingId, provider, status: 'checkout_pending' },
         { 
           $set: { 
             status: 'paid', 
+            provider_payment_id: result.providerPaymentId,
             raw_webhook_response: result.rawPayload,
             updated_at: now 
           } 
         }
       );
-
-      console.log(`[webhook_${provider}] Booking ${bookingId} confirmed successfully.`);
-    } else {
-      console.warn(`[webhook_${provider}] Booking ${bookingId} was not in a confirmable state (possibly expired or already processed).`);
     }
   } else if (result.status === 'failed') {
     await db.collection('bookings').updateOne(
@@ -136,7 +144,7 @@ export async function processPaymentWebhookResult({
     );
 
     await db.collection('payment_attempts').updateOne(
-      { booking_id: bookingId, provider },
+      { booking_id: bookingId, provider, status: 'checkout_pending' },
       { $set: { status: 'failed', raw_webhook_response: result.rawPayload, updated_at: new Date() } }
     );
   }
@@ -144,7 +152,7 @@ export async function processPaymentWebhookResult({
   // Mark webhook as processed
   await db.collection('payment_webhook_events').updateOne(
     { provider, org_id: orgId, provider_event_id: result.providerEventId },
-    { $set: { processed: true, processed_at: new Date() } }
+    { $set: { processed: true, processed_at: new Date(), processing_status: 'completed' } }
   );
 
   return { success: true };

@@ -68,8 +68,15 @@ export class RazorpayAdapter implements PaymentGatewayAdapter {
       let status: WebhookResult['status'] = 'other';
       let bookingId: string | null = null;
 
-      const entity = payload.payload.order?.entity || payload.payload.payment?.entity;
-      bookingId = entity?.notes?.bookingId || entity?.receipt || null;
+      const paymentEntity = payload.payload.payment?.entity;
+      const orderEntity = payload.payload.order?.entity;
+
+      // Extract IDs for matching
+      const providerPaymentId = paymentEntity?.id;
+      const providerOrderId = orderEntity?.id || paymentEntity?.order_id;
+
+      // Identify Booking
+      bookingId = paymentEntity?.notes?.bookingId || orderEntity?.notes?.bookingId || orderEntity?.receipt || null;
 
       if (event === 'order.paid' || event === 'payment.captured') {
         status = 'paid';
@@ -82,6 +89,8 @@ export class RazorpayAdapter implements PaymentGatewayAdapter {
         bookingId,
         status,
         rawPayload: payload,
+        providerPaymentId,
+        providerOrderId
       };
     } catch (err) {
       console.error('[RazorpayAdapter] Webhook error:', err);

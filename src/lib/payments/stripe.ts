@@ -58,15 +58,20 @@ export class StripeAdapter implements PaymentGatewayAdapter {
       
       let bookingId: string | null = null;
       let status: WebhookResult['status'] = 'other';
+      let providerPaymentId: string | undefined;
+      let providerOrderId: string | undefined;
 
       if (event.type === 'checkout.session.completed') {
         const session = event.data.object as Stripe.Checkout.Session;
         bookingId = session.metadata?.bookingId || session.client_reference_id || null;
         status = session.payment_status === 'paid' ? 'paid' : 'failed';
+        providerPaymentId = typeof session.payment_intent === 'string' ? session.payment_intent : undefined;
+        providerOrderId = session.id;
       } else if (event.type === 'checkout.session.async_payment_failed') {
         const session = event.data.object as Stripe.Checkout.Session;
         bookingId = session.metadata?.bookingId || null;
         status = 'failed';
+        providerOrderId = session.id;
       }
 
       return {
@@ -74,6 +79,8 @@ export class StripeAdapter implements PaymentGatewayAdapter {
         bookingId,
         status,
         rawPayload: event,
+        providerPaymentId,
+        providerOrderId
       };
     } catch (err) {
       return null;

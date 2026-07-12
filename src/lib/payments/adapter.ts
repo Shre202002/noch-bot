@@ -20,6 +20,8 @@ export interface WebhookResult {
   bookingId: string | null;
   status: 'paid' | 'failed' | 'other';
   rawPayload: any;
+  providerPaymentId?: string;
+  providerOrderId?: string;
 }
 
 export interface CheckoutResult {
