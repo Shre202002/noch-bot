@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
@@ -7,8 +6,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { 
   ArrowLeft, Loader2, Save, Rocket, Plus, Trash2, 
   Settings, FormInput, CreditCard, GripVertical, Pencil,
-  CalendarIcon, CheckCircle2, AlertCircle, Layout, QrCode,
-  ExternalLink, Upload, Mail, Scissors, Check, ShieldCheck, RefreshCcw,
+  CalendarIcon, CheckCircle2, AlertCircle, Layout,
+  Mail, Scissors, Check, ShieldCheck, RefreshCcw,
   Palette, RotateCcw
 } from "lucide-react";
 import Link from "next/link";
@@ -66,7 +65,7 @@ import {
   sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
-} from "@radix-ui/sortable";
+} from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
 interface FormField {
