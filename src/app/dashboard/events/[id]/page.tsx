@@ -768,10 +768,19 @@ function SortableFieldItem({
 
 function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () => void }) {
   const { toast } = useToast();
-  const [templateId, setTemplateId] = useState(event.ticket_template_id || "dark");
-  const [palette, setPalette] = useState<TicketColorPalette>(
-    event.ticket_color_palette || TICKET_TEMPLATE_DEFAULT_PALETTES[event.ticket_template_id || "dark"]
-  );
+  
+  // Hardened initialization logic to prevent undefined palette state
+  const initialTemplateId = useMemo(() => {
+    const tid = event.ticket_template_id;
+    return (tid && TICKET_TEMPLATE_DEFAULT_PALETTES[tid]) ? tid : "dark";
+  }, [event.ticket_template_id]);
+
+  const [templateId, setTemplateId] = useState(initialTemplateId);
+  const [palette, setPalette] = useState<TicketColorPalette>(() => {
+    if (event.ticket_color_palette) return event.ticket_color_palette;
+    return TICKET_TEMPLATE_DEFAULT_PALETTES[initialTemplateId] || TICKET_TEMPLATE_DEFAULT_PALETTES.dark;
+  });
+  
   const [uploading, setUploading] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
   const [isSavingPalette, setIsSavingPalette] = useState(false);
@@ -786,7 +795,7 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
 
   const handleTemplateChange = async (id: string) => {
     setTemplateId(id);
-    const defaultPalette = TICKET_TEMPLATE_DEFAULT_PALETTES[id];
+    const defaultPalette = TICKET_TEMPLATE_DEFAULT_PALETTES[id] || TICKET_TEMPLATE_DEFAULT_PALETTES.dark;
     setPalette(defaultPalette);
     
     await fetch(`/api/events/${event._id}/ticket-design`, {
@@ -828,7 +837,7 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
   };
 
   const handleResetPalette = async () => {
-    const defaultPalette = TICKET_TEMPLATE_DEFAULT_PALETTES[templateId];
+    const defaultPalette = TICKET_TEMPLATE_DEFAULT_PALETTES[templateId] || TICKET_TEMPLATE_DEFAULT_PALETTES.dark;
     setPalette(defaultPalette);
     await savePalette(defaultPalette);
     toast({ title: "Palette Reset", description: "Reverted to template defaults." });
@@ -946,18 +955,18 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
     <div className="space-y-2">
       <div className="flex justify-between items-center">
         <Label className="text-[11px] uppercase tracking-wider text-white/50">{label}</Label>
-        <span className="text-[10px] font-mono text-white/30">{value.toUpperCase()}</span>
+        <span className="text-[10px] font-mono text-white/30">{(value || "").toUpperCase()}</span>
       </div>
       <div className="flex items-center gap-2 p-1.5 rounded-lg bg-black/40 border border-white/5">
         <input 
           type="color" 
-          value={value} 
+          value={value || "#000000"} 
           onChange={(e) => handleColorChange(paletteKey, e.target.value)}
           className="h-7 w-12 bg-transparent border-none cursor-pointer rounded overflow-hidden"
         />
         <div className="h-4 w-[1px] bg-white/5" />
         <Input 
-          value={value} 
+          value={value || ""} 
           onChange={(e) => handleColorChange(paletteKey, e.target.value)}
           className="h-7 bg-transparent border-none text-[12px] font-mono p-0 focus-visible:ring-0" 
         />
