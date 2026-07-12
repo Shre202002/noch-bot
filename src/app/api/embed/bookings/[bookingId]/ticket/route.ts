@@ -1,3 +1,4 @@
+
 import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/db";
@@ -50,8 +51,11 @@ export async function GET(
       }, { status: 409, headers: corsHeaders });
     }
 
-    // Fetch latest design branding from event
-    const event = await db.collection("events").findOne({ _id: booking.event_id });
+    // Fetch latest design branding from event, scoped by org_id for security
+    const event = await db.collection("events").findOne({ 
+      _id: booking.event_id, 
+      org_id: userId 
+    });
 
     return NextResponse.json({
       success: true,
