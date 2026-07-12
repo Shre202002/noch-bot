@@ -650,7 +650,14 @@ export default function EventDetailPage() {
                 <Label>Input Type</Label>
                 <Select 
                   value={editingField.field_type} 
-                  onValueChange={v => setEditingField({...editingField, field_type: v})}
+                  onValueChange={v => {
+                    const updates: Partial<FormField> = { field_type: v };
+                    // Auto-switch validation for phone
+                    if (v === 'phone' && (editingField.validation_rule === 'none' || editingField.validation_rule === 'name_format')) {
+                      updates.validation_rule = 'phone_format';
+                    }
+                    setEditingField({...editingField, ...updates});
+                  }}
                 >
                   <SelectTrigger className="bg-black/40 border-white/10 text-white cursor-pointer">
                     <SelectValue />
@@ -774,7 +781,9 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
 
   const [templateId, setTemplateId] = useState(initialTemplateId);
   const [palette, setPalette] = useState<TicketColorPalette>(() => {
-    if (event.ticket_color_palette) return event.ticket_color_palette;
+    if (event.ticket_color_palette && Object.keys(event.ticket_color_palette).length > 0) {
+      return event.ticket_color_palette;
+    }
     return TICKET_TEMPLATE_DEFAULT_PALETTES[initialTemplateId] || TICKET_TEMPLATE_DEFAULT_PALETTES.dark;
   });
   
@@ -785,7 +794,7 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    if (event.ticket_color_palette) {
+    if (event.ticket_color_palette && Object.keys(event.ticket_color_palette).length > 0) {
       setPalette(event.ticket_color_palette);
     }
   }, [event.ticket_color_palette]);

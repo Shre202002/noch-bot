@@ -1,7 +1,8 @@
 (function() {
+  // Use unique keys per userId to avoid conflicts between different NochBot accounts on same domain
   const script = document.currentScript;
-  const userId = script.getAttribute("data-user-id");
-  if (!userId) return;
+  const userId = script.getAttribute('data-user-id');
+  if (!userId) return console.error('NochBot: Missing data-user-id');
 
   const API_BASE = new URL(script.src).origin;
   const VISITOR_KEY = "nb_visitor_" + userId;
@@ -9,25 +10,34 @@
   const BOOKING_KEY = "nb_booking_" + userId;
 
   const state = {
-    open: false,
+    isOpen: false,
     messages: [],
-    loading: false,
     events: [],
-    bookingPriorityMode: false,
-    visitorId: localStorage.getItem(VISITOR_KEY) || crypto.randomUUID(),
-    chatSessionId: sessionStorage.getItem(SESSION_KEY) || crypto.randomUUID(),
+    loading: false,
+    botName: "Assistant",
+    botColor: "#6366f1",
+    botIcon: "",
+    userId: userId,
+    visitorId: localStorage.getItem(VISITOR_KEY) || null,
+    chatSessionId: sessionStorage.getItem(SESSION_KEY) || null,
     activeBookingSession: null,
-    theme: {
-      bubbleColor: "#36f4a4",
-      headerColor: "#36f4a4",
-      userMsgColor: "#36f4a4",
-      sendBtnColor: "#36f4a4",
-      accentColor: "#36f4a4"
-    }
+    bookingPriorityMode: false,
+    eventFields: {} // Cache for form fields
   };
 
-  localStorage.setItem(VISITOR_KEY, state.visitorId);
-  sessionStorage.setItem(SESSION_KEY, state.chatSessionId);
+  // ── Initialization ─────────────────────────────────────────────────────────
+  if (!state.visitorId) {
+    state.visitorId = crypto.randomUUID();
+    localStorage.setItem(VISITOR_KEY, state.visitorId);
+  }
+  if (!state.chatSessionId) {
+    state.chatSessionId = crypto.randomUUID();
+    sessionStorage.setItem(SESSION_KEY, state.chatSessionId);
+  }
+
+  const corsHeaders = {
+    'Content-Type': 'application/json'
+  };
 
   function escapeHtml(value) {
     return String(value ?? "")
@@ -38,334 +48,422 @@
       .replaceAll("'", "&#039;");
   }
 
+  // Fetch bot config & active events
   async function init() {
     try {
-      const [eventsRes, themeRes] = await Promise.all([
-        fetch(`${API_BASE}/api/embed/events?userId=${userId}`),
-        fetch(`${API_BASE}/api/theme?userId=${userId}`)
+      const [configRes, eventsRes] = await Promise.all([
+        fetch(`${API_BASE}/api/knowledge/config?userId=${userId}`),
+        fetch(`${API_BASE}/api/embed/events?userId=${userId}`)
       ]);
 
-      const eventsData = await eventsRes.json();
-      state.events = eventsData.events || [];
-      state.bookingPriorityMode = state.events.length > 0;
-
-      const themeData = await themeRes.json();
-      if (themeData.theme) state.theme = themeData.theme;
-
-      injectStyles();
-      createWidget();
-
-      // Check for resume
-      const storedBooking = localStorage.getItem(BOOKING_KEY);
-      if (storedBooking) {
-        const booking = JSON.parse(storedBooking);
-        checkBookingStatus(booking.bookingId);
+      if (configRes.ok) {
+        const config = await configRes.json();
+        if (config.botName) state.botName = config.botName;
+        if (config.botColor) state.botColor = config.botColor;
+        if (config.botIcon) state.botIcon = config.botIcon;
       }
-    } catch (e) {
-      console.error("NochBot init failed", e);
-      // Fallback
-      injectStyles();
-      createWidget();
+
+      if (eventsRes.ok) {
+        const eventsData = await eventsRes.json();
+        state.events = eventsData.events || [];
+        state.bookingPriorityMode = state.events.length > 0;
+      }
+      
+      render();
+      if (state.bookingPriorityMode) {
+        // Only trigger booking-centric greeting if no normal chat has started
+        if (state.messages.length === 0) {
+          sendBotGreeting();
+        }
+      }
+      
+      checkBookingResume();
+    } catch (err) {
+      console.warn('NochBot: Startup failed', err);
+      // Fallback: render UI anyway for basic Q&A
+      state.bookingPriorityMode = false;
+      render();
     }
   }
 
-  function injectStyles() {
-    const style = document.createElement("style");
-    style.textContent = `
-      #nb-bubble { position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px; border-radius: 50%; background: ${state.theme.bubbleColor}; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 999999; transition: transform 0.2s; }
-      #nb-bubble:hover { transform: scale(1.05); }
-      #nb-window { position: fixed; bottom: 90px; right: 20px; width: 380px; height: 600px; max-height: calc(100vh - 110px); background: #fff; border-radius: 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.15); z-index: 999999; display: none; flex-direction: column; overflow: hidden; font-family: system-ui, -apple-system, sans-serif; }
-      #nb-header { background: ${state.theme.headerColor}; padding: 16px; color: #fff; display: flex; align-items: center; justify-content: space-between; }
-      #nb-messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
-      .nb-msg { max-width: 85%; padding: 10px 14px; border-radius: 14px; font-size: 14px; line-height: 1.5; }
-      .nb-bot-msg { background: #f3f4f6; color: #1f2937; align-self: flex-start; border-bottom-left-radius: 4px; }
-      .nb-user-msg { background: ${state.theme.userMsgColor}; color: #fff; align-self: flex-end; border-bottom-right-radius: 4px; }
-      #nb-input-area { padding: 16px; border-top: 1px solid #f3f4f6; display: flex; gap: 8px; }
-      #nb-input { flex: 1; border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px 12px; font-size: 14px; outline: none; }
-      #nb-send { background: ${state.theme.sendBtnColor}; color: #fff; border: none; border-radius: 8px; padding: 8px 16px; cursor: pointer; font-weight: 600; }
-      .nb-card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; margin: 8px 0; background: #fff; }
-      .nb-btn { display: block; width: 100%; padding: 10px; border-radius: 8px; border: 1px solid ${state.theme.accentColor}; background: #fff; color: ${state.theme.accentColor}; font-weight: 600; cursor: pointer; margin-top: 8px; text-align: center; font-size: 13px; }
-      .nb-btn-primary { background: ${state.theme.accentColor} !important; color: #fff !important; }
-    `;
-    document.head.appendChild(style);
+  async function checkBookingResume() {
+    const stored = localStorage.getItem(BOOKING_KEY);
+    if (!stored) return;
+
+    try {
+      const booking = JSON.parse(stored);
+      if (booking.bookingId) {
+        const res = await fetch(`${API_BASE}/api/embed/bookings/${booking.bookingId}/status?userId=${userId}&visitorId=${state.visitorId}`);
+        if (!res.ok) return;
+        const statusData = await res.json();
+        
+        if (statusData.status === "confirmed" && statusData.can_download_ticket) {
+          addMessage("bot", `Great news! Your booking **${statusData.booking_code}** is confirmed. You can view your tickets below.`);
+          renderTicketCard(statusData);
+          localStorage.removeItem(BOOKING_KEY);
+        } else if (statusData.status === "pending_payment") {
+          // Already handled by initial greeting or persistent session check
+        } else if (["expired", "failed", "cancelled"].includes(statusData.status)) {
+          localStorage.removeItem(BOOKING_KEY);
+        }
+      }
+    } catch (e) {}
   }
 
-  function createWidget() {
-    const bubble = document.createElement("div");
-    bubble.id = "nb-bubble";
-    bubble.innerHTML = '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
+  function sendBotGreeting() {
+    if (state.events.length === 1) {
+      const e = state.events[0];
+      addMessage("bot", `Hello! I'm ${state.botName}. Would you like to book tickets for **${escapeHtml(e.name)}**?`);
+      renderEventCard(e);
+    } else {
+      addMessage("bot", `Hello! I'm ${state.botName}. We have ${state.events.length} active events. Which one would you like to attend?`);
+      renderEventList(state.events);
+    }
+  }
+
+  // ── UI Components ──────────────────────────────────────────────────────────
+  const styles = `
+    #nb-widget { font-family: system-ui, -apple-system, sans-serif; position: fixed; bottom: 24px; right: 24px; z-index: 999999; display: flex; flex-direction: column; align-items: flex-end; }
+    #nb-bubble { width: 56px; height: 56px; border-radius: 50%; display: flex; items-center; justify-content: center; cursor: pointer; box-shadow: 0 4px 16px rgba(0,0,0,0.2); transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+    #nb-bubble:hover { transform: scale(1.08); }
+    #nb-bubble svg { width: 24px; height: 24px; color: white; }
+    #nb-window { width: 360px; height: 600px; max-height: 80vh; background: #fff; border-radius: 20px; box-shadow: 0 12px 40px rgba(0,0,0,0.15); display: none; flex-direction: column; overflow: hidden; margin-bottom: 16px; border: 1px solid #f1f1f1; }
+    #nb-header { padding: 16px 20px; color: white; display: flex; align-items: center; gap: 12px; font-size: 14px; font-weight: 600; }
+    #nb-messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; background: #f9fafb; scroll-behavior: smooth; }
+    .nb-msg { max-width: 80%; padding: 10px 14px; border-radius: 18px; font-size: 13.5px; line-height: 1.5; word-wrap: break-word; }
+    .nb-msg-bot { background: #fff; color: #1f2937; align-self: flex-start; border-bottom-left-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); border: 1px solid #f1f1f1; }
+    .nb-msg-user { background: var(--nb-color); color: #fff; align-self: flex-end; border-bottom-right-radius: 4px; }
+    #nb-input-area { padding: 16px; background: #fff; border-top: 1px solid #f1f1f1; display: flex; gap: 10px; }
+    #nb-input { flex: 1; border: 1.5px solid #e5e7eb; border-radius: 24px; padding: 8px 16px; font-size: 13.5px; outline: none; transition: border-color 0.2s; }
+    #nb-input:focus { border-color: var(--nb-color); }
+    #nb-send { background: var(--nb-color); border: none; border-radius: 50%; width: 36px; height: 36px; cursor: pointer; display: flex; items-center; justify-content: center; color: white; transition: opacity 0.2s; }
+    #nb-send:disabled { opacity: 0.5; cursor: not-allowed; }
     
-    const chatWindow = document.createElement("div");
-    chatWindow.id = "nb-window";
-    chatWindow.innerHTML = `
-      <div id="nb-header">
-        <span style="font-weight:700">AI Assistant</span>
-        <span id="nb-close" style="cursor:pointer">✕</span>
-      </div>
-      <div id="nb-messages"></div>
-      <div id="nb-input-area">
-        <input type="text" id="nb-input" placeholder="Type a message...">
-        <button id="nb-send">Send</button>
-      </div>
-    `;
+    .nb-card { background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; margin-top: 8px; width: 100%; box-sizing: border-box; }
+    .nb-btn { width: 100%; background: var(--nb-color); color: white; border: none; border-radius: 8px; padding: 10px; font-size: 13px; font-weight: 600; cursor: pointer; margin-top: 12px; transition: opacity 0.2s; }
+    .nb-btn-outline { background: transparent; border: 1px solid var(--nb-color); color: var(--nb-color); }
+    .nb-event-item { padding: 12px; border: 1px solid #f1f1f1; border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: background 0.15s; }
+    .nb-event-item:hover { background: #f9fafb; border-color: var(--nb-color); }
+    .nb-event-name { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+    .nb-event-meta { font-size: 11px; color: #6b7280; display: flex; gap: 8px; }
+    
+    .nb-summary-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid #f1f1f1; }
+    .nb-summary-label { color: #6b7280; font-weight: 500; }
+    .nb-summary-val { font-weight: 600; color: #1f2937; }
+    
+    @keyframes nb-fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .nb-animate { animation: nb-fade-in 0.3s ease forwards; }
+  `;
 
-    document.body.appendChild(bubble);
-    document.body.appendChild(chatWindow);
+  function render() {
+    let widget = document.getElementById('nb-widget');
+    if (!widget) {
+      const styleEl = document.createElement('style');
+      styleEl.innerHTML = styles;
+      document.head.appendChild(styleEl);
 
-    bubble.onclick = () => {
-      state.open = !state.open;
-      chatWindow.style.display = state.open ? "flex" : "none";
-      if (state.open && state.messages.length === 0) {
-        sendGreeting();
-      }
-    };
+      widget = document.createElement('div');
+      widget.id = 'nb-widget';
+      widget.innerHTML = `
+        <div id="nb-window">
+          <div id="nb-header" style="background: ${state.botColor}">
+            <div id="nb-avatar" style="width: 32px; height: 32px; border-radius: 50%; background: rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center; font-size: 16px; overflow: hidden">
+              ${state.botIcon ? `<img src="${state.botIcon}" style="width:100%;height:100%;object-fit:cover">` : '🤖'}
+            </div>
+            <div>
+              <div id="nb-bot-name">${escapeHtml(state.botName)}</div>
+              <div style="font-size: 10px; opacity: 0.8">● Online</div>
+            </div>
+          </div>
+          <div id="nb-messages"></div>
+          <div id="nb-input-area">
+            <input id="nb-input" type="text" placeholder="Type a message...">
+            <button id="nb-send">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+            </button>
+          </div>
+        </div>
+        <div id="nb-bubble" style="background: ${state.botColor}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+        </div>
+      `;
+      document.body.appendChild(widget);
 
-    document.getElementById("nb-close").onclick = () => {
-      state.open = false;
-      chatWindow.style.display = "none";
-    };
+      const bubble = document.getElementById('nb-bubble');
+      const win = document.getElementById('nb-window');
+      bubble.addEventListener('click', () => {
+        state.isOpen = !state.isOpen;
+        win.style.display = state.isOpen ? 'flex' : 'none';
+        if (state.isOpen) setTimeout(() => document.getElementById('nb-input').focus(), 100);
+      });
 
-    document.getElementById("nb-send").onclick = () => handleUserInput();
-    document.getElementById("nb-input").onkeydown = (e) => { if (e.key === "Enter") handleUserInput(); };
+      const input = document.getElementById('nb-input');
+      const send = document.getElementById('nb-send');
+      
+      const handleSend = () => {
+        const text = input.value.trim();
+        if (!text || state.loading) return;
+        handleUserMessage(text);
+        input.value = '';
+      };
+
+      send.addEventListener('click', handleSend);
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') handleSend();
+      });
+    }
+
+    // Update colors
+    document.documentElement.style.setProperty('--nb-color', state.botColor);
   }
 
   function addMessage(role, content) {
-    const container = document.getElementById("nb-messages");
-    if (!container) return;
     state.messages.push({ role, content });
-    const msg = document.createElement("div");
-    msg.className = `nb-msg ${role === "bot" ? "nb-bot-msg" : "nb-user-msg"}`;
-    msg.textContent = content;
-    container.appendChild(msg);
-    container.scrollTop = container.scrollHeight;
-  }
-
-  function addHtmlMessage(role, html) {
-    const container = document.getElementById("nb-messages");
+    const container = document.getElementById('nb-messages');
     if (!container) return;
-    const msg = document.createElement("div");
-    msg.className = `nb-msg ${role === "bot" ? "nb-bot-msg" : "nb-user-msg"}`;
-    msg.innerHTML = html;
-    container.appendChild(msg);
+
+    const div = document.createElement('div');
+    div.className = `nb-msg nb-msg-${role} nb-animate`;
+    div.innerText = content;
+    container.appendChild(div);
     container.scrollTop = container.scrollHeight;
   }
 
-  function sendGreeting() {
-    if (state.bookingPriorityMode) {
-      const welcomeText = state.events.length === 1 
-        ? `Hi! Tickets for ${escapeHtml(state.events[0].name)} are available. Would you like to book?`
-        : "Hi! We have some exciting events coming up. Which one would you like to book?";
-      addMessage("bot", welcomeText);
-      renderEventList();
-    } else {
-      addMessage("bot", "Hello! How can I help you today?");
-    }
-  }
-
-  function renderEventList() {
-    state.events.forEach(event => {
-      const date = new Date(event.start_at).toLocaleDateString();
-      const price = event.is_paid ? `${event.currency} ${event.price}` : "Free";
-      const cardHtml = `
-        <div class="nb-card">
-          <div style="font-weight:700;margin-bottom:4px">${escapeHtml(event.name)}</div>
-          <div style="font-size:12px;color:#6b7280">${escapeHtml(date)} • ${escapeHtml(event.venue || "Global")}</div>
-          <div style="font-size:12px;font-weight:600;margin-top:4px">${price}</div>
-          <button class="nb-btn nb-btn-primary" onclick="NochBot.selectEvent('${event.id}')">Book Ticket</button>
+  function renderEventList(events) {
+    const container = document.getElementById('nb-messages');
+    const list = document.createElement('div');
+    list.className = 'nb-card nb-animate';
+    list.innerHTML = `<p style="font-size: 12px; color: #6b7280; font-weight: 600; margin-bottom: 12px; text-transform: uppercase;">Active Events</p>`;
+    
+    events.forEach(e => {
+      const item = document.createElement('div');
+      item.className = 'nb-event-item';
+      item.innerHTML = `
+        <div class="nb-event-name">${escapeHtml(e.name)}</div>
+        <div class="nb-event-meta">
+          <span>📅 ${new Date(e.date).toLocaleDateString()}</span>
+          <span>📍 ${escapeHtml(e.venue || 'TBA')}</span>
         </div>
       `;
-      addHtmlMessage("bot", cardHtml);
+      item.onclick = () => selectEvent(e.id);
+      list.appendChild(item);
     });
+    
+    container.appendChild(list);
+    container.scrollTop = container.scrollHeight;
   }
 
-  async function handleUserInput() {
-    const input = document.getElementById("nb-input");
-    const text = input.value.trim();
-    if (!text) return;
-    input.value = "";
-    addMessage("user", text);
+  function renderEventCard(e) {
+    const container = document.getElementById('nb-messages');
+    const card = document.createElement('div');
+    card.className = 'nb-card nb-animate';
+    card.innerHTML = `
+      <div class="nb-event-name">${escapeHtml(e.name)}</div>
+      <p style="font-size: 12px; color: #6b7280; margin: 8px 0;">${escapeHtml(e.description)}</p>
+      <div class="nb-event-meta" style="margin-bottom: 12px;">
+        <span>📍 ${escapeHtml(e.venue || 'TBA')}</span>
+        <span>🎟️ ${e.is_paid ? e.currency + ' ' + e.price : 'FREE'}</span>
+      </div>
+      <button class="nb-btn">Start Booking</button>
+    `;
+    card.querySelector('button').onclick = () => selectEvent(e.id);
+    container.appendChild(card);
+    container.scrollTop = container.scrollHeight;
+  }
 
-    if (state.activeBookingSession) {
-      handleBookingAnswer(text);
-      return;
-    }
-
-    // Fallback intent detector
-    const bookingIntents = ["book", "ticket", "register", "attend", "buy"];
-    if (bookingIntents.some(i => text.toLowerCase().includes(i)) && state.events.length > 0) {
-      startBookingFlow();
-      return;
-    }
-
+  async function selectEvent(id) {
+    if (state.loading) return;
     state.loading = true;
+    
     try {
-      const res = await fetch(`${API_BASE}/api/chat`, {
+      const res = await fetch(`${API_BASE}/api/embed/bookings/session`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: corsHeaders,
         body: JSON.stringify({
           userId,
           visitorId: state.visitorId,
-          sessionId: state.chatSessionId,
-          sourceUrl: globalThis.location.href,
-          messages: state.messages.map(m => ({
-            role: m.role === "bot" ? "assistant" : m.role,
-            content: m.content
-          }))
+          chatSessionId: state.chatSessionId,
+          eventId: id
         })
       });
-      const data = await res.json();
-      addMessage("bot", data.text);
-
-      if (data.action?.type === "START_BOOKING" && state.events.length > 0) {
-        startBookingFlow(data.action.eventId);
-      } else if (state.bookingPriorityMode) {
-        // Soft CTA
-        const event = state.events[0];
-        addHtmlMessage("bot", `
-          <div class="nb-card" style="border-left: 3px solid ${state.theme.accentColor}">
-            <p style="margin:0 0 8px;font-size:13px">Interested in ${escapeHtml(event.name)}?</p>
-            <button class="nb-btn nb-btn-primary" onclick="NochBot.selectEvent('${event.id}')">Book Now</button>
-          </div>
-        `);
-      }
+      
+      const session = await res.json();
+      state.activeBookingSession = session;
+      renderCurrentSessionStep();
     } catch (e) {
-      addMessage("bot", "I'm sorry, I'm having trouble connecting right now.");
+      addMessage("bot", "I'm sorry, I couldn't start the booking session. Please try again.");
     } finally {
       state.loading = false;
     }
   }
 
-  async function startBookingFlow(eventId) {
-    let targetEventId = eventId;
-    if (!targetEventId && state.events.length === 1) {
-      targetEventId = state.events[0].id;
-    }
-
-    try {
-      const res = await fetch(`${API_BASE}/api/embed/bookings/session`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId,
-          visitorId: state.visitorId,
-          chatSessionId: state.chatSessionId,
-          eventId: targetEventId
-        })
-      });
-      const session = await res.json();
-      state.activeBookingSession = session;
-      renderCurrentSessionStep();
-    } catch (e) {
-      addMessage("bot", "I couldn't start the booking flow. Please try again.");
+  async function handleUserMessage(text) {
+    addMessage("user", text);
+    
+    if (state.activeBookingSession && !['complete', 'payment'].includes(state.activeBookingSession.current_step)) {
+      handleBookingAnswer(text);
+    } else {
+      // Normal Q&A
+      state.loading = true;
+      try {
+        const res = await fetch(`${API_BASE}/api/chat`, {
+          method: "POST",
+          headers: corsHeaders,
+          body: JSON.stringify({
+            userId,
+            visitorId: state.visitorId,
+            sessionId: state.chatSessionId,
+            sourceUrl: globalThis.location.href,
+            messages: state.messages.map(m => ({
+              role: m.role === "bot" ? "assistant" : m.role,
+              content: m.content
+            }))
+          })
+        });
+        const data = await res.json();
+        
+        if (data.action?.type === "START_BOOKING" && state.events.length > 0) {
+          addMessage("bot", data.text);
+          if (state.events.length === 1) selectEvent(state.events[0].id);
+          else renderEventList(state.events);
+        } else {
+          addMessage("bot", data.text || "I'm sorry, I couldn't process that.");
+        }
+      } catch (err) {
+        addMessage("bot", "⚠️ Network error. Please try again.");
+      } finally {
+        state.loading = false;
+      }
     }
   }
 
   async function handleBookingAnswer(text) {
-    if (!state.activeBookingSession) return;
-    const session = state.activeBookingSession;
+    if (state.loading) return;
+    state.loading = true;
     
+    const session = state.activeBookingSession;
     let action = "";
-    let payload = { userId, visitorId: state.visitorId };
+    let body = { userId, visitorId: state.visitorId };
 
     if (session.current_step === "quantity") {
       action = "set_quantity";
-      payload.quantity = parseInt(text);
+      body.quantity = text;
     } else if (session.current_step === "collect_field") {
       action = "answer_field";
-      // Need fieldId
-      const eventDataRes = await fetch(`${API_BASE}/api/embed/events/${session.event_id}?userId=${userId}`);
-      const eventData = await eventDataRes.json();
-      const currentField = eventData.fields[session.current_field_index];
-      payload.fieldId = currentField.id;
-      payload.value = text;
-    } else {
-      return; // Not an input step
+      // Find the ID of the field we are currently answering
+      const fieldsRes = await fetch(`${API_BASE}/api/embed/events/${session.event_id}?userId=${userId}`);
+      const fieldsData = await fieldsRes.json();
+      const currentField = fieldsData.fields[session.current_field_index];
+      body.fieldId = currentField.id;
+      body.value = text;
     }
-
-    payload.action = action;
 
     try {
       const res = await fetch(`${API_BASE}/api/embed/bookings/session/${session.session_id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        headers: corsHeaders,
+        body: JSON.stringify({ ...body, action })
       });
-      const result = await res.json();
-      if (result.error) {
-        addMessage("bot", "⚠️ " + result.error);
+      
+      const updated = await res.json();
+      if (!res.ok) {
+        addMessage("bot", updated.error || "That input doesn't look right. Could you try again?");
+        state.loading = false;
         return;
       }
-      state.activeBookingSession = result;
+      
+      state.activeBookingSession = updated;
       renderCurrentSessionStep();
     } catch (e) {
-      addMessage("bot", "Something went wrong saving your answer.");
+      addMessage("bot", "I'm having trouble connecting. Please try again.");
+    } finally {
+      state.loading = false;
     }
   }
 
   async function renderCurrentSessionStep() {
     const session = state.activeBookingSession;
-    if (!session) return;
+    const container = document.getElementById('nb-messages');
 
-    switch (session.current_step) {
-      case "select_event":
-        addMessage("bot", "Please select an event to continue:");
-        renderEventList();
-        break;
-      case "quantity":
-        addMessage("bot", "How many tickets would you like to book?");
-        break;
-      case "collect_field":
-        const eventRes = await fetch(`${API_BASE}/api/embed/events/${session.event_id}?userId=${userId}`);
-        const eventData = await eventRes.json();
-        const field = eventData.fields[session.current_field_index];
-        addMessage("bot", `Please enter your ${escapeHtml(field.label)}:`);
-        break;
-      case "summary":
-        const ev = state.events.find(e => e.id === session.event_id);
-        const total = ev.is_paid ? `${ev.currency} ${ev.price * session.quantity}` : "Free";
-        addHtmlMessage("bot", `
-          <div class="nb-card">
-            <div style="font-weight:700;margin-bottom:8px">Booking Summary</div>
-            <div style="font-size:12px;margin-bottom:4px"><b>Event:</b> ${escapeHtml(ev.name)}</div>
-            <div style="font-size:12px;margin-bottom:4px"><b>Quantity:</b> ${session.quantity}</div>
-            <div style="font-size:12px;margin-bottom:12px"><b>Total:</b> ${total}</div>
-            <button class="nb-btn nb-btn-primary" onclick="NochBot.confirmBooking()">Confirm & Proceed</button>
-          </div>
-        `);
-        break;
-      case "payment":
-        addMessage("bot", "Your payment is pending. Please complete it to receive your ticket.");
-        break;
-      case "complete":
-        addMessage("bot", "Success! Your booking is confirmed.");
-        if (session.booking_id) {
-          addHtmlMessage("bot", `
-            <a href="${API_BASE}/api/embed/bookings/${session.booking_id}/ticket?userId=${userId}&visitorId=${state.visitorId}" class="nb-btn nb-btn-primary" target="_blank">Download Ticket</a>
-          `);
-        }
-        break;
+    if (session.current_step === "quantity") {
+      addMessage("bot", "How many tickets would you like to book?");
+    } else if (session.current_step === "collect_field") {
+      const res = await fetch(`${API_BASE}/api/embed/events/${session.event_id}?userId=${userId}`);
+      const data = await res.json();
+      const field = data.fields[session.current_field_index];
+      const attendeeSuffix = session.quantity > 1 ? ` for attendee #${Math.floor(session.answers.length / data.fields.length) + 1}` : '';
+      addMessage("bot", `Please provide the ${field.label}${attendeeSuffix}:`);
+    } else if (session.current_step === "summary") {
+      addMessage("bot", "Perfect. Here is a summary of your booking. Please confirm to proceed.");
+      renderSummaryCard(session);
+    } else if (session.current_step === "payment") {
+      addMessage("bot", "Your booking is held! Please complete the payment to secure your tickets.");
+      const res = await fetch(`${API_BASE}/api/embed/bookings/session/${session.session_id}?userId=${userId}&visitorId=${state.visitorId}`);
+      const s = await res.json();
+      if (s.checkout_url) {
+        const card = document.createElement('div');
+        card.className = 'nb-card nb-animate';
+        card.innerHTML = `<button class="nb-btn">Complete Payment</button>`;
+        card.querySelector('button').onclick = () => globalThis.location.href = s.checkout_url;
+        container.appendChild(card);
+        container.scrollTop = container.scrollHeight;
+      }
     }
   }
 
+  async function renderSummaryCard(session) {
+    const container = document.getElementById('nb-messages');
+    const card = document.createElement('div');
+    card.className = 'nb-card nb-animate';
+    
+    // Fetch event snapshot for price
+    const res = await fetch(`${API_BASE}/api/embed/events/${session.event_id}?userId=${userId}`);
+    const data = await res.json();
+    const e = data.event;
+    const total = e.is_paid ? e.price * session.quantity : 0;
+
+    let html = `
+      <p style="font-weight: 700; margin-bottom: 12px; font-size: 14px;">Booking Summary</p>
+      <div class="nb-summary-row"><span class="nb-summary-label">Event</span><span class="nb-summary-val">${escapeHtml(e.name)}</span></div>
+      <div class="nb-summary-row"><span class="nb-summary-label">Quantity</span><span class="nb-summary-val">${session.quantity}</span></div>
+    `;
+    
+    session.answers.forEach(a => {
+      html += `<div class="nb-summary-row"><span class="nb-summary-label">${escapeHtml(a.label)}</span><span class="nb-summary-val">${escapeHtml(a.value)}</span></div>`;
+    });
+
+    if (e.is_paid) {
+      html += `<div class="nb-summary-row" style="border:none; margin-top: 4px;"><span class="nb-summary-label" style="color:#1f2937">Total Amount</span><span class="nb-summary-val" style="color:var(--nb-color)">${e.currency} ${total.toFixed(2)}</span></div>`;
+    }
+
+    html += `<button class="nb-btn">Confirm Booking</button>`;
+    card.innerHTML = html;
+    card.querySelector('button').onclick = () => confirmBooking();
+    
+    container.appendChild(card);
+    container.scrollTop = container.scrollHeight;
+  }
+
   async function confirmBooking() {
+    if (state.loading) return;
+    state.loading = true;
     const session = state.activeBookingSession;
+
     try {
       const res = await fetch(`${API_BASE}/api/embed/bookings/session/${session.session_id}/confirm`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: corsHeaders,
         body: JSON.stringify({ userId, visitorId: state.visitorId })
       });
-      const result = await res.json();
       
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error);
+
       if (result.status === "confirmed") {
-        addMessage("bot", `Confirmed! Booking ID: ${result.booking_code}`);
-        addHtmlMessage("bot", `
-          <a href="${API_BASE}${result.download_url}" class="nb-btn nb-btn-primary" target="_blank">Download Ticket</a>
-        `);
-        state.activeBookingSession = null;
+        addMessage("bot", `Perfect! Your booking is confirmed. Your code is **${result.booking_code}**.`);
+        renderTicketCard(result);
         localStorage.removeItem(BOOKING_KEY);
       } else if (result.status === "checkout_pending") {
-        addMessage("bot", "Redirecting you to secure payment...");
         localStorage.setItem(BOOKING_KEY, JSON.stringify({
           sessionId: session.session_id,
           bookingId: result.booking_id,
@@ -373,39 +471,39 @@
           status: "checkout_pending",
           updatedAt: Date.now()
         }));
-        setTimeout(() => {
-          globalThis.location.href = result.checkoutUrl;
-        }, 1500);
+        globalThis.location.href = result.checkoutUrl;
       }
-    } catch (e) {
-      addMessage("bot", "Failed to confirm booking.");
+    } catch (err) {
+      addMessage("bot", "Booking failed: " + err.message);
+    } finally {
+      state.loading = false;
     }
   }
 
-  async function checkBookingStatus(bookingId) {
-    try {
-      const res = await fetch(`${API_BASE}/api/embed/bookings/${bookingId}/status?userId=${userId}&visitorId=${state.visitorId}`);
-      const data = await res.json();
-      
-      if (data.status === "confirmed" && data.can_download_ticket) {
-        addMessage("bot", "Welcome back! Your ticket is ready.");
-        addHtmlMessage("bot", `<a href="${API_BASE}${data.download_url}" class="nb-btn nb-btn-primary" target="_blank">Download Ticket</a>`);
-        localStorage.removeItem(BOOKING_KEY);
-      } else if (data.status === "pending_payment") {
-        addMessage("bot", "You have a pending booking. Please complete payment.");
-      } else {
-        localStorage.removeItem(BOOKING_KEY);
-      }
-    } catch (e) {
-      localStorage.removeItem(BOOKING_KEY);
-    }
+  function renderTicketCard(result) {
+    const container = document.getElementById('nb-messages');
+    const card = document.createElement('div');
+    card.className = 'nb-card nb-animate';
+    const downloadUrl = `${API_BASE}/booking/ticket/${result.booking_id}?userId=${userId}&visitorId=${state.visitorId}`;
+    
+    card.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+        <div style="background: #36f4a420; color: #36f4a4; padding: 6px; border-radius: 8px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M13 12H3"/></svg></div>
+        <div>
+          <p style="font-size: 13px; font-weight: 700; color: #1f2937">Ticket Ready</p>
+          <p style="font-size: 11px; color: #6b7280">${result.booking_code}</p>
+        </div>
+      </div>
+      <a href="${downloadUrl}" target="_blank" class="nb-btn" style="text-decoration: none; display: block; text-align: center;">View Ticket</a>
+    `;
+    container.appendChild(card);
+    container.scrollTop = container.scrollHeight;
   }
 
-  // Global exports for onclick handlers
-  globalThis.NochBot = {
-    selectEvent: (id) => startBookingFlow(id),
-    confirmBooking: () => confirmBooking()
-  };
-
-  init();
+  // Start initialization
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
 })();
