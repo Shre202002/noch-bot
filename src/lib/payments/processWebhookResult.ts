@@ -1,3 +1,4 @@
+
 import { ObjectId } from 'mongodb';
 import { getDb } from '@/lib/db';
 import { WebhookResult } from './adapter';
@@ -20,7 +21,7 @@ export async function processPaymentWebhookResult({
 }: ProcessParams) {
   const db = await getDb();
 
-  // 1. Idempotency Check (Race-safe via insert attempt)
+  // 1. Idempotency Check (Atomic deduplication)
   try {
     await db.collection('payment_webhook_events').insertOne({
       provider,
@@ -34,9 +35,25 @@ export async function processPaymentWebhookResult({
     });
   } catch (err: any) {
     if (err.code === 11000) {
-      return { success: true, message: 'Already received' };
+      // DUPLICATE DETECTED
+      const existing = await db.collection('payment_webhook_events').findOne({
+        provider,
+        org_id: orgId,
+        provider_event_id: result.providerEventId
+      });
+
+      if (existing?.processed) {
+        return { success: true, message: 'Already processed' };
+      }
+      
+      // If it exists but NOT processed, we continue (likely recovered from a mid-flight crash)
+      await db.collection('payment_webhook_events').updateOne(
+        { _id: existing?._id },
+        { $set: { processing_status: 'retry_received' } }
+      );
+    } else {
+      throw err;
     }
-    throw err;
   }
 
   // 2. Identify Booking
@@ -78,9 +95,22 @@ export async function processPaymentWebhookResult({
         { provider, org_id: orgId, provider_event_id: result.providerEventId },
         { $set: { processed: true, processing_status: 'late_payment', processed_at: now } }
       );
+
+      // Audit the late payment in payment_attempts
+      const attemptFilter: any = { booking_id: bookingId, provider, status: 'checkout_pending' };
+      if (result.providerOrderId) attemptFilter.provider_order_id = result.providerOrderId;
+
       await db.collection('payment_attempts').updateOne(
-        { booking_id: bookingId, provider, status: 'checkout_pending' },
-        { $set: { status: 'paid_after_expiry', provider_payment_id: result.providerPaymentId, updated_at: now } }
+        attemptFilter,
+        { 
+          $set: { 
+            status: 'paid_after_expiry', 
+            provider_payment_id: result.providerPaymentId,
+            provider_order_id: result.providerOrderId || booking.payment?.provider_order_id,
+            raw_webhook_response: result.rawPayload,
+            updated_at: now 
+          } 
+        }
       );
       return { success: true, message: 'Payment after expiry' };
     }
@@ -90,7 +120,8 @@ export async function processPaymentWebhookResult({
       {
         _id: bookingId,
         org_id: orgId,
-        status: 'pending_payment'
+        status: 'pending_payment',
+        payment_status: 'pending'
       },
       {
         $set: {
@@ -109,7 +140,7 @@ export async function processPaymentWebhookResult({
     if (updateResult) {
       const updatedBooking = updateResult as any;
       
-      // Generate tickets
+      // IDEMPOTENT: Generate tickets (helper handles duplicate checks)
       const tickets = await issueTicketsForBooking(updatedBooking);
       const ticketCodes = tickets.map(t => t.ticket_code);
       
@@ -125,8 +156,11 @@ export async function processPaymentWebhookResult({
       );
 
       // Update payment attempt record
+      const attemptFilter: any = { booking_id: bookingId, provider, status: 'checkout_pending' };
+      if (result.providerOrderId) attemptFilter.provider_order_id = result.providerOrderId;
+
       await db.collection('payment_attempts').updateOne(
-        { booking_id: bookingId, provider, status: 'checkout_pending' },
+        attemptFilter,
         { 
           $set: { 
             status: 'paid', 
@@ -143,8 +177,11 @@ export async function processPaymentWebhookResult({
       { $set: { status: 'failed', payment_status: 'failed', updated_at: new Date() } }
     );
 
+    const attemptFilter: any = { booking_id: bookingId, provider, status: 'checkout_pending' };
+    if (result.providerOrderId) attemptFilter.provider_order_id = result.providerOrderId;
+
     await db.collection('payment_attempts').updateOne(
-      { booking_id: bookingId, provider, status: 'checkout_pending' },
+      attemptFilter,
       { $set: { status: 'failed', raw_webhook_response: result.rawPayload, updated_at: new Date() } }
     );
   }

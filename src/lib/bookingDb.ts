@@ -22,9 +22,12 @@ export async function ensureBookingIndexes() {
 
   // Bookings
   await db.collection('bookings').createIndexes([
-    { key: { event_id: 1 } },
-    { key: { session_id: 1 } },
-    { key: { status: 1 } }
+    { key: { org_id: 1, event_id: 1, created_at: -1 } },
+    { key: { booking_code: 1 }, unique: true },
+    { key: { ticket_codes: 1 } },
+    { key: { visitor_id: 1, created_at: -1 } },
+    { key: { status: 1, expires_at: 1 } },
+    { key: { "payment.provider_order_id": 1 } }
   ]);
 
   // Tickets
@@ -46,9 +49,12 @@ export async function ensureBookingIndexes() {
     { key: { access_token: 1 }, unique: true }
   ]);
 
-  // Webhook Idempotency (Phase 4)
-  await db.collection('processed_webhooks').createIndexes([
-    { key: { provider: 1, provider_event_id: 1 }, unique: true }
+  // Webhook Idempotency (Atomic Deduplication)
+  await db.collection('payment_webhook_events').createIndexes([
+    { 
+      key: { provider: 1, org_id: 1, provider_event_id: 1 }, 
+      unique: true 
+    }
   ]);
 
   console.log('✅ Booking feature indexes initialized.');

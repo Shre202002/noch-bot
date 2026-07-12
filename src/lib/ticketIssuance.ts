@@ -1,3 +1,4 @@
+
 import { ObjectId } from 'mongodb';
 import crypto from 'crypto';
 import { getDb } from './db';
@@ -25,9 +26,20 @@ function generateReadableCode(length = 8): string {
 /**
  * Issues ticket documents for a confirmed booking.
  * Handles collisions gracefully with retries.
+ * Idempotent: If tickets already exist for this booking, returns them.
  */
 export async function issueTicketsForBooking(booking: Booking): Promise<Ticket[]> {
   const db = await getDb();
+  
+  // IDEMPOTENCY: Check if tickets were already issued (e.g. from a duplicate webhook processing)
+  const existingTickets = await db.collection('tickets')
+    .find({ booking_id: booking._id })
+    .toArray();
+
+  if (existingTickets.length > 0) {
+    return existingTickets as unknown as Ticket[];
+  }
+
   const tickets: Ticket[] = [];
   const now = new Date();
 
@@ -54,6 +66,7 @@ export async function issueTicketsForBooking(booking: Booking): Promise<Ticket[]
         scanned_at: null,
         scanned_by_staff_id: null,
         scan_device_info: null,
+        client_scan_id: null,
         issued_at: now
       };
 

@@ -1,3 +1,4 @@
+
 import crypto from 'crypto';
 import { PaymentGatewayAdapter, CheckoutParams, WebhookResult, CheckoutResult } from './adapter';
 
@@ -68,15 +69,21 @@ export class RazorpayAdapter implements PaymentGatewayAdapter {
       let status: WebhookResult['status'] = 'other';
       let bookingId: string | null = null;
 
-      const paymentEntity = payload.payload.payment?.entity;
-      const orderEntity = payload.payload.order?.entity;
+      const paymentEntity = payload.payload?.payment?.entity;
+      const orderEntity = payload.payload?.order?.entity;
 
       // Extract IDs for matching
       const providerPaymentId = paymentEntity?.id;
       const providerOrderId = orderEntity?.id || paymentEntity?.order_id;
 
       // Identify Booking
-      bookingId = paymentEntity?.notes?.bookingId || orderEntity?.notes?.bookingId || orderEntity?.receipt || null;
+      // 1. Try notes.bookingId from either payment or order entity
+      bookingId = paymentEntity?.notes?.bookingId || orderEntity?.notes?.bookingId;
+      
+      // 2. Try receipt (often set to bookingId in createCheckoutSession)
+      if (!bookingId) {
+        bookingId = orderEntity?.receipt || null;
+      }
 
       if (event === 'order.paid' || event === 'payment.captured') {
         status = 'paid';
