@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useRef } from "react"
 import {
@@ -14,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Share2, Copy, Mail, MessageSquare, Check, Database, Globe, Zap, Palette } from 'lucide-react';
+import { BasicColorPicker } from '@/components/ui/color-picker';
 
 type Tab = 'Crawl' | 'Vectorize' | 'Theme' | 'Preview' | 'Embed Code'
 type Message = { role: 'user' | 'assistant'; content: string }
@@ -186,7 +188,6 @@ export default function ConfigurePage() {
         return;
       }
 
-      // Handle typewriter effect simulated by embed.js style on the frontend logic
       const data = await res.json();
       setPreviewLoading(false);
       setPreviewIsTyping(true);
@@ -432,7 +433,10 @@ export default function ConfigurePage() {
                   <div key={key} style={{ background: '#0a0a0a', border: '1px solid #2a2d35', borderRadius: 10, padding: 16 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
                       <div><div style={{ fontSize: 13, color: '#fff' }}>{label}</div><div style={{ fontSize: 11, color: '#7d8187' }}>{desc}</div></div>
-                      <div style={{ width: 32, height: 32, borderRadius: 8, background: themeConfig[key as keyof typeof themeConfig], border: '2px solid #2a2d35' }} />
+                      <BasicColorPicker
+                        value={themeConfig[key as keyof typeof themeConfig]}
+                        onValueChange={(details) => setThemeConfig(prev => ({ ...prev, [key]: details.value.toString("hex") }))}
+                      />
                     </div>
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                       {[...palette, ...PRESET_COLORS].filter((c, i, a) => a.indexOf(c) === i).map(color => (

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
@@ -22,6 +23,7 @@ import { useToast } from "@/hooks/use-toast";
 import { TicketPreview, TICKET_TEMPLATE_DEFAULT_PALETTES } from "@/components/TicketPreview";
 import { Switch } from "@/components/ui/switch";
 import { TicketColorPalette } from "@/models/Event";
+import { BasicColorPicker } from "@/components/ui/color-picker";
 import {
   Select,
   SelectContent,
@@ -64,7 +66,7 @@ import {
   sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
+} from "@radix-ui/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
 interface FormField {
@@ -271,12 +273,10 @@ export default function EventDetailPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to add field");
       
-      // Refresh event list to get full field objects
       const refreshRes = await fetch(`/api/events/${params.id}`);
       const refreshData = await refreshRes.json();
       if (refreshData.data) {
         setEvent(refreshData.data);
-        // Find the new field and open editor immediately
         const newField = refreshData.data.form_fields.find((f: any) => f._id === data.id);
         if (newField) {
           setEditingField(newField);
@@ -631,7 +631,6 @@ export default function EventDetailPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Edit Field Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditIdDialogOpen}>
         <DialogContent className="bg-black border-white/10 text-white">
           <DialogHeader>
@@ -769,7 +768,6 @@ function SortableFieldItem({
 function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () => void }) {
   const { toast } = useToast();
   
-  // Hardened initialization logic to prevent undefined palette state
   const initialTemplateId = useMemo(() => {
     const tid = event.ticket_template_id;
     return (tid && TICKET_TEMPLATE_DEFAULT_PALETTES[tid]) ? tid : "dark";
@@ -955,22 +953,11 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
     <div className="space-y-2">
       <div className="flex justify-between items-center">
         <Label className="text-[11px] uppercase tracking-wider text-white/50">{label}</Label>
-        <span className="text-[10px] font-mono text-white/30">{(value || "").toUpperCase()}</span>
       </div>
-      <div className="flex items-center gap-2 p-1.5 rounded-lg bg-black/40 border border-white/5">
-        <input 
-          type="color" 
-          value={value || "#000000"} 
-          onChange={(e) => handleColorChange(paletteKey, e.target.value)}
-          className="h-7 w-12 bg-transparent border-none cursor-pointer rounded overflow-hidden"
-        />
-        <div className="h-4 w-[1px] bg-white/5" />
-        <Input 
-          value={value || ""} 
-          onChange={(e) => handleColorChange(paletteKey, e.target.value)}
-          className="h-7 bg-transparent border-none text-[12px] font-mono p-0 focus-visible:ring-0" 
-        />
-      </div>
+      <BasicColorPicker
+        value={value}
+        onValueChange={(details) => handleColorChange(paletteKey, details.value.toString("hex"))}
+      />
     </div>
   );
 
