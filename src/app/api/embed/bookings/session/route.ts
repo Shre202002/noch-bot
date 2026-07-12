@@ -39,18 +39,25 @@ export async function POST(req: NextRequest) {
 
     // 1. If eventId is provided, validate it exists and is published by this user
     let validEventId: ObjectId | undefined;
-    if (eventId && ObjectId.isValid(eventId)) {
+    if (eventId) {
+      if (!ObjectId.isValid(eventId)) {
+        return NextResponse.json({ error: "Invalid event ID format" }, { status: 400, headers: corsHeaders });
+      }
+      
       const event = await db.collection("events").findOne({
         _id: new ObjectId(eventId),
         org_id: userId,
         status: "published"
       });
+      
       if (!event) {
-        return NextResponse.json({ error: "Selected event is not available" }, { status: 404, headers: corsHeaders });
+        return NextResponse.json({ error: "Selected event is not available" }, { status: 400, headers: corsHeaders });
       }
+      
       if (new Date(event.end_at) < new Date()) {
-        return NextResponse.json({ error: "Event has already ended" }, { status: 410, headers: corsHeaders });
+        return NextResponse.json({ error: "Event has already ended" }, { status: 400, headers: corsHeaders });
       }
+      
       validEventId = event._id;
     }
 

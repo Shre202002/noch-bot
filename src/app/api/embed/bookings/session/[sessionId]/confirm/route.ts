@@ -5,7 +5,6 @@ import { Booking } from "@/models/Booking";
 import { stripeAdapter } from "@/lib/payments/stripe";
 import { razorpayAdapter } from "@/lib/payments/razorpay";
 import { paypalAdapter } from "@/lib/payments/paypal";
-import { cashfreeAdapter } from "@/lib/payments/cashfree";
 import { decryptCredentials } from "@/lib/credentialCrypto";
 import crypto from "crypto";
 
@@ -18,8 +17,7 @@ const corsHeaders = {
 const adapters: Record<string, any> = {
   stripe: stripeAdapter,
   razorpay: razorpayAdapter,
-  paypal: paypalAdapter,
-  cashfree: cashfreeAdapter
+  paypal: paypalAdapter
 };
 
 export async function OPTIONS() {
@@ -56,7 +54,6 @@ export async function POST(
       return NextResponse.json({ error: "Invalid or expired booking session" }, { status: 404, headers: corsHeaders });
     }
 
-    // 1. HARDEN EVENT LOOKUP: Check ownership, published status and expiration
     const event = await db.collection("events").findOne({ 
       _id: session.event_id,
       org_id: userId,
@@ -71,7 +68,7 @@ export async function POST(
       return NextResponse.json({ error: "Event has already ended" }, { status: 410, headers: corsHeaders });
     }
 
-    // Capacity Check using Aggregation
+    // Capacity Check
     const activeBookingsResult = await db.collection("bookings").aggregate([
       {
         $match: {
@@ -157,10 +154,9 @@ export async function POST(
     });
 
     if (!gateway || !adapters[gateway.provider]) {
-      // HANDLE CHECKOUT FAILURE
       await db.collection("bookings").updateOne({ _id: bookingId }, { $set: { status: "failed", payment_status: "failed" } });
       await db.collection("booking_sessions").updateOne({ _id: session._id }, { $set: { status: "failed", current_step: "payment", updated_at: new Date() } });
-      return NextResponse.json({ error: "Payment gateway not configured or unsupported" }, { status: 500, headers: corsHeaders });
+      return NextResponse.json({ error: "Payment gateway not configured or unsupported for conversational booking" }, { status: 501, headers: corsHeaders });
     }
 
     const credentials = await decryptCredentials(gateway.credentials);
@@ -179,18 +175,29 @@ export async function POST(
         customerEmail: session.answers.find((a: any) => a.validation_rule === 'email_format')?.value
       }, credentials);
 
-      // SAVE COMPLETE PAYMENT OBJECT ON BOOKING
+      // SECURITY: Generate a one-time access token for the payment bridge
+      const paymentAccessToken = crypto.randomBytes(32).toString('hex');
+      
       const paymentObj = {
         provider: gateway.provider,
         checkout_url: checkout.checkoutUrl,
         provider_order_id: checkout.providerOrderId, 
-        provider_reference: checkout.providerReference
+        provider_reference: checkout.providerReference,
+        access_token: paymentAccessToken
       };
 
       await db.collection("bookings").updateOne(
         { _id: bookingId },
         { $set: { payment: paymentObj } }
       );
+
+      // Construct final checkout URL with token for internal bridges
+      let finalCheckoutUrl = checkout.checkoutUrl;
+      if (gateway.provider === 'razorpay') {
+        const url = new URL(checkout.checkoutUrl, process.env.NEXTAUTH_URL);
+        url.searchParams.set('token', paymentAccessToken);
+        finalCheckoutUrl = url.toString();
+      }
 
       await db.collection("booking_sessions").updateOne(
         { _id: session._id },
@@ -199,13 +206,12 @@ export async function POST(
             status: "checkout_pending", 
             current_step: "payment", 
             booking_id: bookingId, 
-            checkout_url: checkout.checkoutUrl,
+            checkout_url: finalCheckoutUrl,
             updated_at: new Date() 
           } 
         }
       );
 
-      // SAVE COMPLETE PAYMENT ATTEMPT DATA
       await db.collection("payment_attempts").insertOne({
         org_id: userId,
         event_id: event._id,
@@ -216,7 +222,7 @@ export async function POST(
         currency: event.currency,
         provider_order_id: checkout.providerOrderId,
         provider_reference: checkout.providerReference,
-        checkout_url: checkout.checkoutUrl,
+        checkout_url: finalCheckoutUrl,
         status: "checkout_pending",
         raw_create_response: checkout.rawResponse,
         created_at: new Date(),
@@ -227,7 +233,7 @@ export async function POST(
         status: "checkout_pending",
         booking_id: bookingId.toString(),
         booking_code: bookingCode,
-        checkoutUrl: checkout.checkoutUrl
+        checkoutUrl: finalCheckoutUrl
       }, { headers: corsHeaders });
     } catch (paymentErr: any) {
       console.error("[checkout_error]", paymentErr);

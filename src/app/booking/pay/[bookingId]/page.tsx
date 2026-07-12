@@ -1,22 +1,31 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState, Suspense } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Loader2, ShieldCheck, AlertCircle } from "lucide-react";
 
 /**
- * @fileOverview Secure internal payment bridge page for SDK-based gateways (Razorpay, Cashfree).
+ * @fileOverview Secure internal payment bridge page for SDK-based gateways (Razorpay).
  */
-export default function PaymentBridgePage() {
+function PaymentBridgeContent() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const token = searchParams.get('token');
+  
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function initPayment() {
+      if (!token) {
+        setError("Invalid payment access link.");
+        setLoading(false);
+        return;
+      }
+
       try {
-        const res = await fetch(`/api/booking/pay/${params.bookingId}`);
+        const res = await fetch(`/api/booking/pay/${params.bookingId}?token=${token}`);
         const data = await res.json();
 
         if (!res.ok) {
@@ -38,7 +47,6 @@ export default function PaymentBridgePage() {
               description: data.description,
               order_id: data.order_id,
               handler: function (response: any) {
-                // In Phase 2, we will redirect to a success page that polls for webhook confirmation
                 router.push(`/booking/success?bid=${params.bookingId}&pay_id=${response.razorpay_payment_id}`);
               },
               prefill: data.prefill,
@@ -55,7 +63,7 @@ export default function PaymentBridgePage() {
           };
           document.body.appendChild(script);
         } else {
-           setError("Unsupported payment provider for this bridge.");
+           setError("Unsupported payment provider for this secure bridge.");
            setLoading(false);
         }
       } catch (err) {
@@ -65,7 +73,7 @@ export default function PaymentBridgePage() {
     }
 
     initPayment();
-  }, [params.bookingId, router]);
+  }, [params.bookingId, router, token]);
 
   if (error) {
     return (
@@ -74,10 +82,10 @@ export default function PaymentBridgePage() {
         <h1 className="text-xl font-bold text-white mb-2">Payment Error</h1>
         <p className="text-zinc-400 max-w-sm">{error}</p>
         <button 
-            onClick={() => window.history.back()}
+            onClick={() => router.push('/')}
             className="mt-6 px-6 py-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors"
         >
-            Go Back
+            Return to Home
         </button>
       </div>
     );
@@ -97,5 +105,13 @@ export default function PaymentBridgePage() {
         <ShieldCheck className="h-3 w-3" /> Encrypted Transaction
       </div>
     </div>
+  );
+}
+
+export default function PaymentBridgePage() {
+  return (
+    <Suspense fallback={null}>
+      <PaymentBridgeContent />
+    </Suspense>
   );
 }
