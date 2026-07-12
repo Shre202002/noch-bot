@@ -21,7 +21,6 @@ export class StripeAdapter implements PaymentGatewayAdapter {
             name: params.eventName,
             description: `Booking for ${params.quantity} ticket(s)`,
           },
-          // Fix: Stripe takes unit_amount. We divide total amount by quantity to get correct price.
           unit_amount: Math.round((params.amount / params.quantity) * 100),
         },
         quantity: params.quantity,

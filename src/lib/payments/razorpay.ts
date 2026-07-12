@@ -28,12 +28,10 @@ export class RazorpayAdapter implements PaymentGatewayAdapter {
 
     const order = await response.json();
     
-    // FIXED: Require NEXTAUTH_URL for bridge logic
     const appBaseUrl = process.env.NEXTAUTH_URL;
     if (!appBaseUrl) throw new Error("NEXTAUTH_URL is required for Razorpay payment bridge checkoutUrl");
 
     return {
-      // Use internal payment bridge page for SDK-based Razorpay flow
       checkoutUrl: `${appBaseUrl}/booking/pay/${params.bookingId}`,
       providerOrderId: order.id,
       providerReference: order.id,
@@ -70,13 +68,13 @@ export class RazorpayAdapter implements PaymentGatewayAdapter {
       let status: WebhookResult['status'] = 'other';
       let bookingId: string | null = null;
 
+      const entity = payload.payload.order?.entity || payload.payload.payment?.entity;
+      bookingId = entity?.notes?.bookingId || entity?.receipt || null;
+
       if (event === 'order.paid' || event === 'payment.captured') {
         status = 'paid';
-        const entity = payload.payload.order?.entity || payload.payload.payment?.entity;
-        bookingId = entity.notes?.bookingId || entity.receipt || null;
       } else if (event === 'payment.failed') {
         status = 'failed';
-        bookingId = payload.payload.payment.entity.notes?.bookingId || null;
       }
 
       return {
