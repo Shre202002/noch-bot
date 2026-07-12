@@ -7,6 +7,7 @@ export interface Ticket {
   booking_id: ObjectId;
   event_id: ObjectId;
   ticket_code: string;
+  ticket_index: number; // Order of ticket within a booking (0, 1, 2...)
   qr_payload_hash: string;
   status: TicketStatus;
   scanned_at: Date | null;

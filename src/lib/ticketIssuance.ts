@@ -1,4 +1,3 @@
-
 import { ObjectId } from 'mongodb';
 import crypto from 'crypto';
 import { getDb } from './db';
@@ -18,7 +17,7 @@ function generateReadableCode(length = 8): string {
   const charset = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
   let result = '';
   for (let i = 0; i < length; i++) {
-    result += charset.charAt(Math.floor(Math.random() * charset.length));
+    result += charset.charAt(crypto.randomInt(0, charset.length));
   }
   return result;
 }
@@ -26,30 +25,32 @@ function generateReadableCode(length = 8): string {
 /**
  * Issues ticket documents for a confirmed booking.
  * Handles collisions gracefully with retries.
- * Idempotent: If tickets already exist for this booking, returns them.
+ * Idempotent: Handles partial issuance and avoids duplicates using ticket_index.
  */
 export async function issueTicketsForBooking(booking: Booking): Promise<Ticket[]> {
   const db = await getDb();
   
-  // IDEMPOTENCY: Check if tickets were already issued (e.g. from a duplicate webhook processing)
+  // 1. Identify existing tickets for this booking
   const existingTickets = await db.collection('tickets')
     .find({ booking_id: booking._id })
+    .sort({ ticket_index: 1 })
     .toArray();
 
-  if (existingTickets.length > 0) {
-    return existingTickets as unknown as Ticket[];
+  // If we already have enough tickets, return them
+  if (existingTickets.length >= booking.quantity) {
+    return existingTickets.slice(0, booking.quantity) as unknown as Ticket[];
   }
 
-  const tickets: Ticket[] = [];
+  const tickets = [...existingTickets] as unknown as Ticket[];
   const now = new Date();
 
-  for (let i = 0; i < booking.quantity; i++) {
+  // 2. Issue missing tickets starting from the last index
+  for (let i = existingTickets.length; i < booking.quantity; i++) {
     let success = false;
     let attempts = 0;
-    let ticketCode = '';
 
-    while (!success && attempts < 3) {
-      ticketCode = `EVT-${generateReadableCode()}`;
+    while (!success && attempts < 5) {
+      const ticketCode = `EVT-${generateReadableCode()}`;
       
       // Use HMAC with server-side secret to prevent payload forgery
       const qrPayloadHash = crypto
@@ -61,6 +62,7 @@ export async function issueTicketsForBooking(booking: Booking): Promise<Ticket[]
         booking_id: booking._id!,
         event_id: booking.event_id,
         ticket_code: ticketCode,
+        ticket_index: i,
         qr_payload_hash: qrPayloadHash,
         status: 'active',
         scanned_at: null,
@@ -75,7 +77,7 @@ export async function issueTicketsForBooking(booking: Booking): Promise<Ticket[]
         tickets.push(ticket);
         success = true;
       } catch (err: any) {
-        // Handle duplicate key error for ticket_code index
+        // Handle duplicate key error (code collision or index collision)
         if (err.code === 11000) {
           attempts++;
           continue;

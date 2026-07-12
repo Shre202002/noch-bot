@@ -1,4 +1,3 @@
-
 import { getDb } from './db';
 
 /**
@@ -34,7 +33,8 @@ export async function ensureBookingIndexes() {
   await db.collection('tickets').createIndexes([
     { key: { ticket_code: 1 }, unique: true },
     { key: { event_id: 1 } },
-    { key: { booking_id: 1 } }
+    { key: { booking_id: 1 } },
+    { key: { booking_id: 1, ticket_index: 1 }, unique: true }
   ]);
 
   // Gateway Configs
