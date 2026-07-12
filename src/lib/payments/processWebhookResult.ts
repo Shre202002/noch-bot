@@ -23,7 +23,7 @@ export async function processPaymentWebhookResult({
   await ensureBookingIndexes();
   const db = await getDb();
 
-  // 1. Idempotency Check (Atomic deduplication)
+  // 1. Idempotency Check (Atomic deduplication with in-flight protection)
   try {
     await db.collection('payment_webhook_events').insertOne({
       provider,
@@ -37,21 +37,28 @@ export async function processPaymentWebhookResult({
     });
   } catch (err: any) {
     if (err.code === 11000) {
-      // DUPLICATE DETECTED
       const existing = await db.collection('payment_webhook_events').findOne({
         provider,
         org_id: orgId,
         provider_event_id: result.providerEventId
       });
 
-      if (existing?.processed) {
+      if (!existing) return { success: true }; // Should not happen
+
+      if (existing.processed) {
         return { success: true, message: 'Already processed' };
       }
       
-      // If it exists but NOT processed, we continue (likely recovered from a mid-flight crash)
+      // Concurrency check: If created very recently, assume another thread is currently processing it
+      const ageMs = Date.now() - new Date(existing.created_at).getTime();
+      if (ageMs < 60000) {
+        return { success: true, message: 'Webhook already being processed' };
+      }
+      
+      // If it exists but NOT processed and is old, we continue (recovery path)
       await db.collection('payment_webhook_events').updateOne(
-        { _id: existing?._id },
-        { $set: { processing_status: 'retry_received' } }
+        { _id: existing._id },
+        { $set: { processing_status: 'retry_received', updated_at: new Date() } }
       );
     } else {
       throw err;
@@ -68,7 +75,6 @@ export async function processPaymentWebhookResult({
     });
   }
 
-  // Fallback: match by provider order ID if direct bookingId failed
   if (!booking && result.providerOrderId) {
     booking = await db.collection('bookings').findOne({
       org_id: orgId,
@@ -107,29 +113,35 @@ export async function processPaymentWebhookResult({
     const isExpired = booking.expires_at && booking.expires_at < now;
 
     if (isExpired) {
-      // Paid but late - log for manual reconciliation
       await db.collection('payment_webhook_events').updateOne(
         { provider, org_id: orgId, provider_event_id: result.providerEventId },
         { $set: { processed: true, processing_status: 'late_payment', processed_at: now } }
       );
 
-      // Audit the late payment in payment_attempts
       const attemptFilter: any = { booking_id: bookingId, provider, status: 'checkout_pending' };
-      if (result.providerOrderId) attemptFilter.provider_order_id = result.providerOrderId;
+      const updateData = { 
+        $set: { 
+          status: 'paid_after_expiry', 
+          provider_payment_id: result.providerPaymentId,
+          provider_order_id: result.providerOrderId || booking.payment?.provider_order_id,
+          raw_webhook_response: result.rawPayload,
+          updated_at: now 
+        } 
+      };
 
-      await db.collection('payment_attempts').updateOne(
-        attemptFilter,
-        { 
-          $set: { 
-            status: 'paid_after_expiry', 
-            provider_payment_id: result.providerPaymentId,
-            provider_order_id: result.providerOrderId || booking.payment?.provider_order_id,
-            raw_webhook_response: result.rawPayload,
-            updated_at: now 
-          } 
-        }
-      );
-      return { success: true, message: 'Payment after expiry' };
+      let attemptMatch = false;
+      if (result.providerOrderId) {
+        const res = await db.collection('payment_attempts').updateOne(
+          { ...attemptFilter, provider_order_id: result.providerOrderId },
+          updateData
+        );
+        if (res.matchedCount > 0) attemptMatch = true;
+      }
+
+      if (!attemptMatch) {
+        await db.collection('payment_attempts').updateOne(attemptFilter, updateData);
+      }
+      return { success: true, message: 'Payment after expiry logged' };
     }
 
     // ATOMIC UPDATE: Only confirm if currently pending
@@ -156,8 +168,6 @@ export async function processPaymentWebhookResult({
 
     if (updateResult) {
       const updatedBooking = updateResult as any;
-      
-      // IDEMPOTENT: Generate tickets (helper now handles partial issuance safely)
       const tickets = await issueTicketsForBooking(updatedBooking);
       const ticketCodes = tickets.map(t => t.ticket_code);
       
@@ -166,13 +176,11 @@ export async function processPaymentWebhookResult({
         { $set: { ticket_codes: ticketCodes } }
       );
 
-      // Update related sessions
       await db.collection('booking_sessions').updateOne(
         { booking_id: bookingId },
         { $set: { status: 'confirmed', current_step: 'complete', updated_at: now } }
       );
 
-      // Update payment attempt record robustly
       const baseFilter = { booking_id: bookingId, provider, status: 'checkout_pending' };
       let attemptMatch = false;
 

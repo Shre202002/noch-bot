@@ -36,23 +36,27 @@ export async function issueTicketsForBooking(booking: Booking): Promise<Ticket[]
     .sort({ ticket_index: 1 })
     .toArray();
 
-  // If we already have enough tickets, return them
-  if (existingTickets.length >= booking.quantity) {
-    return existingTickets.slice(0, booking.quantity) as unknown as Ticket[];
-  }
+  const ticketMap = new Map<number, Ticket>(
+    existingTickets.map(t => [t.ticket_index, t as unknown as Ticket])
+  );
 
-  const tickets = [...existingTickets] as unknown as Ticket[];
+  const finalTickets: Ticket[] = [];
   const now = new Date();
 
-  // 2. Issue missing tickets starting from the last index
-  for (let i = existingTickets.length; i < booking.quantity; i++) {
+  // 2. Ensure exactly `booking.quantity` tickets exist
+  for (let i = 0; i < booking.quantity; i++) {
+    // If ticket for this index already exists, use it
+    if (ticketMap.has(i)) {
+      finalTickets.push(ticketMap.get(i)!);
+      continue;
+    }
+
     let success = false;
     let attempts = 0;
 
     while (!success && attempts < 5) {
       const ticketCode = `EVT-${generateReadableCode()}`;
       
-      // Use HMAC with server-side secret to prevent payload forgery
       const qrPayloadHash = crypto
         .createHmac('sha256', TICKET_QR_SECRET!)
         .update(`${ticketCode}:${booking._id}:${booking.event_id}`)
@@ -74,11 +78,24 @@ export async function issueTicketsForBooking(booking: Booking): Promise<Ticket[]
 
       try {
         await db.collection('tickets').insertOne(ticket);
-        tickets.push(ticket);
+        finalTickets.push(ticket);
         success = true;
       } catch (err: any) {
-        // Handle duplicate key error (code collision or index collision)
+        // Handle duplicate key error
         if (err.code === 11000) {
+          // Double check if collision was on index (concurrency) or code (unlucky random)
+          const concurrencyCheck = await db.collection('tickets').findOne({ 
+            booking_id: booking._id, 
+            ticket_index: i 
+          });
+
+          if (concurrencyCheck) {
+            finalTickets.push(concurrencyCheck as unknown as Ticket);
+            success = true;
+            continue;
+          }
+
+          // Code collision, retry this iteration
           attempts++;
           continue;
         }
@@ -91,5 +108,5 @@ export async function issueTicketsForBooking(booking: Booking): Promise<Ticket[]
     }
   }
 
-  return tickets;
+  return finalTickets;
 }
