@@ -60,29 +60,29 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CRAWL-01 | Pending roadmap | Pending |
-| CRAWL-02 | Pending roadmap | Pending |
-| CRAWL-03 | Pending roadmap | Pending |
-| CRAWL-04 | Pending roadmap | Pending |
-| CRAWL-05 | Pending roadmap | Pending |
-| CRAWL-06 | Pending roadmap | Pending |
-| CRAWL-07 | Pending roadmap | Pending |
-| CRAWL-08 | Pending roadmap | Pending |
-| CRAWL-09 | Pending roadmap | Pending |
-| PDF-01 | Pending roadmap | Pending |
-| PDF-02 | Pending roadmap | Pending |
-| PDF-03 | Pending roadmap | Pending |
-| PDF-04 | Pending roadmap | Pending |
-| BOOK-01 | Pending roadmap | Pending |
-| BOOK-02 | Pending roadmap | Pending |
-| BOOK-03 | Pending roadmap | Pending |
-| BOOK-04 | Pending roadmap | Pending |
-| BOOK-05 | Pending roadmap | Pending |
+| CRAWL-01 | Phase 1 | Pending |
+| CRAWL-02 | Phase 1 | Pending |
+| CRAWL-03 | Phase 1 | Pending |
+| CRAWL-04 | Phase 1 | Pending |
+| CRAWL-05 | Phase 1 | Pending |
+| CRAWL-06 | Phase 1 | Pending |
+| CRAWL-07 | Phase 1 | Pending |
+| CRAWL-08 | Phase 1 | Pending |
+| CRAWL-09 | Phase 1 | Pending |
+| PDF-01 | Phase 2 | Pending |
+| PDF-02 | Phase 2 | Pending |
+| PDF-03 | Phase 2 | Pending |
+| PDF-04 | Phase 2 | Pending |
+| BOOK-01 | Phase 3 | Pending |
+| BOOK-02 | Phase 3 | Pending |
+| BOOK-03 | Phase 3 | Pending |
+| BOOK-04 | Phase 3 | Pending |
+| BOOK-05 | Phase 3 | Pending |
 
 **Coverage:**
 - v1 requirements: 18 total
-- Mapped to phases: 0
-- Unmapped: 18 (roadmap creation pending)
+- Mapped to phases: 18
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-10-01*  
