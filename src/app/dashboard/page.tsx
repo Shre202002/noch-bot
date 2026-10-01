@@ -207,10 +207,12 @@ const QuickActionCard = ({ title, desc, icon: Icon, href, delay }: any) => (
 );
 
 export default function DashboardOverviewPage() {
+  const [mounted, setMounted] = useState(false);
   const [data, setData] = useState<OverviewData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    setMounted(true);
     Promise.all([
       fetch("/api/analytics").then((r) => r.json()),
       fetch("/api/auth/me").then((r) => r.json()),
@@ -287,7 +289,7 @@ export default function DashboardOverviewPage() {
           </motion.div>
           <div className="space-y-1">
             <motion.h1 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="text-4xl md:text-5xl font-black tracking-tight">
-              {greeting()}, {displayName}.
+              {mounted ? greeting() : "Welcome"}, {displayName}.
             </motion.h1>
             <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="text-lg text-muted-foreground">
               {data?.websiteUrl

@@ -106,11 +106,10 @@ function PdfChat() {
   const [autoScroll, setAutoScroll] = useState(true);
   const [abortCtrl, setAbortCtrl]   = useState<AbortController | null>(null);
 
-  const [sessionId] = useState(() =>
-    typeof crypto !== 'undefined' && crypto.randomUUID
-      ? crypto.randomUUID()
-      : `session-${Date.now()}-${Math.random().toString(36).slice(2)}`
-  );
+  // Keep the first render deterministic. Generating a random id in a state
+  // initializer runs on both server and client and can trigger hydration
+  // warnings because the values differ.
+  const [sessionId, setSessionId] = useState('');
 
   const bottomRef    = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -124,6 +123,15 @@ function PdfChat() {
     const handler = (e: MediaQueryListEvent) => setIsDark(e.matches);
     mq.addEventListener('change', handler);
     return () => mq.removeEventListener('change', handler);
+  }, []);
+
+  useEffect(() => {
+    setSessionId(current => {
+      if (current) return current;
+      return typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `session-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    });
   }, []);
 
   // ── Load slug ─────────────────────────────────────────────────────────────
