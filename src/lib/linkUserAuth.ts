@@ -1,7 +1,14 @@
-import { randomBytes } from 'crypto';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import { ObjectId, type Db } from 'mongodb';
+import type { ObjectId, Db } from 'mongodb';
+import {
+  createLinkAuth,
+  LINK_SESSION_TTL_SECONDS,
+  LOGIN_ATTEMPT_WINDOW_MS,
+  MAX_LOGIN_ATTEMPTS,
+  normalizeLoginId,
+  type LinkSessionError,
+  type LinkUserStatus,
+  type OwnerAction,
+} from './linkAuthCore';
 import { NOT_DELETED, PDF_LINK_USERS_COLLECTION, PDF_LINKS_COLLECTION } from './pdfRetention';
 
 /**
@@ -18,17 +25,8 @@ import { NOT_DELETED, PDF_LINK_USERS_COLLECTION, PDF_LINKS_COLLECTION } from './
  * pdfRetention.ts covers them.
  */
 
-export const LOGIN_ATTEMPT_WINDOW_MS = 48 * 60 * 60 * 1000;
-export const MAX_LOGIN_ATTEMPTS = 2;
-export const LINK_SESSION_TTL_SECONDS = 90 * 24 * 60 * 60;
-
-const LOGIN_ID_PATTERN = /^[a-z0-9._-]{3,32}$/;
-const MIN_PASSWORD_LENGTH = 8;
-const SECRET = process.env.JWT_SECRET || 'fallback_dev_secret';
-// Compared against when the Login ID does not exist, so a missing account costs the same time as a wrong password.
-const DUMMY_HASH = bcrypt.hashSync('nochbot-link-user-placeholder', 10);
-
-export type LinkUserStatus = 'pending' | 'approved' | 'rejected' | 'blocked';
+export { LINK_SESSION_TTL_SECONDS, LOGIN_ATTEMPT_WINDOW_MS, MAX_LOGIN_ATTEMPTS, normalizeLoginId };
+export type { LinkSessionError, LinkUserStatus, OwnerAction };
 
 export interface LinkUser {
   _id: ObjectId;
@@ -54,9 +52,6 @@ export interface ProtectedLink {
   fileId: string;
 }
 
-export type LinkSessionError = 'none' | 'replaced' | 'blocked' | 'pending' | 'rejected';
-export type OwnerAction = 'approve' | 'reject' | 'block' | 'unblock' | 'signout' | 'remove';
-
 export const linkCookieName = (slug: string) => `nbl_${slug}`;
 
 export const linkCookieOptions = {
@@ -80,12 +75,6 @@ export const LINK_AUTH_MESSAGES = {
   taken: 'That Login ID is already taken on this link.',
 } as const;
 
-export function normalizeLoginId(loginId: unknown): string {
-  return typeof loginId === 'string' ? loginId.trim().toLowerCase() : '';
-}
-
-const users = (db: Db) => db.collection<LinkUser>(PDF_LINK_USERS_COLLECTION);
-
 /** A live share link that requires sign-in, or null (missing, deleted, or public). */
 export async function findProtectedLink(db: Db, slug: string): Promise<ProtectedLink | null> {
   const link = await db
@@ -94,213 +83,32 @@ export async function findProtectedLink(db: Db, slug: string): Promise<Protected
   return link ? { slug: link.slug, userId: link.userId, fileId: link.fileId } : null;
 }
 
-let indexesReady: Promise<void> | null = null;
+// The shared rules (register, approve, one device at a time, session tokens) live in linkAuthCore.ts; PDF links also block an
+// approved account after repeated sign-ins.
+const core = createLinkAuth({ usersCollection: PDF_LINK_USERS_COLLECTION, tokenKind: 'link', blockOnAttempts: true });
 
-export function ensureLinkUserIndexes(db: Db): Promise<void> {
-  if (!indexesReady) {
-    indexesReady = Promise.all([
-      users(db).createIndex({ slug: 1, loginId: 1 }, { unique: true }),
-      users(db).createIndex({ userId: 1, slug: 1, status: 1 }),
-    ])
-      .then(() => undefined)
-      .catch((err) => {
-        indexesReady = null;
-        throw err;
-      });
-  }
-  return indexesReady;
-}
+export const ensureLinkUserIndexes = core.ensureIndexes;
 
-export async function registerLinkUser(
-  db: Db,
-  link: ProtectedLink,
-  rawLoginId: unknown,
-  password: unknown,
-  now: Date = new Date()
-): Promise<{ ok: true } | { error: 'invalid_login_id' | 'weak_password' | 'taken' }> {
-  const loginId = normalizeLoginId(rawLoginId);
-  if (!LOGIN_ID_PATTERN.test(loginId)) return { error: 'invalid_login_id' };
-  if (typeof password !== 'string' || password.length < MIN_PASSWORD_LENGTH) return { error: 'weak_password' };
+export const registerLinkUser = (db: Db, link: ProtectedLink, rawLoginId: unknown, password: unknown, now?: Date) =>
+  core.register(db, { slug: link.slug, userId: link.userId, extra: { fileId: link.fileId } }, rawLoginId, password, now);
 
-  try {
-    await users(db).insertOne({
-      _id: new ObjectId(),
-      userId: link.userId,
-      fileId: link.fileId,
-      slug: link.slug,
-      loginId,
-      passwordHash: await bcrypt.hash(password, 10),
-      status: 'pending',
-      loginAttempts: [],
-      createdAt: now,
-    });
-    return { ok: true };
-  } catch (err) {
-    if ((err as { code?: number }).code === 11000) return { error: 'taken' };
-    throw err;
-  }
-}
-
-/**
- * Signs a link user in. Attempts on approved accounts are counted (right or wrong password); the attempt that takes
- * the in-window count past MAX_LOGIN_ATTEMPTS blocks the account and is refused. Pending accounts are not counted, so
- * a user checking whether they have been approved cannot block themselves.
- */
-export async function attemptLinkLogin(
+export const attemptLinkLogin = core.login as (
   db: Db,
   slug: string,
   rawLoginId: unknown,
   password: unknown,
-  now: Date = new Date()
-): Promise<
-  | { ok: true; sessionId: string; user: LinkUser }
-  | { error: 'invalid' | 'pending' | 'rejected' | 'blocked' }
-> {
-  const loginId = normalizeLoginId(rawLoginId);
-  const pass = typeof password === 'string' ? password : '';
-  const user = loginId ? await users(db).findOne({ slug, loginId }) : null;
+  now?: Date
+) => Promise<{ ok: true; sessionId: string; user: LinkUser } | { error: 'invalid' | 'pending' | 'rejected' | 'blocked' }>;
 
-  if (!user) {
-    await bcrypt.compare(pass, DUMMY_HASH);
-    return { error: 'invalid' };
-  }
-  if (user.status === 'blocked') return { error: 'blocked' };
-  if (user.status === 'rejected') return { error: 'rejected' };
-  if (user.status === 'pending') {
-    return (await bcrypt.compare(pass, user.passwordHash)) ? { error: 'pending' } : { error: 'invalid' };
-  }
+export const signLinkToken = core.signToken;
+export const readLinkToken = core.readToken;
 
-  // Record this attempt and drop the ones that have left the window, atomically.
-  const windowStart = new Date(now.getTime() - LOGIN_ATTEMPT_WINDOW_MS);
-  const counted = await users(db).findOneAndUpdate(
-    { _id: user._id, status: 'approved' },
-    [
-      {
-        $set: {
-          loginAttempts: {
-            $concatArrays: [
-              {
-                $filter: {
-                  input: { $ifNull: ['$loginAttempts', []] },
-                  cond: { $gt: ['$$this', windowStart] },
-                },
-              },
-              [now],
-            ],
-          },
-        },
-      },
-    ],
-    { returnDocument: 'after' }
-  );
-  if (!counted) return { error: 'blocked' }; // blocked by a concurrent attempt or the owner
-
-  if (counted.loginAttempts.length > MAX_LOGIN_ATTEMPTS) {
-    await users(db).updateOne(
-      { _id: user._id },
-      { $set: { status: 'blocked', blockedAt: now }, $unset: { currentSessionId: '', sessionIssuedAt: '' } }
-    );
-    return { error: 'blocked' };
-  }
-
-  if (!(await bcrypt.compare(pass, user.passwordHash))) return { error: 'invalid' };
-
-  // A new session id signs out whichever device held the previous one.
-  const sessionId = randomBytes(16).toString('hex');
-  await users(db).updateOne(
-    { _id: user._id },
-    { $set: { currentSessionId: sessionId, sessionIssuedAt: now, lastLoginAt: now } }
-  );
-  return { ok: true, sessionId, user: { ...counted, currentSessionId: sessionId } };
-}
-
-export function signLinkToken(user: Pick<LinkUser, '_id' | 'slug'>, sessionId: string): string {
-  return jwt.sign({ kind: 'link', luid: user._id.toHexString(), sid: sessionId, slug: user.slug }, SECRET, {
-    expiresIn: LINK_SESSION_TTL_SECONDS,
-  });
-}
-
-export function readLinkToken(token: string | undefined): { luid: string; sid: string; slug: string } | null {
-  if (!token) return null;
-  try {
-    const payload = jwt.verify(token, SECRET) as { kind?: string; luid?: string; sid?: string; slug?: string };
-    if (payload.kind !== 'link' || !payload.luid || !payload.sid || !payload.slug) return null;
-    return { luid: payload.luid, sid: payload.sid, slug: payload.slug };
-  } catch {
-    return null;
-  }
-}
-
-/** Checks a link session token for `slug`. Only the account's current session on an approved account is valid. */
-export async function verifyLinkSession(
+export const verifyLinkSession = core.verifySession as (
   db: Db,
   slug: string,
   token: string | undefined
-): Promise<{ ok: true; user: LinkUser } | { error: LinkSessionError }> {
-  const payload = readLinkToken(token);
-  if (!payload || payload.slug !== slug || !ObjectId.isValid(payload.luid)) return { error: 'none' };
+) => Promise<{ ok: true; user: LinkUser } | { error: LinkSessionError }>;
 
-  const user = await users(db).findOne({ _id: new ObjectId(payload.luid), slug });
-  if (!user) return { error: 'none' };
-  if (user.status === 'blocked') return { error: 'blocked' };
-  if (user.status === 'pending') return { error: 'pending' };
-  if (user.status === 'rejected') return { error: 'rejected' };
-  if (!user.currentSessionId) return { error: 'none' };
-  if (user.currentSessionId !== payload.sid) return { error: 'replaced' };
-  return { ok: true, user };
-}
-
-/** Signs the account out of its current device (used by the user's own sign-out). */
-export async function endLinkSession(db: Db, slug: string, token: string | undefined): Promise<void> {
-  const payload = readLinkToken(token);
-  if (!payload || payload.slug !== slug || !ObjectId.isValid(payload.luid)) return;
-  await users(db).updateOne(
-    { _id: new ObjectId(payload.luid), slug, currentSessionId: payload.sid },
-    { $unset: { currentSessionId: '', sessionIssuedAt: '' } }
-  );
-}
-
-/** Owner-side management, always scoped to the owner's own link. Returns false when the user is not on their link. */
-export async function ownerLinkUserAction(
-  db: Db,
-  ownerId: string,
-  slug: string,
-  linkUserId: string,
-  action: OwnerAction,
-  now: Date = new Date()
-): Promise<boolean> {
-  if (!ObjectId.isValid(linkUserId)) return false;
-  const filter = { _id: new ObjectId(linkUserId), userId: ownerId, slug };
-  const signOut = { currentSessionId: '', sessionIssuedAt: '' } as const;
-
-  if (action === 'remove') return (await users(db).deleteOne(filter)).deletedCount === 1;
-
-  const updates: Record<Exclude<OwnerAction, 'remove'>, { from: LinkUserStatus[]; update: Record<string, unknown> }> = {
-    approve: { from: ['pending', 'rejected'], update: { $set: { status: 'approved', approvedAt: now, loginAttempts: [] } } },
-    reject: { from: ['pending'], update: { $set: { status: 'rejected' } } },
-    block: { from: ['approved'], update: { $set: { status: 'blocked', blockedAt: now }, $unset: signOut } },
-    unblock: { from: ['blocked'], update: { $set: { status: 'approved', loginAttempts: [] }, $unset: { blockedAt: '' } } },
-    signout: { from: ['approved'], update: { $unset: signOut } },
-  };
-  const { from, update } = updates[action];
-  const result = await users(db).updateOne({ ...filter, status: { $in: from } }, update);
-  return result.matchedCount === 1;
-}
-
-/** Link users for the owner's dashboard, without secrets. */
-export async function listLinkUsers(db: Db, ownerId: string, slug: string) {
-  const docs = await users(db)
-    .find({ userId: ownerId, slug }, { projection: { passwordHash: 0, currentSessionId: 0, loginAttempts: 0 } })
-    .sort({ createdAt: -1 })
-    .toArray();
-  return docs.map((u) => ({
-    id: u._id.toHexString(),
-    loginId: u.loginId,
-    status: u.status,
-    createdAt: u.createdAt,
-    approvedAt: u.approvedAt ?? null,
-    blockedAt: u.blockedAt ?? null,
-    lastLoginAt: u.lastLoginAt ?? null,
-    signedIn: Boolean(u.sessionIssuedAt),
-  }));
-}
+export const endLinkSession = core.endSession;
+export const ownerLinkUserAction = core.ownerAction;
+export const listLinkUsers = core.list;

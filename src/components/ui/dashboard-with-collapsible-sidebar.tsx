@@ -1,6 +1,6 @@
 "use client"
 import React, { useState, useEffect } from "react";
-import {
+import { ScanLine,
   Home,
   MessageSquare,
   Bot,
@@ -74,6 +74,7 @@ const NAV_GROUPS: NavGroup[] = [
       { icon: Calendar, title: "All Events", href: "/dashboard/events" },
       { icon: CalendarPlus, title: "New Event", href: "/dashboard/events/new" },
       { icon: Ticket, title: "Bookings", href: "/dashboard/bookings" },
+      { icon: ScanLine, title: "Scanning", href: "/dashboard/scanning" },
     ],
   },
   {

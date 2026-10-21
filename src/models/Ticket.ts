@@ -12,6 +12,8 @@ export interface Ticket {
   status: TicketStatus;
   scanned_at: Date | null;
   scanned_by_staff_id: ObjectId | null;
+  /** Login ID of the scanner account that admitted the ticket, shown on the organizer's Scanning tab. */
+  scanned_by_name?: string | null;
   scan_device_info: Record<string, any> | null;
   client_scan_id: string | null; // Unique ID from client to track which specific attempt won
   issued_at: Date;
