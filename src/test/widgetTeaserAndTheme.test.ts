@@ -128,7 +128,7 @@ describe("the chat icon in the theme", () => {
     expect((await save({ ...theme, launcherIcon: "smile" })).status).toBe(200);
     const { theme: saved } = await load();
     expect(saved.launcherIcon).toBe("smile");
-    expect(saved.launcherIconUrl).toBe("/chat-icon-5.svg");
+    expect(saved.launcherIconUrl).toBe("/api/launcher-icon/smile?color=36F4A4");
   });
 
   it("gives no image path for the robot, which needs none", async () => {
@@ -152,7 +152,7 @@ describe("the chat icon in the theme", () => {
     // Even if a bad value were already in the database, the widget only ever receives a path from our own list.
     await db.collection("knowledge").insertOne({ userId: ORG, theme: { ...theme, launcherIcon: "orb", launcherIconUrl: "https://evil.example/x.svg" } });
     const { theme: saved } = await load();
-    expect(saved.launcherIconUrl).toBe("/chat-icon-7.svg");
+    expect(saved.launcherIconUrl).toBe("/api/launcher-icon/orb?color=36F4A4");
 
     await db.collection("knowledge").deleteMany({});
     await db.collection("knowledge").insertOne({ userId: ORG, theme: { ...theme, launcherIcon: "../../etc/passwd", launcherIconUrl: "https://evil.example/x.svg" } });
@@ -164,7 +164,7 @@ describe("the chat icon in the theme", () => {
     expect((await save({ ...theme, launcherIcon: "smile", launcherIconUrl: "https://evil.example/x.svg" })).status).toBe(200);
     const stored = await db.collection("knowledge").findOne({ userId: ORG });
     expect(stored?.theme.launcherIconUrl).toBeUndefined();
-    expect((await load()).theme.launcherIconUrl).toBe("/chat-icon-5.svg");
+    expect((await load()).theme.launcherIconUrl).toBe("/api/launcher-icon/smile?color=36F4A4");
   });
 
   it("still works for a theme saved before icons existed", async () => {
@@ -177,5 +177,29 @@ describe("the chat icon in the theme", () => {
   it("requires a signed-in organizer to save", async () => {
     signedInAs = null;
     expect((await save({ ...theme, launcherIcon: "smile" })).status).toBe(401);
+  });
+});
+
+describe("the chat icon follows the bubble colour", () => {
+  const base = { headerColor: "#111111", userMsgColor: "#111111", sendBtnColor: "#111111", accentColor: "#111111" };
+  const load = async () => {
+    const { GET } = await import("@/app/api/theme/route");
+    return (await GET(req(`/api/theme?userId=${ORG}`))).json();
+  };
+
+  it("draws the icon in the saved bubble colour", async () => {
+    await db.collection("knowledge").insertOne({ userId: ORG, theme: { ...base, bubbleColor: "#F0C545", launcherIcon: "voice" } });
+    expect((await load()).theme.launcherIconUrl).toBe("/api/launcher-icon/voice?color=F0C545");
+  });
+
+  it("follows a new bubble colour on the next load", async () => {
+    await db.collection("knowledge").insertOne({ userId: ORG, theme: { ...base, bubbleColor: "#F0C545", launcherIcon: "voice" } });
+    await db.collection("knowledge").updateOne({ userId: ORG }, { $set: { "theme.bubbleColor": "#2563EB" } });
+    expect((await load()).theme.launcherIconUrl).toBe("/api/launcher-icon/voice?color=2563EB");
+  });
+
+  it("falls back to the original artwork when the bubble colour is not a colour", async () => {
+    await db.collection("knowledge").insertOne({ userId: ORG, theme: { ...base, bubbleColor: "not a colour", launcherIcon: "voice" } });
+    expect((await load()).theme.launcherIconUrl).toBe("/api/launcher-icon/voice");
   });
 });

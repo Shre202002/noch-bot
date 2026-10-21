@@ -195,7 +195,8 @@ export default function ConfigurePage() {
           ...prev,
           bubbleColor: primary, headerColor: primary,
           userMsgColor: primary, sendBtnColor: primary,
-          accentColor: data.palette[1] || primary,
+          // The chatbot is built around one main colour; the stored accent just follows it.
+          accentColor: primary,
         }))
       }
     } catch (err) {
@@ -302,11 +303,10 @@ export default function ConfigurePage() {
   const embedCode = `<script\n  src="${scriptUrl}"\n  data-user-id="${userId}"\n  defer>\n</script>`;
 
   const THEME_COMPONENTS = [
-    { key: 'bubbleColor', label: 'Chat Bubble', desc: 'Floating button color' },
+    { key: 'bubbleColor', label: 'Chat Bubble', desc: 'Floating button, action buttons (Book tickets, Pay) and the chat icon' },
     { key: 'headerColor', label: 'Header Bar', desc: 'Top bar of chat window' },
     { key: 'userMsgColor', label: 'User Messages', desc: 'Sent message bubbles' },
-    { key: 'sendBtnColor', label: 'Send & Action Buttons', desc: 'Send arrow, Book tickets, Pay and Download buttons' },
-    { key: 'accentColor', label: 'Accent', desc: 'Highlight when hovering a button' },
+    { key: 'sendBtnColor', label: 'Send Button', desc: 'Send arrow button' },
   ] as const
 
   const PRESET_COLORS = ['#36f4a4', '#2563eb', '#8b5cf6', '#FF5701', '#ec4899', '#ef4444', '#eab308', '#ffffff']

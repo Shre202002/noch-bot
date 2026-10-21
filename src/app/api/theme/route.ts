@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserIdFromCookie } from "@/lib/auth";
 import { readKnowledge, writeKnowledge } from "@/lib/storage";
-import { isKnownLauncherIcon, launcherIconPath } from "@/lib/launcherIcons";
+import { isKnownLauncherIcon, launcherIconUrl } from "@/lib/launcherIcons";
 
 export const dynamic = "force-dynamic";
 
@@ -44,8 +44,9 @@ export async function GET(req: NextRequest) {
   let result: Record<string, unknown> | null = null;
   if (theme) {
     const { launcherIconUrl: _stored, ...rest } = theme as Record<string, unknown>;
-    const launcherIconUrl = launcherIconPath(rest.launcherIcon);
-    result = { ...rest, ...(launcherIconUrl ? { launcherIconUrl } : {}) };
+    // Drawn in the chat bubble's colour, so the icon matches the rest of the chatbot.
+    const iconUrl = launcherIconUrl(rest.launcherIcon, typeof rest.bubbleColor === "string" ? rest.bubbleColor : null);
+    result = { ...rest, ...(iconUrl ? { launcherIconUrl: iconUrl } : {}) };
   }
 
   return NextResponse.json(

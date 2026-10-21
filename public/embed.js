@@ -992,8 +992,9 @@
     var headerInk = inkOn(theme.headerColor);
     var userInk = inkOn(theme.userMsgColor);
     var sendInk = inkOn(theme.sendBtnColor);
-    // Buttons that do something (Book tickets, Pay, Download) share the Send button's colour, so they always match the chat.
-    var actionColor = theme.sendBtnColor || theme.accentColor;
+    // Buttons that do something (Book tickets, Pay, Download), their hover and the input focus all use the chat bubble's
+    // colour: the chatbot's main colour, as detected and set in Dashboard -> Configure.
+    var actionColor = theme.bubbleColor || theme.sendBtnColor;
     var actionInk = inkOn(actionColor);
     var windowBg = theme.windowBgColor || '#f6f7f9';
     var ease = 'cubic-bezier(.16,1,.3,1)';
@@ -1049,7 +1050,7 @@
       '.nochbot-message.is-user{background:' + theme.userMsgColor + ';color:' + userInk + ';border-bottom-right-radius:5px}.nochbot-message.is-bot{background:#fff;color:#111827;border:1px solid rgba(17,24,39,.08);border-bottom-left-radius:5px;box-shadow:0 1px 2px rgba(0,0,0,.04)}' +
       '.nochbot-note{display:block;font-size:12px;color:#6b7280;margin-top:4px}' +
       '.nochbot-actions{display:flex;flex-wrap:wrap;gap:8px;max-width:82%}.nochbot-action,.nochbot-pay-link{border:1px solid rgba(17,24,39,.12);background:#fff;color:#111827;border-radius:999px;padding:8px 12px;font-size:13px;text-decoration:none;cursor:pointer;transition:background .15s ease,border-color .15s ease}' +
-      '.nochbot-action:hover{border-color:' + theme.accentColor + '}' +
+      '.nochbot-action:hover{border-color:' + actionColor + '}' +
       '.nochbot-pay-link,.nochbot-action.is-primary{background:' + actionColor + ';color:' + actionInk + ';border:0;font-weight:700}' +
       // Composer
       '#nochbot-form{display:flex;align-items:center;gap:8px;padding:12px;border-top:1px solid rgba(17,24,39,.08);background:#fff}' +

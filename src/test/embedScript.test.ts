@@ -24,11 +24,13 @@ describe("public/embed.js", () => {
     expect(source).toMatch(/\(open\.length === 1 \? ' is' : ' are'\)/);
   });
 
-  it("colours the booking, pay and download buttons and the input focus from the Send button colour", () => {
-    expect(source).toContain("var actionColor = theme.sendBtnColor || theme.accentColor;");
+  it("colours the booking, pay and download buttons, their hover and the input focus from the chat bubble colour", () => {
+    expect(source).toContain("var actionColor = theme.bubbleColor || theme.sendBtnColor;");
     expect(source).toContain(".nochbot-pay-link,.nochbot-action.is-primary{background:' + actionColor");
+    expect(source).toContain(".nochbot-action:hover{border-color:' + actionColor");
     expect(source).toContain("#nochbot-input:focus{border-color:' + actionColor");
-    expect(source).not.toMatch(/background:' \+ theme\.accentColor/);
+    // No separate accent colour is used for styling any more.
+    expect(source).not.toContain("theme.accentColor");
   });
 
   it("uses the chosen chat icon only from the image path the server worked out", () => {

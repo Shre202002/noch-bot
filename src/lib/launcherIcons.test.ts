@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
-import { DEFAULT_LAUNCHER_ICON, isKnownLauncherIcon, LAUNCHER_ICONS, launcherIconPath } from "@/lib/launcherIcons";
+import { DEFAULT_LAUNCHER_ICON, isKnownLauncherIcon, LAUNCHER_ICONS, launcherIconPath, launcherIconUrl } from "@/lib/launcherIcons";
 
 const PUBLIC = path.join(process.cwd(), "public");
 const files = LAUNCHER_ICONS.filter((i) => i.path);
@@ -75,5 +75,21 @@ describe("launcherIconPath", () => {
   it("is null for the robot, an unknown id, or nothing", () => {
     expect(launcherIconPath(DEFAULT_LAUNCHER_ICON)).toBeNull();
     for (const bad of ["nope", "../../etc/passwd", "__proto__", undefined, null, 5]) expect(launcherIconPath(bad)).toBeNull();
+  });
+});
+
+describe("launcherIconUrl", () => {
+  it("points at the themed endpoint with the colour as six digits", () => {
+    expect(launcherIconUrl("smile", "#F0C545")).toBe("/api/launcher-icon/smile?color=F0C545");
+    expect(launcherIconUrl("orb", "f0c545")).toBe("/api/launcher-icon/orb?color=F0C545");
+    expect(launcherIconUrl("voice", "#fc0")).toBe("/api/launcher-icon/voice?color=FFCC00");
+  });
+
+  it("has no colour part for a missing or invalid colour", () => {
+    for (const bad of [undefined, null, "", "red", "#12", 'x"><script>']) expect(launcherIconUrl("orb", bad), String(bad)).toBe("/api/launcher-icon/orb");
+  });
+
+  it("is null for the robot, an unknown id, or anything that is not an id", () => {
+    for (const id of [DEFAULT_LAUNCHER_ICON, "nope", "../x", "__proto__", 4, null, undefined]) expect(launcherIconUrl(id, "#F0C545"), String(id)).toBeNull();
   });
 });

@@ -1,3 +1,5 @@
+import { normalizeHex } from './colorInput';
+
 /**
  * The chat icons an organizer can choose for the website widget's launcher button.
  *
@@ -33,4 +35,14 @@ export const isKnownLauncherIcon = (id: unknown): id is string =>
 export function launcherIconPath(id: unknown): string | null {
   if (typeof id !== 'string') return null;
   return LAUNCHER_ICONS.find((i) => i.id === id)?.path ?? null;
+}
+
+/**
+ * Where the widget and the picker load an icon from: our own endpoint, which draws it in the theme colour. Null for the
+ * built-in robot or an unknown id. A missing or invalid colour gives the original artwork.
+ */
+export function launcherIconUrl(id: unknown, color?: string | null): string | null {
+  if (launcherIconPath(id) === null) return null;
+  const hex = color ? normalizeHex(color) : null;
+  return `/api/launcher-icon/${id as string}${hex ? `?color=${hex.slice(1)}` : ''}`;
 }

@@ -1,12 +1,12 @@
 "use client";
 
 import { Bot, Check } from "lucide-react";
-import { DEFAULT_LAUNCHER_ICON, LAUNCHER_ICONS, launcherIconPath } from "@/lib/launcherIcons";
+import { DEFAULT_LAUNCHER_ICON, LAUNCHER_ICONS, launcherIconUrl } from "@/lib/launcherIcons";
 import { DEFAULT_TEASER } from "@/lib/widgetTeaser";
 
-/** The chat icon as it appears on the launcher: the chosen artwork, or the robot on the bubble colour. */
+/** The chat icon as it appears on the launcher: the artwork drawn in the bubble colour, or the robot on that colour. */
 function IconFace({ id, bubbleColor, size }: { id: string; bubbleColor: string; size: number }) {
-  const src = launcherIconPath(id);
+  const src = launcherIconUrl(id, bubbleColor);
   if (src) {
     return <img src={src} alt="" width={size} height={size} draggable={false} style={{ width: size, height: size, objectFit: "contain" }} />;
   }
