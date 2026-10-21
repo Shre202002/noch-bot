@@ -305,8 +305,8 @@ export default function ConfigurePage() {
     { key: 'bubbleColor', label: 'Chat Bubble', desc: 'Floating button color' },
     { key: 'headerColor', label: 'Header Bar', desc: 'Top bar of chat window' },
     { key: 'userMsgColor', label: 'User Messages', desc: 'Sent message bubbles' },
-    { key: 'sendBtnColor', label: 'Send Button', desc: 'Send arrow button' },
-    { key: 'accentColor', label: 'Accent / Links', desc: 'Hover states and links' },
+    { key: 'sendBtnColor', label: 'Send & Action Buttons', desc: 'Send arrow, Book tickets, Pay and Download buttons' },
+    { key: 'accentColor', label: 'Accent', desc: 'Highlight when hovering a button' },
   ] as const
 
   const PRESET_COLORS = ['#36f4a4', '#2563eb', '#8b5cf6', '#FF5701', '#ec4899', '#ef4444', '#eab308', '#ffffff']

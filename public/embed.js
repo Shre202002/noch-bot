@@ -796,15 +796,16 @@
       var info = results[0] || {};
       var text = info.greeting || fallback;
       setAssistantName(info.siteName);
-      addMessage('assistant', text);
       showTeaser(state.teaser || "I'm here to help you.");
       var open = (results[1] || []).filter(function (e) { return e.available_seats > 0; });
-      if (open.length) {
-        var names = open.slice(0, 2).map(function (e) { return e.name; }).join(' and ');
-        addMessage('assistant', 'You can also book tickets for ' + names + (open.length > 2 ? ' and more' : '') + ' right here in the chat.', {
-          actions: [{ label: 'Book tickets', primary: true, onClick: function () { addMessage('user', 'Book tickets'); startEmbedBooking(); } }]
-        });
-      }
+      if (!open.length) return addMessage('assistant', text);
+      // One message, not two: the welcome and the live event read as a single thought, with the booking button below.
+      var names = open.length === 1 ? open[0].name
+        : open.length === 2 ? open[0].name + ' and ' + open[1].name
+        : open[0].name + ', ' + open[1].name + ' and ' + (open.length - 2) + ' more';
+      addMessage('assistant', text + '\n\n' + names + (open.length === 1 ? ' is' : ' are') + ' live. You can book your tickets right here in the chat.', {
+        actions: [{ label: 'Book tickets', primary: true, onClick: function () { addMessage('user', 'Book tickets'); startEmbedBooking(); } }]
+      });
     }).finally(resumePendingPayment);
   }
 
@@ -991,7 +992,9 @@
     var headerInk = inkOn(theme.headerColor);
     var userInk = inkOn(theme.userMsgColor);
     var sendInk = inkOn(theme.sendBtnColor);
-    var accentInk = inkOn(theme.accentColor);
+    // Buttons that do something (Book tickets, Pay, Download) share the Send button's colour, so they always match the chat.
+    var actionColor = theme.sendBtnColor || theme.accentColor;
+    var actionInk = inkOn(actionColor);
     var windowBg = theme.windowBgColor || '#f6f7f9';
     var ease = 'cubic-bezier(.16,1,.3,1)';
     return '#nochbot-root{position:fixed;right:20px;bottom:20px;z-index:2147483647;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#111827;line-height:1.4}' +
@@ -1047,11 +1050,11 @@
       '.nochbot-note{display:block;font-size:12px;color:#6b7280;margin-top:4px}' +
       '.nochbot-actions{display:flex;flex-wrap:wrap;gap:8px;max-width:82%}.nochbot-action,.nochbot-pay-link{border:1px solid rgba(17,24,39,.12);background:#fff;color:#111827;border-radius:999px;padding:8px 12px;font-size:13px;text-decoration:none;cursor:pointer;transition:background .15s ease,border-color .15s ease}' +
       '.nochbot-action:hover{border-color:' + theme.accentColor + '}' +
-      '.nochbot-pay-link,.nochbot-action.is-primary{background:' + theme.accentColor + ';color:' + accentInk + ';border:0;font-weight:700}' +
+      '.nochbot-pay-link,.nochbot-action.is-primary{background:' + actionColor + ';color:' + actionInk + ';border:0;font-weight:700}' +
       // Composer
       '#nochbot-form{display:flex;align-items:center;gap:8px;padding:12px;border-top:1px solid rgba(17,24,39,.08);background:#fff}' +
       '#nochbot-input{flex:1;min-width:0;min-height:44px;border:1px solid rgba(17,24,39,.14);border-radius:999px;padding:10px 16px;font-size:16px;outline:none;background:#fff;color:#111827;transition:border-color .15s ease,box-shadow .15s ease}' +
-      '#nochbot-input:focus{border-color:' + theme.accentColor + ';box-shadow:0 0 0 3px rgba(17,24,39,.08)}' +
+      '#nochbot-input:focus{border-color:' + actionColor + ';box-shadow:0 0 0 3px rgba(17,24,39,.08)}' +
       '#nochbot-send{width:44px;height:44px;flex-shrink:0;border:0;border-radius:999px;background:' + theme.sendBtnColor + ';color:' + sendInk + ';cursor:pointer;display:grid;place-items:center;transition:transform .15s ease,opacity .15s ease}' +
       '#nochbot-send svg{width:20px;height:20px}#nochbot-send:hover:not(:disabled){transform:scale(1.05)}' +
       '#nochbot-send:disabled{opacity:.5;cursor:not-allowed}#nochbot-input[readonly]{background:#f9fafb}' +

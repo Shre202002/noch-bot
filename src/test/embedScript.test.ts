@@ -16,6 +16,21 @@ describe("public/embed.js", () => {
     expect(source).toContain("state.teaserEventId");
   });
 
+  it("greets with one message that includes the live event, instead of two", () => {
+    expect(source).toContain("' live. You can book your tickets right here in the chat.'");
+    expect(source).not.toContain("You can also book tickets for");
+    // One addMessage carries both the welcome and the booking button.
+    expect(source).toMatch(/addMessage\('assistant', text \+ '\\n\\n' \+ names/);
+    expect(source).toMatch(/\(open\.length === 1 \? ' is' : ' are'\)/);
+  });
+
+  it("colours the booking, pay and download buttons and the input focus from the Send button colour", () => {
+    expect(source).toContain("var actionColor = theme.sendBtnColor || theme.accentColor;");
+    expect(source).toContain(".nochbot-pay-link,.nochbot-action.is-primary{background:' + actionColor");
+    expect(source).toContain("#nochbot-input:focus{border-color:' + actionColor");
+    expect(source).not.toMatch(/background:' \+ theme\.accentColor/);
+  });
+
   it("uses the chosen chat icon only from the image path the server worked out", () => {
     expect(source).toContain("theme.launcherIconUrl");
     expect(source).toContain("nochbot-launcher-img");
