@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, Search, UserCheck, Undo2, AlertCircle } from "lucide-react";
+import { Loader2, Search, UserCheck, Undo2, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -22,11 +22,19 @@ type Row = {
   status: string;
   status_label: string;
   group: Group | null;
+  payment_status?: string;
   created_at: string;
+  confirmed_at: string | null;
+  source: "widget" | "chatbot" | null;
+  payment_provider: string | null;
+  answers: Array<{ label: string; value: string; attendee?: number }>;
   tickets: Ticket[];
   checked_in: number;
   actions: Array<"mark_refunded" | "cancel">;
 };
+
+const SOURCE_LABELS = { widget: "Website widget", chatbot: "Chat bot" } as const;
+const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : "Not yet");
 
 type Response = {
   bookings: Row[];
@@ -68,6 +76,8 @@ export function BookingsPanel({ eventId }: { eventId: string }) {
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
   const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [openIds, setOpenIds] = useState<string[]>([]);
+  const toggleOpen = (id: string) => setOpenIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   const requestId = useRef(0);
 
   // Search waits for a pause in typing, and starts again from page 1.
@@ -188,6 +198,59 @@ export function BookingsPanel({ eventId }: { eventId: string }) {
                       </div>
                       <Badge variant="outline" className={badgeTone(r.group)}>{r.status_label}</Badge>
                     </div>
+
+                    <button
+                      type="button"
+                      onClick={() => toggleOpen(r.id)}
+                      aria-expanded={openIds.includes(r.id)}
+                      aria-controls={`details-${r.id}`}
+                      className="inline-flex cursor-pointer items-center gap-1 text-xs font-semibold text-[#36f4a4] hover:underline"
+                    >
+                      {openIds.includes(r.id) ? <ChevronUp aria-hidden="true" className="h-3.5 w-3.5" /> : <ChevronDown aria-hidden="true" className="h-3.5 w-3.5" />}
+                      {openIds.includes(r.id) ? "Hide details" : "Show details"}
+                    </button>
+
+                    {openIds.includes(r.id) && (
+                      <div id={`details-${r.id}`} className="grid gap-5 rounded-xl border border-white/5 bg-black/20 p-4 sm:grid-cols-2">
+                        <section aria-label="Attendee answers" className="space-y-2">
+                          <h4 className="text-[11px] font-bold uppercase tracking-widest text-white/40">Attendee details</h4>
+                          {r.answers.length === 0 ? (
+                            <p className="text-sm text-white/50">No answers were recorded.</p>
+                          ) : (
+                            <dl className="space-y-2">
+                              {r.answers.map((a, i) => (
+                                <div key={`${a.label}-${a.attendee ?? 0}-${i}`}>
+                                  <dt className="text-xs text-white/50">
+                                    {a.label}
+                                    {a.attendee ? ` (attendee ${a.attendee})` : ""}
+                                  </dt>
+                                  <dd className="break-words text-sm text-white">{a.value}</dd>
+                                </div>
+                              ))}
+                            </dl>
+                          )}
+                        </section>
+                        <section aria-label="Booking and payment" className="space-y-2">
+                          <h4 className="text-[11px] font-bold uppercase tracking-widest text-white/40">Booking and payment</h4>
+                          <dl className="space-y-2">
+                            {[
+                              ["Reference", r.booking_code ?? r.id],
+                              ["Tickets", String(r.quantity)],
+                              ["Amount", money(r)],
+                              ["Payment", [r.payment_provider, r.payment_status].filter(Boolean).join(" · ") || "None"],
+                              ["Booked", when(r.created_at)],
+                              ["Confirmed", when(r.confirmed_at)],
+                              ["Booked through", r.source ? SOURCE_LABELS[r.source] : "Unknown"],
+                            ].map(([label, value]) => (
+                              <div key={label}>
+                                <dt className="text-xs text-white/50">{label}</dt>
+                                <dd className="break-words text-sm text-white">{value}</dd>
+                              </div>
+                            ))}
+                          </dl>
+                        </section>
+                      </div>
+                    )}
 
                     {r.tickets.length > 0 && (
                       <ul className="space-y-2 border-t border-white/5 pt-3">

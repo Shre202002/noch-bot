@@ -8,7 +8,7 @@ import {
   Settings, FormInput, CreditCard,
   CalendarIcon, CheckCircle2, AlertCircle, Layout,
   Mail, Scissors, Check, ShieldCheck, RefreshCcw,
-  Palette, RotateCcw, Upload, UserCheck
+  Palette, RotateCcw, Upload, Ticket
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -21,9 +21,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { TicketPreview, TICKET_TEMPLATE_DEFAULT_PALETTES } from "@/components/TicketPreview";
 import { Switch } from "@/components/ui/switch";
-import { BookingsPanel } from "./bookings-panel";
 import { FormBuilder, type FormField } from "./form-builder";
-import { EventProgress, type ProgressStep } from "./event-progress";
+import { EventProgress } from "./event-progress";
+import { GoLivePanel, StepFooter, StepTabsBar, nextStepTab, type StepDef } from "./step-nav";
+import { eventReadiness, isTicketDesignConfirmed } from "@/lib/eventReadiness";
 import { TicketColorPalette } from "@/models/Event";
 import { BasicColorPicker } from "@/components/ui/color-picker";
 import {
@@ -60,6 +61,7 @@ interface EventData {
   currency: string;
   ticket_template_id: string;
   ticket_color_palette?: TicketColorPalette;
+  ticket_design_confirmed_at?: string | null;
   logo_url: string | null;
   logo_file_id?: string | null;
   remove_background?: boolean;
@@ -124,31 +126,33 @@ export default function EventDetailPage() {
     fetchEvent();
   }, [fetchEvent]);
 
-  const readiness = useMemo(() => {
-    if (!event) return { complete: false, steps: [] };
-    const steps = [
-      { id: 'details', label: 'Basic details complete', done: !!name && !!description && capacity > 0 },
-      { id: 'fields', label: 'At least one form field added', done: event.form_fields.length > 0 },
-      { id: 'design', label: 'Ticket design selected', done: !!event.ticket_template_id },
-    ];
-    if (event.is_paid) {
-      steps.push({ id: 'gateway', label: 'Payment gateway connected', done: isGatewayConfigured });
-    }
-    return {
-      complete: steps.every(s => s.done),
-      steps
-    };
-  }, [event, name, description, capacity, isGatewayConfigured]);
+  // Same rules the publish API enforces (src/lib/eventReadiness.ts), applied to the saved event.
+  const readiness = useMemo(
+    () => (event ? eventReadiness(event, { fieldCount: event.form_fields.length, gatewayActive: isGatewayConfigured }) : null),
+    [event, isGatewayConfigured]
+  );
+  const published = event?.status === "published";
 
-  const progressSteps = useMemo<ProgressStep[]>(() => {
-    if (!event) return [];
-    const tabFor: Record<string, string> = { details: "details", fields: "fields", design: "ticket", gateway: "gateway" };
-    const labelFor: Record<string, string> = { details: "Event details", fields: "Attendee form", design: "Ticket design", gateway: "Payments" };
+  // The path through the page, in the order an organizer works. Free events have no Payments step.
+  const steps = useMemo<StepDef[]>(() => {
+    if (!event || !readiness) return [];
+    const shortLabel: Record<string, string> = { details: "Details", fields: "Attendee form", design: "Ticket design", payments: "Payments" };
     return [
-      ...readiness.steps.map((s) => ({ id: s.id, label: labelFor[s.id] ?? s.label, done: s.done, tab: tabFor[s.id] })),
-      { id: "publish", label: "Go live", done: event.status === "published" },
+      ...readiness.steps.map((r) => ({ tab: r.tab, label: shortLabel[r.id] ?? r.label, done: r.done })),
+      { tab: "live", label: "Go live", done: published },
     ];
-  }, [event, readiness]);
+  }, [event, readiness, published]);
+
+  const detailsDirty =
+    !!event && (name !== event.name || description !== event.description || capacity !== event.capacity);
+
+  // Moving away from Details with edits that were never saved would silently drop them.
+  const goTo = (next: string) => {
+    if (next === tab) return;
+    if (tab === "details" && detailsDirty && !window.confirm("You have unsaved changes to the event details. Leave without saving?")) return;
+    setTab(next);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   const handleSaveDetails = async () => {
     setSaving(true);
@@ -201,11 +205,14 @@ export default function EventDetailPage() {
     try {
       const res = await fetch(`/api/events/${params.id}/publish`, { method: "POST" });
       if (!res.ok) {
-        const err = await res.json();
+        const err = await res.json().catch(() => ({}));
+        // The server lists what is still missing; take the organizer to the first of them.
+        const first = Array.isArray(err.missing) ? err.missing[0]?.tab : undefined;
+        if (first) setTab(first);
         throw new Error(err.error || "Failed to publish");
       }
-      toast({ title: "Success", description: "Event is now live!" });
-      fetchEvent();
+      toast({ title: "Your event is live", description: "Attendees can now book." });
+      await fetchEvent();
     } catch (err: any) {
       toast({ variant: "destructive", title: "Publish Failed", description: err.message });
     } finally {
@@ -245,29 +252,46 @@ export default function EventDetailPage() {
               <p className="text-sm text-muted-foreground mt-1">Manage your event experience and ticket issuance.</p>
             </div>
           </div>
-          <EventProgress steps={progressSteps} activeTab={tab} onSelect={setTab} />
+          <EventProgress
+            done={steps.filter((x) => x.done && x.tab !== "live").length}
+            total={steps.length - 1}
+            nextLabel={steps.find((x) => x.tab === nextStepTab(steps))?.label ?? null}
+            published={published}
+          />
         </div>
 
         <div className="flex flex-col gap-4 min-w-[280px]">
           <Card className="border-border bg-card/40 backdrop-blur-sm">
             <CardContent className="p-5 space-y-4">
               <h3 className="text-xs font-bold uppercase tracking-widest text-white/50">Readiness</h3>
-              <div className="space-y-3">
-                {readiness.steps.map(step => (
-                  <div key={step.id} className="flex items-center gap-2 text-sm">
-                    {step.done ? <CheckCircle2 className="h-4 w-4 text-[#36f4a4]" /> : <AlertCircle className="h-4 w-4 text-orange-400" />}
-                    <span className={step.done ? "text-white" : "text-white/60"}>{step.label}</span>
-                  </div>
+              <ul className="space-y-1">
+                {readiness?.steps.map((step) => (
+                  <li key={step.id}>
+                    <button
+                      type="button"
+                      onClick={() => goTo(step.tab)}
+                      className="flex w-full items-center gap-2 rounded-lg px-1 py-1.5 text-left text-sm hover:bg-white/5 cursor-pointer"
+                    >
+                      {step.done ? <CheckCircle2 aria-hidden="true" className="h-4 w-4 shrink-0 text-[#36f4a4]" /> : <AlertCircle aria-hidden="true" className="h-4 w-4 shrink-0 text-orange-400" />}
+                      <span className={step.done ? "text-white" : "text-white/70"}>{step.label}</span>
+                      <span className="sr-only">{step.done ? " (complete)" : " (needs attention)"}</span>
+                    </button>
+                  </li>
                 ))}
-              </div>
-              {event.status === "draft" && (
-                <Button 
-                  onClick={handlePublish} 
-                  disabled={!readiness.complete || publishing}
+              </ul>
+              {!published ? (
+                <Button
+                  onClick={() => goTo("live")}
                   className="w-full rounded-full bg-[#36f4a4] text-black hover:bg-[#36f4a4]/90 font-black h-11 cursor-pointer"
                 >
-                  {publishing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Rocket className="mr-2 h-4 w-4" />}
-                  Publish Live
+                  <Rocket aria-hidden="true" className="mr-2 h-4 w-4" />
+                  {readiness?.complete ? "Review & go live" : "See what is left"}
+                </Button>
+              ) : (
+                <Button asChild variant="outline" className="w-full rounded-full border-white/15 text-white h-11 cursor-pointer">
+                  <Link href={`/dashboard/bookings/${event._id}`}>
+                    <Ticket aria-hidden="true" className="mr-2 h-4 w-4" /> View bookings
+                  </Link>
                 </Button>
               )}
             </CardContent>
@@ -275,14 +299,8 @@ export default function EventDetailPage() {
         </div>
       </div>
 
-      <Tabs value={tab} onValueChange={setTab} className="space-y-6">
-        <TabsList className="bg-accent/20 border border-white/5 p-1 h-auto rounded-full">
-          <TabsTrigger value="details" className="rounded-full px-6 py-2 cursor-pointer"><Settings className="mr-2 h-4 w-4" /> Details</TabsTrigger>
-          <TabsTrigger value="fields" className="rounded-full px-6 py-2 cursor-pointer"><FormInput className="mr-2 h-4 w-4" /> Attendee Form</TabsTrigger>
-          <TabsTrigger value="ticket" className="rounded-full px-6 py-2 cursor-pointer"><Layout className="mr-2 h-4 w-4" /> Ticket Design</TabsTrigger>
-          <TabsTrigger value="gateway" className="rounded-full px-6 py-2 cursor-pointer"><CreditCard className="mr-2 h-4 w-4" /> Payments</TabsTrigger>
-          <TabsTrigger value="bookings" className="rounded-full px-6 py-2 cursor-pointer"><UserCheck className="mr-2 h-4 w-4" /> Bookings</TabsTrigger>
-        </TabsList>
+      <Tabs value={tab} onValueChange={goTo} className="space-y-6">
+        <StepTabsBar steps={steps} activeTab={tab} />
 
         <TabsContent value="details" className="space-y-8">
           <Card className="border-border bg-card/30 backdrop-blur-sm">
@@ -361,10 +379,6 @@ export default function EventDetailPage() {
 
         <TabsContent value="ticket">
           <TicketDesignView event={event} onUpdate={fetchEvent} />
-        </TabsContent>
-
-        <TabsContent value="bookings">
-          <BookingsPanel eventId={String(params.id)} />
         </TabsContent>
 
         <TabsContent value="gateway">
@@ -489,6 +503,28 @@ export default function EventDetailPage() {
             </Card>
           )}
         </TabsContent>
+
+        <TabsContent value="live">
+          <GoLivePanel
+            eventId={String(event._id)}
+            summary={[
+              { label: "Event", value: event.name },
+              { label: "When", value: `${new Date(event.start_at).toLocaleString()} to ${new Date(event.end_at).toLocaleString()}` },
+              { label: "Venue", value: event.venue || "Not set" },
+              { label: "Capacity", value: String(event.capacity) },
+              { label: "Price", value: event.is_paid ? `${event.currency} ${event.price ?? 0}` : "Free" },
+              { label: "Attendee questions", value: String(event.form_fields.length) },
+            ]}
+            checklist={readiness?.steps ?? []}
+            complete={!!readiness?.complete}
+            published={published}
+            publishing={publishing}
+            onFix={goTo}
+            onPublish={handlePublish}
+          />
+        </TabsContent>
+
+        <StepFooter steps={steps} activeTab={tab} onGo={goTo} />
       </Tabs>
 
     </div>
@@ -514,6 +550,8 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
   const [uploading, setUploading] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
   const [isSavingPalette, setIsSavingPalette] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const designConfirmed = isTicketDesignConfirmed(event);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -522,6 +560,25 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
       setPalette(event.ticket_color_palette);
     }
   }, [event.ticket_color_palette]);
+
+  // The preview may already look right, so an explicit "use this design" is what lets the event go live.
+  const confirmDesign = async () => {
+    setConfirming(true);
+    try {
+      const res = await fetch(`/api/events/${event._id}/ticket-design`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ template_id: templateId, color_palette: palette }),
+      });
+      if (!res.ok) throw new Error("Could not save the design");
+      toast({ title: "Ticket design saved" });
+      onUpdate();
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Could not save", description: err.message });
+    } finally {
+      setConfirming(false);
+    }
+  };
 
   const handleTemplateChange = async (id: string) => {
     setTemplateId(id);
@@ -821,6 +878,27 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
             <ColorInput label="QR Background" value={palette.qr_background_color} paletteKey="qr_background_color" />
           </div>
         </section>
+
+        <Card className={designConfirmed ? "border-[#36f4a4]/30 bg-[#36f4a4]/5" : "border-[#36f4a4]/60 bg-[#36f4a4]/5 shadow-[0_0_0_3px_rgba(54,244,164,0.12)]"}>
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-white">
+                {designConfirmed ? "Design saved" : "Happy with this ticket?"}
+              </p>
+              <p className="text-xs text-white/60">
+                {designConfirmed ? "You can keep adjusting it. Changes save automatically." : "Save it to finish this step before going live."}
+              </p>
+            </div>
+            <Button
+              onClick={confirmDesign}
+              disabled={confirming}
+              className="rounded-full font-bold cursor-pointer bg-[#36f4a4] text-black hover:bg-[#36f4a4]/90 shadow-[0_0_0_3px_rgba(54,244,164,0.18)]"
+            >
+              {confirming ? <Loader2 aria-hidden="true" className="mr-2 h-4 w-4 animate-spin" /> : <Check aria-hidden="true" className="mr-2 h-4 w-4" />}
+              {designConfirmed ? "Save again" : "Use this design"}
+            </Button>
+          </CardContent>
+        </Card>
 
         <Card className="border-border bg-blue-500/5 border-blue-500/20">
           <CardContent className="p-4 flex items-center justify-between">

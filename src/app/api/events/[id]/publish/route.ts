@@ -1,7 +1,8 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { getUserIdFromCookie } from "@/lib/auth";
 import { getDb } from "@/lib/db";
+import { describeMissing, eventReadiness } from "@/lib/eventReadiness";
 
 export async function POST(
   req: NextRequest,
@@ -27,26 +28,26 @@ export async function POST(
       return NextResponse.json({ error: "Only draft events can be published" }, { status: 400 });
     }
 
-    // 2. Validate form fields presence
-    const fieldCount = await db.collection("event_form_fields").countDocuments({ event_id: eventId });
-    if (fieldCount === 0) {
-      return NextResponse.json({ error: "Event must have at least one form field before publishing" }, { status: 400 });
+    // 2. Everything the organizer must finish first. The event page reads the same rules (eventReadiness), so a
+    // Publish button that is enabled there can never be refused here for a reason the page did not show.
+    const [fieldCount, gateway] = await Promise.all([
+      db.collection("event_form_fields").countDocuments({ event_id: eventId }),
+      event.is_paid
+        ? db.collection("payment_gateway_configs").findOne({ org_id: userId, is_active: true })
+        : Promise.resolve(null),
+    ]);
+    const readiness = eventReadiness(event as never, { fieldCount, gatewayActive: !!gateway });
+    if (!readiness.complete) {
+      return NextResponse.json(
+        {
+          error: `Finish before going live: ${describeMissing(readiness.missing)}.`,
+          missing: readiness.missing.map((m) => ({ id: m.id, label: m.label, tab: m.tab })),
+        },
+        { status: 400 }
+      );
     }
 
-    // 3. Validate payment gateway if event is paid
-    if (event.is_paid) {
-      const gateway = await db.collection("payment_gateway_configs").findOne({ org_id: userId, is_active: true });
-      if (!gateway) {
-        return NextResponse.json({ error: "Paid events require an active payment gateway configuration" }, { status: 400 });
-      }
-    }
-
-    // 4. Validate Ticket Design
-    if (!event.ticket_template_id) {
-      return NextResponse.json({ error: "Please select a ticket template design before publishing" }, { status: 400 });
-    }
-
-    // 5. Finalize transition
+    // 3. Finalize transition
     await db.collection("events").updateOne(
       { _id: eventId, org_id: userId },
       { 

@@ -24,6 +24,7 @@ const ITEM_TITLES = [
   "PDF Documents",
   "All Events",
   "New Event",
+  "Bookings",
   "Website Analytics",
   "PDF Analytics",
 ];
@@ -36,6 +37,7 @@ const ITEM_HREFS = [
   "/dashboard/pdf",
   "/dashboard/events",
   "/dashboard/events/new",
+  "/dashboard/bookings",
   "/dashboard/analytics",
   "/dashboard/pdf-analytics",
 ];

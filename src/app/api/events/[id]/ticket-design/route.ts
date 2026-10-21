@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { getUserIdFromCookie } from "@/lib/auth";
 import { getDb } from "@/lib/db";
@@ -32,7 +32,9 @@ export async function PATCH(
     if (!event) return NextResponse.json({ error: "Event not found" }, { status: 404 });
 
     const updates: any = {
-      updated_at: new Date()
+      updated_at: new Date(),
+      // The organizer saved a design: this is what lets the event go live (see eventReadiness).
+      ticket_design_confirmed_at: new Date(),
     };
 
     if (template_id) {

@@ -92,6 +92,58 @@ export function searchText(booking: Record<string, any>, ticketCodes: string[] =
   return parts.join(' ').toLowerCase();
 }
 
+export type BookingAnswer = { label: string; value: string; /** 1-based attendee number in a group booking. */ attendee?: number };
+
+const humanize = (key: string) => {
+  const spaced = key.replace(/[_-]+/g, ' ').trim();
+  return spaced ? spaced.charAt(0).toUpperCase() + spaced.slice(1) : key;
+};
+
+const show = (value: unknown): string | null => {
+  if (value == null || value === '') return null;
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+};
+
+/**
+ * Every answer the attendee gave, labelled. Widget bookings store labels with their answers; chat-bot bookings
+ * store answers by `field_key`, so `labels` (field_key -> label, from the event's form fields) names them. Group
+ * bookings keep one set of answers per attendee, numbered from 1.
+ */
+export function bookingAnswers(booking: Record<string, any>, labels: Map<string, string> = new Map()): BookingAnswer[] {
+  const out: BookingAnswer[] = [];
+
+  for (const a of Array.isArray(booking.attendee?.answers) ? booking.attendee.answers : []) {
+    const value = show(a?.value);
+    if (value != null) out.push({ label: String(a?.label ?? humanize(String(a?.field_id ?? 'Answer'))), value });
+  }
+
+  const responses = booking.form_responses;
+  const groups: Array<Record<string, unknown>> = Array.isArray(responses) ? responses : responses ? [responses] : [];
+  groups.forEach((group, index) => {
+    if (!group || typeof group !== 'object') return;
+    for (const [key, raw] of Object.entries(group)) {
+      const value = show(raw);
+      if (value == null) continue;
+      out.push({
+        label: labels.get(key) ?? humanize(key),
+        value,
+        ...(Array.isArray(responses) && responses.length > 1 ? { attendee: index + 1 } : {}),
+      });
+    }
+  });
+  return out;
+}
+
+export type BookingSource = 'widget' | 'chatbot' | null;
+
+/** Which surface the booking came from: the website widget or the chat bot. */
+export function bookingSource(booking: Record<string, any>): BookingSource {
+  if (booking.source === 'chat_widget' || booking.booking_session_id || booking.visitor_id) return 'widget';
+  if (booking.session_id || booking.conversation_state) return 'chatbot';
+  return null;
+}
+
 // ── Listing ───────────────────────────────────────────────────────────────────
 
 export const BOOKINGS_PAGE_SIZE = 25;
@@ -112,6 +164,10 @@ export type BookingRow = {
   group: BookingGroup | null;
   payment_status?: string;
   created_at: Date;
+  confirmed_at: Date | null;
+  source: BookingSource;
+  payment_provider: string | null;
+  answers: BookingAnswer[];
   tickets: TicketSummary[];
   checked_in: number;
 };
@@ -177,6 +233,12 @@ export async function listEventBookings(
     ticketsByBooking = await loadTickets(db, eventId, matched.map((b) => b._id));
   }
 
+  const fieldLabels = new Map<string, string>(
+    (await db.collection('event_form_fields').find({ event_id: eventId }, { projection: { field_key: 1, label: 1 } }).toArray()).map(
+      (f) => [String(f.field_key), String(f.label)] as [string, string]
+    )
+  );
+
   const rows: BookingRow[] = matched.map((b) => {
     const tickets = ticketsByBooking.get(String(b._id)) ?? [];
     return {
@@ -191,6 +253,10 @@ export async function listEventBookings(
       group: groupOfStatus(b.status),
       payment_status: b.payment_status,
       created_at: b.created_at,
+      confirmed_at: b.confirmed_at ?? null,
+      source: bookingSource(b),
+      payment_provider: b.payment_provider && b.payment_provider !== 'none' ? String(b.payment_provider) : b.payment?.provider ?? null,
+      answers: bookingAnswers(b, fieldLabels),
       tickets,
       checked_in: tickets.filter((t) => t.status === 'scanned').length,
     };

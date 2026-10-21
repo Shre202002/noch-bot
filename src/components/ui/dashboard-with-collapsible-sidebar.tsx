@@ -18,6 +18,7 @@ import {
   FileText,
   Calendar,
   CalendarPlus,
+  Ticket,
   Menu,
 } from "lucide-react";
 import Link from "next/link";
@@ -72,6 +73,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { icon: Calendar, title: "All Events", href: "/dashboard/events" },
       { icon: CalendarPlus, title: "New Event", href: "/dashboard/events/new" },
+      { icon: Ticket, title: "Bookings", href: "/dashboard/bookings" },
     ],
   },
   {
