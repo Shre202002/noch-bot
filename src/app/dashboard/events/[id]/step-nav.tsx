@@ -39,25 +39,29 @@ export function StepTabsBar({ steps, activeTab }: { steps: StepDef[]; activeTab:
             <TabsTrigger
               value={step.tab}
               className={cn(
-                "gap-2 rounded-xl px-3 py-2 text-sm cursor-pointer sm:px-4",
-                !active && !step.done && !isNext && "text-white/50",
-                step.done && !active && "text-white/80",
-                isNext && "bg-[#36f4a4]/10 text-white ring-1 ring-[#36f4a4]"
+                "gap-2 rounded-xl border border-transparent px-3 py-2 text-sm cursor-pointer transition-colors sm:px-4",
+                // The tab you are on: filled, white text, bold, with a green underline. Nothing else looks like this.
+                "data-[state=active]:bg-white/15 data-[state=active]:font-bold data-[state=active]:text-white data-[state=active]:shadow-[inset_0_-2px_0_0_#36f4a4]",
+                !active && !step.done && !isNext && "text-white/55 hover:text-white",
+                step.done && !active && "text-white/85 hover:text-white",
+                // The suggested next step: a dashed outline, so it reads as a suggestion and not as the current tab.
+                isNext && "border-dashed border-[#36f4a4] bg-[#36f4a4]/5 text-white"
               )}
             >
               <span
                 aria-hidden="true"
                 className={cn(
                   "grid size-5 shrink-0 place-content-center rounded-full text-[11px] font-bold",
-                  step.done ? "bg-[#36f4a4] text-black" : isNext ? "border border-[#36f4a4] text-[#36f4a4]" : "border border-white/25"
+                  step.done ? "bg-[#36f4a4] text-black" : isNext ? "border border-[#36f4a4] text-white" : active ? "border border-white text-white" : "border border-white/25"
                 )}
               >
                 {step.done ? <Check className="h-3 w-3" /> : index + 1}
               </span>
               {step.label}
               {step.done && <span className="sr-only"> (complete)</span>}
+              {active && <span className="sr-only"> (current step)</span>}
               {isNext && (
-                <span className="rounded-full bg-[#36f4a4] px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-black">Next</span>
+                <span className="rounded-full border border-[#36f4a4]/70 bg-[#36f4a4]/25 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white">Next</span>
               )}
             </TabsTrigger>
             {index < steps.length - 1 && <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-white/30" />}
