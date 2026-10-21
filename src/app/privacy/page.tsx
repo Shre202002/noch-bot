@@ -69,7 +69,7 @@ export default function PrivacyPage() {
   
               <p>
                 NochBot uses third-party AI and infrastructure providers,
-                including Groq, Google Gemini, MongoDB, Qdrant and Google OAuth.
+                including Groq, Google Gemini, MongoDB Atlas Vector Search and Google OAuth.
                 Data may be processed through these services as required
                 for platform functionality.
               </p>

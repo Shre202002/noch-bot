@@ -12,6 +12,8 @@ export interface ChatSession {
   // Basic visitor info for analytics
   userAgent?: string;
   ip?: string;
+  /** Link user's Login ID on sign-in protected share links. */
+  loginId?: string;
 }
 
 export interface ChatMessage {
@@ -33,7 +35,7 @@ export async function getOrCreateSession(
   fileId: string,
   userId: string,
   label: string,
-  meta?: { userAgent?: string; ip?: string }
+  meta?: { userAgent?: string; ip?: string; loginId?: string }
 ): Promise<void> {
   const db = await getDb();
   const now = new Date().toISOString();
@@ -50,6 +52,7 @@ export async function getOrCreateSession(
         createdAt: now,
         userAgent: meta?.userAgent || '',
         ip: meta?.ip || '',
+        ...(meta?.loginId ? { loginId: meta.loginId } : {}),
         messageCount: 0,
       },
       $set: { lastActiveAt: now },

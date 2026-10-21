@@ -169,7 +169,7 @@ export function BentoPricing() {
 				priceLabel="Custom"
 				features={[
 					'Unlimited chatbots & messages',
-					'Dedicated Qdrant cluster',
+					'Dedicated MongoDB Atlas vector storage',
 					'On-premise option',
                     'SSO + SAML auth',
                     'Dedicated success manager',

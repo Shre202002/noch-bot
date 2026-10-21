@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { LogoIcon } from '@/components/logo';
+import { Wordmark } from '@/components/logo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -49,14 +49,14 @@ export default function ForgotPasswordPage() {
       <div className="w-full max-w-[400px] space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
         <div className="flex flex-col items-center text-center space-y-4">
           <div className="relative">
-            <LogoIcon className="h-10 w-auto" />
+            <Wordmark height={28} />
             <div className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-[#36f4a4] border-2 border-[#0a0a0a]" />
           </div>
           
           <h1 className="text-[36px] font-normal tracking-tight text-white leading-none pt-4" style={{ letterSpacing: '-0.9px' }}>
             Reset your password
           </h1>
-          <p className="text-[#7d8187] text-sm">
+          <p className="text-[color:var(--nb-text-secondary)] text-sm">
             Enter your email and we'll send you a 6-digit OTP
           </p>
         </div>
@@ -69,7 +69,7 @@ export default function ForgotPasswordPage() {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="email" className="text-xs font-semibold uppercase tracking-widest text-[#7d8187] ml-1">
+            <Label htmlFor="email" className="text-xs font-semibold uppercase tracking-widest text-[color:var(--nb-text-secondary)] ml-1">
               Email address
             </Label>
             <Input
@@ -100,7 +100,7 @@ export default function ForgotPasswordPage() {
           <div className="text-center">
             <Link 
               href="/" 
-              className="text-sm text-[#7d8187] hover:text-white transition-colors inline-flex items-center gap-2"
+              className="text-sm text-[color:var(--nb-text-secondary)] hover:text-white transition-colors inline-flex items-center gap-2"
             >
               <ArrowLeft className="h-4 w-4" />
               Back to login

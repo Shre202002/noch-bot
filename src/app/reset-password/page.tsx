@@ -2,7 +2,7 @@
 
 import { Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { LogoIcon } from '@/components/logo';
+import { Wordmark } from '@/components/logo';
 import { ResetPasswordForm } from '@/components/ui/reset-password-form';
 import { useToast } from '@/hooks/use-toast';
 
@@ -64,7 +64,7 @@ function ResetPasswordContent() {
     <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center p-6 text-white font-body">
       <div className="w-full max-w-[400px] space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
         <div className="flex flex-col items-center text-center space-y-4 mb-4">
-          <LogoIcon className="h-10 w-auto" />
+          <Wordmark height={28} />
         </div>
         
         <ResetPasswordForm

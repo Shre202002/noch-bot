@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from "react";
 import { useState, useMemo, useRef } from "react";
@@ -129,7 +129,7 @@ export const ResetPasswordForm = ({
               {Array.from({ length: 6 }).map((_, index) => (
                 <Input
                   key={index}
-                  ref={(el) => (inputRefs.current[index] = el)}
+                  ref={(el) => { inputRefs.current[index] = el; }}
                   type="text"
                   maxLength={1}
                   value={otp[index] || ''}
@@ -171,7 +171,7 @@ export const ResetPasswordForm = ({
                   <div className="relative">
                     <Input
                       type={showPassword ? "text" : "password"}
-                      placeholder="••••••••"
+                      placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       className="bg-white/5 border-white/10 pr-10 focus-visible:ring-white h-11"

@@ -49,6 +49,12 @@
 }
 
 :root {
+  /* Muted text roles for the dark dashboard surfaces (#0a0a0a–#2a2d35). Each clears WCAG AA on those
+     surfaces: secondary >= 4.58:1, tertiary >= 4.66:1 where used, muted icons >= 3:1. */
+  --nb-text-secondary: #9095a0;
+  --nb-text-tertiary: #878b93;
+  --nb-icon-muted: #73777f;
+
   --radius: 0.5rem;
   --font-display: "Inter", system-ui, sans-serif;
 
@@ -142,21 +148,6 @@
     background: oklch(1 0 0 / 5%);
     backdrop-filter: blur(12px);
     border: 1px solid oklch(1 0 0 / 8%);
-  }
-
-  .gradient-text {
-    background: linear-gradient(180deg, oklch(0.98 0 0), oklch(0.55 0 0));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
-  .grid-bg {
-    background-image:
-      linear-gradient(oklch(1 0 0 / 4%) 1px, transparent 1px),
-      linear-gradient(90deg, oklch(1 0 0 / 4%) 1px, transparent 1px);
-    background-size: 80px 80px;
-    mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
   }
 
   .noise {
@@ -374,6 +365,12 @@
 
 @media (prefers-reduced-motion: reduce) {
 
+  /* Tailwind's scaling loops (status pings, bounces); animate-pulse is opacity-only and stays. */
+  .animate-ping,
+  .animate-bounce {
+    animation: none !important;
+  }
+
   .aurora-blob,
   .hero-beam,
   .hero-beam-core,
@@ -458,4 +455,11 @@
   }
 }
 
-
+/* iOS Safari zooms the page when a focused field's text is under 16px; many fields here set smaller inline sizes. */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+  textarea,
+  select {
+    font-size: max(16px, 1em) !important;
+  }
+}

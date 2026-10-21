@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter, Syne } from 'next/font/google';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
@@ -15,6 +15,13 @@ const syne = Syne({
   subsets: ['latin'],
   variable: '--font-syne'
 });
+
+// viewport-fit=cover lets env(safe-area-inset-*) report the notch and home-indicator insets on iOS.
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://nochbot.space"),
@@ -40,9 +47,9 @@ export const metadata: Metadata = {
     canonical: "/",
   },
   icons: {
-    icon: "/nohbot.png",
-    shortcut: "/nohbot.png",
-    apple: "/nohbot.png",
+    icon: [{ url: "/brand/favicon-64.png", sizes: "64x64", type: "image/png" }],
+    shortcut: "/brand/favicon-64.png",
+    apple: [{ url: "/brand/apple-touch-icon.png", sizes: "180x180" }],
   },
   robots: {
     index: true,
@@ -64,7 +71,7 @@ export const metadata: Metadata = {
     description: "Turn your website content into an intelligent AI assistant. Embed NochBot in minutes and provide instant support to your visitors.",
     images: [
       {
-        url: "/nohbot.png",
+        url: "/brand/og-image.jpg",
         width: 1200,
         height: 630,
         alt: "NochBot AI Platform Preview",
@@ -75,7 +82,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "NochBot | AI Chatbot for Every Business",
     description: "Instant AI support for your website visitors. Trained on your data.",
-    images: ["/nohbot.png"],
+    images: ["/brand/og-image.jpg"],
   },
   manifest: "/site.webmanifest",
 };
@@ -86,7 +93,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="dark" suppressHydrationWarning>
       <body className={`${inter.variable} ${syne.variable} font-body antialiased bg-black text-white`}>
         {children}
         <CookieBanner />

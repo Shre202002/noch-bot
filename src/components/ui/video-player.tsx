@@ -45,7 +45,7 @@ const CustomSlider = ({
   );
 };
 
-const VideoPlayer = ({ src }: { src: string }) => {
+const VideoPlayer = ({ src, poster }: { src: string; poster?: string }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(1);
@@ -56,14 +56,14 @@ const VideoPlayer = ({ src }: { src: string }) => {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
 
+  // isPlaying follows the element's play/pause events, so autoplay and blocked autoplay both report correctly.
   const togglePlay = () => {
-    if (videoRef.current) {
-      if (isPlaying) {
-        videoRef.current.pause();
-      } else {
-        videoRef.current.play();
-      }
-      setIsPlaying(!isPlaying);
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.paused) {
+      video.play().catch(() => {});
+    } else {
+      video.pause();
     }
   };
 
@@ -129,9 +129,15 @@ const VideoPlayer = ({ src }: { src: string }) => {
         ref={videoRef}
         className="w-full"
         onTimeUpdate={handleTimeUpdate}
+        onLoadedMetadata={handleTimeUpdate}
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
         src={src}
+        poster={poster}
         onClick={togglePlay}
         autoPlay
+        playsInline
+        preload="metadata"
       />
 
       <AnimatePresence>

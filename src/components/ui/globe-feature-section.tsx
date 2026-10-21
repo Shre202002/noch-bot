@@ -62,7 +62,6 @@ export default function Featured_05({ onJoinClick }: Featured_05Props) {
       <div className="absolute right-0 top-0 bottom-0 w-48 bg-gradient-to-l from-[#0d1117] to-transparent z-10 pointer-events-none hidden lg:block" />
 
       {/* Background grid */}
-      <div className="absolute inset-0 -z-10 opacity-[0.03] grid-bg" />
     </section>
   );
 }
@@ -118,9 +117,11 @@ export function Globe({
     rRef.current = r;
   }, [r]);
 
+  const reducedMotionRef = useRef(false);
+
   const onRender = useCallback(
     (state: Record<string, any>) => {
-      if (!pointerInteracting.current) phiRef.current += 0.005;
+      if (!pointerInteracting.current && !reducedMotionRef.current) phiRef.current += 0.005;
       state.phi = phiRef.current + rRef.current;
       state.width = widthRef.current * 2;
       state.height = widthRef.current * 2;
@@ -153,8 +154,22 @@ export function Globe({
       if (canvasRef.current) canvasRef.current.style.opacity = "1";
     });
 
+    const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const syncMotion = () => { reducedMotionRef.current = motionQuery.matches; };
+    syncMotion();
+    motionQuery.addEventListener("change", syncMotion);
+
+    // The WebGL loop otherwise draws every frame for the life of the page; run it only while the globe is on screen.
+    const observer = new IntersectionObserver(
+      ([entry]) => globe.toggle(entry.isIntersecting),
+      { rootMargin: "200px" },
+    );
+    observer.observe(canvasRef.current);
+
     return () => {
       window.removeEventListener("resize", onResize);
+      motionQuery.removeEventListener("change", syncMotion);
+      observer.disconnect();
       clearTimeout(timeout);
       globe.destroy();
     };

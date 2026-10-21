@@ -1,4 +1,4 @@
-
+﻿
 "use client";
 import { Portal } from "@ark-ui/react/portal";
 import { ColorPicker, parseColor, ColorPickerValueChangeDetails } from "@ark-ui/react/color-picker";
@@ -95,7 +95,7 @@ export function InlineColorPicker({ value, onValueChange }: BasicColorPickerProp
   const safeValue = value ? parseColor(value) : parseColor("#000000");
 
   return (
-    <ColorPicker.Root value={safeValue} onValueChange={onValueChange} inline>
+    <ColorPicker.Root value={safeValue} onValueChange={onValueChange}>
       <ColorPicker.Content className="bg-[#1f2228] border border-[#2a2d35] rounded-lg p-4 shadow-lg space-y-4 w-full max-w-sm">
         <ColorPicker.Area className="w-full h-36 rounded-md overflow-hidden relative">
           <ColorPicker.AreaBackground className="w-full h-full" />
@@ -146,7 +146,7 @@ export function InlineColorPicker({ value, onValueChange }: BasicColorPickerProp
                   className="w-full aspect-square rounded-md border border-white/10 cursor-pointer hover:scale-110 transition-transform"
                 >
                   <ColorPicker.SwatchIndicator className="w-full h-full flex items-center justify-center text-white text-xs font-bold">
-                    ✓
+                    âœ“
                   </ColorPicker.SwatchIndicator>
                 </ColorPicker.Swatch>
               </ColorPicker.SwatchTrigger>
@@ -158,3 +158,4 @@ export function InlineColorPicker({ value, onValueChange }: BasicColorPickerProp
     </ColorPicker.Root>
   );
 }
+

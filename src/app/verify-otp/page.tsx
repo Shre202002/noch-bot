@@ -1,9 +1,9 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { LogoIcon } from '@/components/logo';
+import { Wordmark } from '@/components/logo';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, ArrowLeft, RefreshCw } from 'lucide-react';
@@ -120,11 +120,11 @@ function VerifyOtpContent() {
     <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center p-6 text-white font-body selection:bg-[#36f4a4]/30">
       <div className="w-full max-w-[400px] space-y-8 animate-in fade-in zoom-in-95 duration-500">
         <div className="flex flex-col items-center text-center space-y-4">
-          <LogoIcon className="h-10 w-auto" />
+          <Wordmark height={28} />
           <h1 className="text-[32px] font-normal tracking-tight text-white leading-none pt-2">
             Enter OTP
           </h1>
-          <p className="text-[#7d8187] text-sm">
+          <p className="text-[color:var(--nb-text-secondary)] text-sm">
             We sent a 6-digit code to <br /><span className="text-white font-medium">{email}</span>
           </p>
         </div>
@@ -140,7 +140,7 @@ function VerifyOtpContent() {
             {otp.map((digit, i) => (
               <input
                 key={i}
-                ref={el => inputRefs.current[i] = el}
+                ref={(el) => { inputRefs.current[i] = el; }}
                 type="text"
                 inputMode="numeric"
                 maxLength={1}
@@ -167,7 +167,7 @@ function VerifyOtpContent() {
               type="button"
               onClick={handleResend}
               disabled={countdown > 0 || loading}
-              className="text-sm font-medium transition-colors text-[#7d8187] hover:text-white disabled:opacity-50 inline-flex items-center gap-2"
+              className="text-sm font-medium transition-colors text-[color:var(--nb-text-secondary)] hover:text-white disabled:opacity-50 inline-flex items-center gap-2"
             >
               {countdown > 0 ? (
                 `Resend in ${countdown}s`
@@ -178,7 +178,7 @@ function VerifyOtpContent() {
             <br />
             <Link 
               href="/forgot-password" 
-              className="text-xs text-[#7d8187] hover:text-white transition-colors inline-flex items-center gap-2"
+              className="text-xs text-[color:var(--nb-text-secondary)] hover:text-white transition-colors inline-flex items-center gap-2"
             >
               <ArrowLeft className="h-3 w-3" />
               Change email

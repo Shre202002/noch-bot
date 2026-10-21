@@ -120,7 +120,7 @@ export function AnimatedNavFramer() {
         >
           <div className="relative flex items-center justify-center">
             <div className="absolute inset-0 bg-[radial-gradient(circle,rgba(255,255,255,0.15)_0%,transparent_70%)] blur-md" />
-            <img src="/nohbot.png" alt="NochBot" className="relative z-10 h-10 w-auto" />
+            <img src="/brand/nochbot-logo.webp" alt="NochBot" width={192} height={128} decoding="async" className="relative z-10 h-10 w-auto" />
           </div>
         </motion.div>
         

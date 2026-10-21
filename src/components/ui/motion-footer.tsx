@@ -69,13 +69,13 @@ const STYLES = `
   animation: footer-heartbeat 2s cubic-bezier(0.25, 1, 0.5, 1) infinite;
 }
 
-.footer-bg-grid {
-  background-size: 60px 60px;
-  background-image: 
-    linear-gradient(to right, color-mix(in oklch, var(--foreground) 3%, transparent) 1px, transparent 1px),
-    linear-gradient(to bottom, color-mix(in oklch, var(--foreground) 3%, transparent) 1px, transparent 1px);
-  mask-image: linear-gradient(to bottom, transparent, black 30%, black 70%, transparent);
-  -webkit-mask-image: linear-gradient(to bottom, transparent, black 30%, black 70%, transparent);
+/* Decorative loops: hold still for reduced motion (the marquee rests on its first, readable frame). */
+@media (prefers-reduced-motion: reduce) {
+  .animate-footer-breathe,
+  .animate-footer-scroll-marquee,
+  .animate-footer-heartbeat {
+    animation: none;
+  }
 }
 
 .footer-aurora {
@@ -278,7 +278,6 @@ export function CinematicFooter() {
         <footer className="fixed bottom-0 left-0 flex h-screen w-full flex-col justify-between overflow-hidden bg-background text-foreground cinematic-footer-wrapper">
           
           <div className="footer-aurora absolute left-1/2 top-1/2 h-[60vh] w-[80vw] -translate-x-1/2 -translate-y-1/2 animate-footer-breathe rounded-[50%] blur-[80px] pointer-events-none z-0" />
-          <div className="footer-bg-grid absolute inset-0 z-0 pointer-events-none" />
 
           <div
             ref={giantTextRef}
@@ -327,7 +326,7 @@ export function CinematicFooter() {
                         Watch our introductory video to learn how NochBot can transform your website into an intelligent AI-powered experience.
                       </DialogDescription>
                     </DialogHeader>
-                    <VideoPlayer src="/Final_Video.mp4" />
+                    <VideoPlayer src="/demo-1080p.mp4" poster="/brand/demo-poster.webp" />
                   </DialogContent>
                 </Dialog>
               </div>
