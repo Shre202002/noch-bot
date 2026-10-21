@@ -6,6 +6,7 @@ import { AlertCircle, ArrowLeft, ArrowRight, Check, ChevronRight, Loader2, Party
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { EmbedCodeCard } from "@/components/EmbedCodeCard";
 import { cn } from "@/lib/utils";
 import type { ReadinessStep } from "@/lib/eventReadiness";
 
@@ -138,6 +139,7 @@ export function GoLivePanel({
 
   if (published) {
     return (
+      <div className="space-y-6">
       <Card className="border-[#36f4a4]/30 bg-[#36f4a4]/5">
         <CardContent className="space-y-5 p-8 text-center">
           <span className="mx-auto grid size-16 place-content-center rounded-full bg-[#36f4a4]/15 text-[#36f4a4]">
@@ -155,12 +157,11 @@ export function GoLivePanel({
                 <Ticket aria-hidden="true" className="mr-2 h-4 w-4" /> View bookings
               </Link>
             </Button>
-            <Button asChild variant="outline" className="rounded-full border-white/15 text-white cursor-pointer">
-              <Link href="/dashboard/embed">Get embed code</Link>
-            </Button>
           </div>
         </CardContent>
       </Card>
+      <EmbedCodeCard />
+      </div>
     );
   }
 

@@ -7,6 +7,7 @@ import { AlertCircle, ArrowLeft, Loader2, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { BookingsPanel } from "@/components/bookings/bookings-panel";
+import { EmbedCodeCard } from "@/components/EmbedCodeCard";
 
 type EventRow = {
   id: string;
@@ -115,6 +116,12 @@ export default function EventBookingsPage() {
       <section aria-label="Bookings">
         <BookingsPanel eventId={event.id} />
       </section>
+
+      {event.status === "published" && (
+        <section aria-label="Embed code">
+          <EmbedCodeCard />
+        </section>
+      )}
     </div>
   );
 }

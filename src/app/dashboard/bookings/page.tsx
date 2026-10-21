@@ -6,6 +6,7 @@ import { AlertCircle, Calendar, ChevronRight, Loader2, Plus, Ticket, UserCheck }
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { EmbedCodeCard } from "@/components/EmbedCodeCard";
 
 type EventRow = {
   id: string;
@@ -43,6 +44,8 @@ export default function BookingsOverviewPage() {
         <h1 className="text-4xl font-black tracking-tight">Bookings</h1>
         <p className="mt-1 text-muted-foreground">Choose an event to see who booked, their details, and to check people in.</p>
       </div>
+
+      <EmbedCodeCard compact />
 
       {error && (
         <p role="alert" className="flex items-center gap-2 text-sm text-red-400">
