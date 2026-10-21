@@ -1,19 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import { Booking } from "@/models/Booking";
 import { reconcileExpiredHold } from "@/lib/eventCapacity";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { sessionId: string } }
+  { params }: { params: Promise<{ sessionId: string }> }
 ) {
+  const { sessionId } = await params;
+
   try {
-    const { sessionId } = params;
     const db = await getDb();
 
     // 1. Fetch the booking session
-    const booking = await db.collection("bookings").findOne({ session_id: sessionId });
+    const booking = (await db.collection("bookings").findOne({ session_id: sessionId })) as Booking | null;
 
-    if (!booking) {
+    if (!booking || !booking._id) {
       return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
 
@@ -42,7 +44,7 @@ export async function GET(
     const event = await db.collection("events").findOne({ _id: booking.event_id });
 
     if (!event || event.status !== 'published') {
-      return NextResponse.json({ 
+      return NextResponse.json({
         status: 'cancelled',
         message: "The event is no longer available for booking."
       }, { status: 200 });

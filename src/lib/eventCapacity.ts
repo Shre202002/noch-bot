@@ -119,3 +119,42 @@ export async function reconcileExpiredHold(bookingId: ObjectId): Promise<boolean
 
   return false;
 }
+
+/**
+ * Releases every expired hold on an event, from both booking flows:
+ * - chat-bot bookings `awaiting_payment` past `hold_expires_at`;
+ * - widget bookings `pending_payment` with `hold_placed` past `expires_at`.
+ * Each booking is claimed atomically (status → expired) before its seats are released, so a hold is never
+ * released twice and a payment that arrives first keeps its seats. Called before seats are reserved, so a
+ * visitor who abandons checkout cannot keep seats locked. Returns the number of seats released.
+ */
+export async function releaseExpiredHolds(eventId: ObjectId, now: Date = new Date()): Promise<number> {
+  const db = await getDb();
+  const bookings = db.collection('bookings');
+  const stale = await bookings
+    .find(
+      {
+        event_id: eventId,
+        $or: [
+          { status: 'awaiting_payment', hold_expires_at: { $lt: now } },
+          { status: 'pending_payment', hold_placed: true, expires_at: { $lt: now } },
+        ],
+      },
+      { projection: { _id: 1, status: 1 } }
+    )
+    .toArray();
+
+  let released = 0;
+  for (const candidate of stale) {
+    const claimed = await bookings.findOneAndUpdate(
+      { _id: candidate._id, status: candidate.status },
+      { $set: { status: 'expired', conversation_state: 'expired', hold_released_at: now, updated_at: now } },
+      { returnDocument: 'before' }
+    );
+    if (claimed) {
+      await releaseHold(eventId, claimed.quantity);
+      released += claimed.quantity;
+    }
+  }
+  return released;
+}

@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import { Booking, BookingFormResponses } from "@/models/Booking";
+import { Event } from "@/models/Event";
+import { EventFormField } from "@/models/EventFormField";
 import { processBookingMessage } from "@/lib/bookingFlow";
-import { reserveCapacity, placeHold, reconcileExpiredHold, releaseHold } from "@/lib/eventCapacity";
+import { reserveCapacity, placeHold, reconcileExpiredHold, releaseHold, releaseExpiredHolds } from "@/lib/eventCapacity";
+import { notifyBookingConfirmed } from "@/lib/bookingNotifications";
 import { issueTicketsForBooking } from "@/lib/ticketIssuance";
 import { stripeAdapter } from "@/lib/payments/stripe";
 import { razorpayAdapter } from "@/lib/payments/razorpay";
@@ -18,10 +22,11 @@ const providerAdapters: Record<string, any> = {
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { sessionId: string } }
+  { params }: { params: Promise<{ sessionId: string }> }
 ) {
+  const { sessionId } = await params;
+
   try {
-    const { sessionId } = params;
     const { message } = await req.json();
 
     if (!message) {
@@ -31,8 +36,8 @@ export async function POST(
     const db = await getDb();
 
     // 1. Fetch booking
-    let booking = await db.collection("bookings").findOne({ session_id: sessionId });
-    if (!booking) {
+    const booking = (await db.collection("bookings").findOne({ session_id: sessionId })) as Booking | null;
+    if (!booking || !booking._id) {
       return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
 
@@ -40,7 +45,7 @@ export async function POST(
     if (booking.status === 'awaiting_payment') {
       const expired = await reconcileExpiredHold(booking._id);
       if (expired) {
-        return NextResponse.json({ 
+        return NextResponse.json({
           error: "Session expired",
           message: "Your booking hold has expired. Please restart the process."
         }, { status: 403 });
@@ -48,34 +53,35 @@ export async function POST(
     }
 
     if (['confirmed', 'cancelled', 'expired'].includes(booking.status)) {
-      return NextResponse.json({ 
+      return NextResponse.json({
         error: "Session inactive",
         message: "This booking session is no longer accepting input."
       }, { status: 403 });
     }
 
     // 3. Fetch event
-    const event = await db.collection("events").findOne({ _id: booking.event_id });
-    if (!event || event.status !== 'published') {
+    const event = (await db.collection("events").findOne({ _id: booking.event_id })) as Event | null;
+    if (!event || !event._id || event.status !== 'published') {
       return NextResponse.json({ error: "Event no longer available" }, { status: 410 });
     }
 
     // 4. Fetch form fields
-    const fields = await db.collection("event_form_fields")
+    const fields = (await db.collection("event_form_fields")
       .find({ event_id: event._id })
       .sort({ order_index: 1 })
-      .toArray();
+      .toArray()) as EventFormField[];
 
     // 5. Process Message (Deterministic Logic)
-    const update = processBookingMessage(message, booking as any, event as any, fields as any);
+    const update = processBookingMessage(message, booking, event, fields);
 
     // 6. Handle Confirmation Phase (with Locking)
     let statusUpdate = booking.status;
     let holdExpiresAt = booking.hold_expires_at;
     let reservationPlaced = false;
     let paymentData: any = null;
-    let paymentProvider: any = booking.payment_provider || 'none';
+    let paymentProvider: Booking['payment_provider'] = booking.payment_provider || 'none';
     let paymentRefId: string | null = booking.payment_reference_id || null;
+    let ticketCodes: string[] | null = null;
 
     try {
       if (booking.conversation_state === 'reviewing' && update.conversation_state !== 'reviewing') {
@@ -88,6 +94,9 @@ export async function POST(
         if (!lockResult) {
           return NextResponse.json({ error: "Request already being processed" }, { status: 409 });
         }
+
+        // Seats held by visitors who abandoned checkout go back on sale before this booking takes any.
+        await releaseExpiredHolds(event._id);
 
         if (event.is_paid) {
           // BMS Hold path
@@ -110,9 +119,9 @@ export async function POST(
           holdExpiresAt = holdResult.hold_expires_at;
 
           // Initiate real payment session
-          const gatewayConfig = await db.collection("payment_gateway_configs").findOne({ 
-            org_id: event.org_id, 
-            is_active: true 
+          const gatewayConfig = await db.collection("payment_gateway_configs").findOne({
+            org_id: event.org_id,
+            is_active: true
           });
 
           if (!gatewayConfig) {
@@ -121,23 +130,25 @@ export async function POST(
 
           const adapter = providerAdapters[gatewayConfig.provider];
           const credentials = await decryptCredentials(gatewayConfig.credentials);
-          
+
           // Extract email/phone fallbacks from form responses
-          const firstAttendee = Array.isArray(booking.form_responses) ? booking.form_responses[0] : booking.form_responses;
+          const firstAttendee = (Array.isArray(booking.form_responses)
+            ? booking.form_responses[0]
+            : booking.form_responses) as Record<string, any> | undefined;
           const emailField = fields.find(f => f.validation_rule === 'email_format');
           const phoneField = fields.find(f => f.validation_rule === 'phone_format');
-          
+
           const session = await adapter.createCheckoutSession({
             bookingId: booking._id.toString(),
             orgId: event.org_id,
-            amount: event.price! * booking.quantity,
+            amount: (event.price ?? 0) * booking.quantity,
             currency: event.currency,
             eventName: event.name,
             quantity: booking.quantity,
             successUrl: `${process.env.NEXTAUTH_URL}/booking/success?sid=${sessionId}`,
             cancelUrl: `${process.env.NEXTAUTH_URL}/booking/cancel?sid=${sessionId}`,
-            customerEmail: emailField ? firstAttendee[emailField.field_key] : "no-reply@nochbot.space",
-            customerPhone: phoneField ? firstAttendee[phoneField.field_key] : "9999999999"
+            customerEmail: (emailField && firstAttendee?.[emailField.field_key]) || "no-reply@nochbot.space",
+            customerPhone: (phoneField && firstAttendee?.[phoneField.field_key]) || "9999999999"
           }, credentials);
 
           paymentProvider = gatewayConfig.provider;
@@ -166,7 +177,8 @@ export async function POST(
           reservationPlaced = true;
           statusUpdate = 'confirmed';
           update.conversation_state = 'confirmed';
-          await issueTicketsForBooking(booking as any);
+          const issued = await issueTicketsForBooking(booking);
+          ticketCodes = issued.map((t) => t.ticket_code);
           update.bot_reply = "Perfect! Your booking is confirmed. Your tickets have been issued.";
         }
       }
@@ -184,10 +196,12 @@ export async function POST(
             hold_expires_at: holdExpiresAt,
             payment_provider: paymentProvider,
             payment_reference_id: paymentRefId,
+            ...(ticketCodes ? { ticket_codes: ticketCodes, payment_status: 'not_required', confirmed_at: new Date() } : {}),
             updated_at: new Date()
           }
         }
       );
+      if (statusUpdate === 'confirmed' && ticketCodes) await notifyBookingConfirmed(booking._id);
     } catch (persistenceError) {
       if (reservationPlaced) {
         console.error(`[CRITICAL_BOOKING_ERROR] Inventory reserved but persistence failed. Manual reconciliation required.
@@ -196,7 +210,7 @@ export async function POST(
           Quantity: ${booking.quantity}
           Type: ${event.is_paid ? 'Hold' : 'Direct Sale'}
           Error: ${persistenceError instanceof Error ? persistenceError.message : 'Unknown'}`);
-        
+
         // Stopgap safety net: best-effort release of held capacity for paid events
         if (event.is_paid) {
           try {

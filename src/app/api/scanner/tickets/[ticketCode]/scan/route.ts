@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { authenticateScannerRequest } from "@/lib/scannerAuth";
 import { getDb } from "@/lib/db";
@@ -11,8 +11,9 @@ if (!TICKET_QR_SECRET) {
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { ticketCode: string } }
+  { params }: { params: Promise<{ ticketCode: string }> }
 ) {
+  const routeParams = await params;
   if (!TICKET_QR_SECRET) {
     return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
   }
@@ -21,7 +22,7 @@ export async function POST(
   if (!staff) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    const { ticketCode } = params;
+    const { ticketCode } = routeParams;
     const body = await req.json();
     const { scan_device_info, client_scan_id } = body;
 
@@ -83,3 +84,5 @@ export async function POST(
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
+
+

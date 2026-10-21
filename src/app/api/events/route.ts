@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { releaseExpiredHolds } from "@/lib/eventCapacity";
 import { ObjectId } from "mongodb";
 import { getUserIdFromCookie } from "@/lib/auth";
 import { getDb } from "@/lib/db";
@@ -106,6 +107,10 @@ export async function GET(req: NextRequest) {
     const db = await getDb();
     const query: any = { org_id: userId };
     if (status) query.status = status;
+
+    // Give back seats held by abandoned checkouts so the sold/held counts shown here are current.
+    const withHolds = await db.collection("events").find({ org_id: userId, tickets_held: { $gt: 0 } }, { projection: { _id: 1 } }).toArray();
+    await Promise.all(withHolds.map((e) => releaseExpiredHolds(e._id)));
 
     const events = await db
       .collection("events")

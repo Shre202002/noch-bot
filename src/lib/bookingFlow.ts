@@ -1,20 +1,25 @@
 /**
  * @fileOverview Core logic for processing conversational booking messages.
- * 
+ *
  * TODO: Phase 3 Checkpoint 2 - AI-assisted correction (typo tolerance, format normalization)
  * is intentionally out of scope for this checkpoint.
  */
 
-import { Booking, ConversationState } from "@/models/Booking";
+import {
+  Booking,
+  ConversationState,
+  BookingSessionContext,
+  BookingFormResponses,
+} from "@/models/Booking";
 import { Event } from "@/models/Event";
 import { EventFormField } from "@/models/EventFormField";
 import { getNextState, BookingContext } from "./bookingStateMachine";
 
 export interface BookingFlowUpdate {
   conversation_state: ConversationState;
-  session_context: Booking['session_context'];
+  session_context: BookingSessionContext;
   quantity: number;
-  form_responses: Booking['form_responses'];
+  form_responses: BookingFormResponses;
   bot_reply: string;
 }
 
@@ -39,10 +44,14 @@ export function processBookingMessage(
 
     default:
       return {
-        conversation_state,
-        session_context,
-        quantity,
-        form_responses,
+        conversation_state: conversation_state ?? 'collecting_quantity',
+        session_context: session_context ?? {
+          current_field_index: 0,
+          current_attendee_index: 0,
+          last_updated_at: new Date(),
+        },
+        quantity: quantity ?? 0,
+        form_responses: form_responses ?? {},
         bot_reply: "I'm sorry, I didn't quite catch that. Could you try again?"
       };
   }
@@ -55,30 +64,20 @@ function handleQuantityInput(
   booking: Booking
 ): BookingFlowUpdate {
   const parsed = parseInt(input);
-  
+
   if (isNaN(parsed) || parsed <= 0) {
-    return {
-      ...booking,
-      bot_reply: "Please enter a valid number of tickets you'd like to book."
-    };
+    return noChange(booking, "Please enter a valid number of tickets you'd like to book.");
   }
 
   if (!event.allow_group_booking && parsed !== 1) {
-    return {
-      ...booking,
-      bot_reply: "This event only allows booking 1 ticket at a time. Please enter '1' to continue."
-    };
+    return noChange(booking, "This event only allows booking 1 ticket at a time. Please enter '1' to continue.");
   }
 
   if (event.allow_group_booking && event.max_tickets_per_booking && parsed > event.max_tickets_per_booking) {
-    return {
-      ...booking,
-      bot_reply: `You can book a maximum of ${event.max_tickets_per_booking} tickets. Please enter a smaller number.`
-    };
+    return noChange(booking, `You can book a maximum of ${event.max_tickets_per_booking} tickets. Please enter a smaller number.`);
   }
 
-  const nextContext = {
-    ...booking.session_context,
+  const nextContext: BookingSessionContext = {
     current_field_index: 0,
     current_attendee_index: 0,
     last_updated_at: new Date()
@@ -86,14 +85,14 @@ function handleQuantityInput(
 
   const bCtx: BookingContext = {
     field_count: fields.length,
-    current_field_index: -1, 
+    current_field_index: -1,
     current_attendee_index: 0,
     quantity: parsed
   };
 
   const nextState = getNextState('collecting_quantity', event.is_paid, bCtx);
-  
-  let initialResponses: any = {};
+
+  let initialResponses: BookingFormResponses = {};
   if (parsed > 1) {
     initialResponses = Array.from({ length: parsed }, () => ({}));
   }
@@ -113,24 +112,30 @@ function handleFieldInput(
   fields: EventFormField[],
   booking: Booking
 ): BookingFlowUpdate {
-  const { current_field_index, current_attendee_index } = booking.session_context;
+  const context = booking.session_context;
+  if (!context) {
+    return noChange(booking, "Something went wrong with your session. Please restart the booking.");
+  }
+
+  const { current_field_index, current_attendee_index } = context;
   const field = fields[current_field_index];
+
+  if (!field) {
+    return noChange(booking, "Something went wrong. Could you try sending that again?");
+  }
 
   // 1. Validation
   const validationError = validateInput(input, field);
   if (validationError) {
-    return {
-      ...booking,
-      bot_reply: validationError
-    };
+    return noChange(booking, validationError);
   }
 
   // 2. Store Response
-  const updatedResponses = JSON.parse(JSON.stringify(booking.form_responses));
+  const updatedResponses: BookingFormResponses = JSON.parse(JSON.stringify(booking.form_responses ?? {}));
   if (booking.quantity > 1) {
-    updatedResponses[current_attendee_index][field.field_key] = input;
+    (updatedResponses as Array<Record<string, any>>)[current_attendee_index][field.field_key] = input;
   } else {
-    updatedResponses[field.field_key] = input;
+    (updatedResponses as Record<string, any>)[field.field_key] = input;
   }
 
   // 3. Logic to advance
@@ -144,8 +149,8 @@ function handleFieldInput(
     }
   }
 
-  const nextContext = {
-    ...booking.session_context,
+  const nextContext: BookingSessionContext = {
+    ...context,
     current_field_index: nextFieldIndex,
     current_attendee_index: nextAttendeeIndex,
     last_updated_at: new Date()
@@ -172,7 +177,7 @@ function handleFieldInput(
 function handleReviewInput(
   input: string,
   event: Event,
-  fields: EventFormField[],
+  _fields: EventFormField[],
   booking: Booking
 ): BookingFlowUpdate {
   const affirmative = ['yes', 'yeah', 'confirm', 'correct', 'ok', 'sure', 'yep'].includes(input.toLowerCase());
@@ -180,28 +185,48 @@ function handleReviewInput(
 
   if (affirmative) {
     // getNextState('reviewing') ignores context as it only checks event.is_paid
-    const nextState = getNextState('reviewing', event.is_paid, {} as any);
-    
+    const nextState = getNextState('reviewing', event.is_paid, {
+      field_count: 0,
+      current_field_index: 0,
+      current_attendee_index: 0,
+      quantity: booking.quantity ?? 1
+    });
+
     return {
-      ...booking,
       conversation_state: nextState,
-      bot_reply: nextState === 'awaiting_payment' 
-        ? "Great! Please click the link below to complete your payment." 
+      session_context: booking.session_context ?? {
+        current_field_index: 0,
+        current_attendee_index: 0,
+        last_updated_at: new Date()
+      },
+      quantity: booking.quantity ?? 1,
+      form_responses: booking.form_responses ?? {},
+      bot_reply: nextState === 'awaiting_payment'
+        ? "Great! Please click the link below to complete your payment."
         : "Perfect! Your booking is being confirmed..."
     };
   }
 
   if (negative) {
     // TODO: Phase 3 - Implement field editing
-    return {
-      ...booking,
-      bot_reply: "I understand. Which part would you like to change? (Note: Editing support is coming soon, please restart the session for now)."
-    };
+    return noChange(booking, "I understand. Which part would you like to change? (Note: Editing support is coming soon, please restart the session for now).");
   }
 
+  return noChange(booking, "I'm sorry, I didn't understand that. Does everything look correct? Please say 'Yes' to confirm or 'No' to make changes.");
+}
+
+/** Builds a no-op update: keeps the booking exactly where it is, only replying to the user. */
+function noChange(booking: Booking, bot_reply: string): BookingFlowUpdate {
   return {
-    ...booking,
-    bot_reply: "I'm sorry, I didn't understand that. Does everything look correct? Please say 'Yes' to confirm or 'No' to make changes."
+    conversation_state: booking.conversation_state ?? 'collecting_quantity',
+    session_context: booking.session_context ?? {
+      current_field_index: 0,
+      current_attendee_index: 0,
+      last_updated_at: new Date()
+    },
+    quantity: booking.quantity ?? 0,
+    form_responses: booking.form_responses ?? {},
+    bot_reply
   };
 }
 
@@ -231,7 +256,7 @@ function validateInput(input: string, field: EventFormField): string | null {
 
 function getNextQuestion(
   state: ConversationState,
-  context: Booking['session_context'],
+  context: BookingSessionContext,
   quantity: number,
   fields: EventFormField[]
 ): string {

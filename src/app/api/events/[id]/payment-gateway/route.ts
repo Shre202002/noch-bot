@@ -1,4 +1,4 @@
-
+﻿
 import { NextRequest, NextResponse } from "next/server";
 import { getUserIdFromCookie } from "@/lib/auth";
 import { getDb } from "@/lib/db";
@@ -10,7 +10,7 @@ import { encryptCredentials } from "@/lib/credentialCrypto";
  */
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const userId = await getUserIdFromCookie();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -28,7 +28,7 @@ export async function POST(
 
     let mode: 'test' | 'live' = 'test';
 
-    // ── Razorpay Verification ─────────────────────────────────
+    // â”€â”€ Razorpay Verification â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if (provider === 'razorpay') {
       const { key_id, key_secret } = credentials;
       if (!key_id || !key_secret) {
@@ -63,7 +63,7 @@ export async function POST(
       console.log(`[Razorpay Verified] Mode: ${mode}, Org: ${userId}`);
     }
 
-    // ── Stripe Mode Detection ──────────────────────────────────
+    // â”€â”€ Stripe Mode Detection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if (provider === 'stripe') {
       const key = credentials.secret_key;
       mode = (key && key.startsWith('sk_live_')) ? 'live' : 'test';
@@ -108,3 +108,5 @@ export async function POST(
     }, { status: 500 });
   }
 }
+
+

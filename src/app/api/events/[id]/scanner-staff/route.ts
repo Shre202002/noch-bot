@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import crypto from "crypto";
 import { getUserIdFromCookie } from "@/lib/auth";
@@ -6,18 +6,19 @@ import { getDb } from "@/lib/db";
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const routeParams = await params;
   const userId = await getUserIdFromCookie();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  if (!ObjectId.isValid(params.id)) {
+  if (!ObjectId.isValid(routeParams.id)) {
     return NextResponse.json({ error: "Invalid event ID format" }, { status: 400 });
   }
 
   try {
     const db = await getDb();
-    const eventId = new ObjectId(params.id);
+    const eventId = new ObjectId(routeParams.id);
 
     // 1. Verify event ownership
     const event = await db.collection("events").findOne({ _id: eventId, org_id: userId });
@@ -51,7 +52,7 @@ export async function POST(
       success: true, 
       staff_id: result.insertedId,
       access_token: accessToken,
-      warning: "Save this token now — it will not be shown again and cannot be retrieved."
+      warning: "Save this token now â€” it will not be shown again and cannot be retrieved."
     });
   } catch (error) {
     console.error("[scanner_staff_post]", error);
@@ -61,18 +62,19 @@ export async function POST(
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const routeParams = await params;
   const userId = await getUserIdFromCookie();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  if (!ObjectId.isValid(params.id)) {
+  if (!ObjectId.isValid(routeParams.id)) {
     return NextResponse.json({ error: "Invalid event ID format" }, { status: 400 });
   }
 
   try {
     const db = await getDb();
-    const eventId = new ObjectId(params.id);
+    const eventId = new ObjectId(routeParams.id);
 
     // 1. Verify event ownership
     const event = await db.collection("events").findOne({ _id: eventId, org_id: userId });
@@ -97,3 +99,4 @@ export async function GET(
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
+

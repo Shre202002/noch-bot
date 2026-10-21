@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { availableSeats } from "@/lib/eventsForChat";
 import { getDb } from "@/lib/db";
 
 export const dynamic = 'force-dynamic';
@@ -41,6 +42,9 @@ export async function GET(req: NextRequest) {
         currency: 1,
         capacity: 1,
         tickets_sold: 1,
+        tickets_held: 1,
+        allow_group_booking: 1,
+        max_tickets_per_booking: 1,
         ticket_template_id: 1,
       })
       .sort({ start_at: 1 })
@@ -55,7 +59,8 @@ export async function GET(req: NextRequest) {
       is_paid: e.is_paid,
       price: e.price,
       currency: e.currency,
-      available_seats: Math.max(0, e.capacity - e.tickets_sold),
+      available_seats: availableSeats(e as any),
+      max_tickets_per_booking: e.allow_group_booking === false ? 1 : (e.max_tickets_per_booking ?? null),
       ticket_template_id: e.ticket_template_id,
     }));
 

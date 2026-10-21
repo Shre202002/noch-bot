@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { getUserIdFromCookie } from "@/lib/auth";
 import { getDb } from "@/lib/db";
@@ -10,18 +10,19 @@ const HEX_REGEX = /^#([0-9A-Fa-f]{6})$/;
  */
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const routeParams = await params;
   const userId = await getUserIdFromCookie();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  if (!ObjectId.isValid(params.id)) {
+  if (!ObjectId.isValid(routeParams.id)) {
     return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
   }
 
   try {
     const db = await getDb();
-    const eventId = new ObjectId(params.id);
+    const eventId = new ObjectId(routeParams.id);
     const body = await req.json();
 
     const { template_id, color_palette } = body;
@@ -67,3 +68,4 @@ export async function PATCH(
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
+

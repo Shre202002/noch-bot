@@ -1,23 +1,24 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { getUserIdFromCookie } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string, staffId: string } }
+  { params }: { params: Promise<{ id: string, staffId: string }> }
 ) {
+  const routeParams = await params;
   const userId = await getUserIdFromCookie();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  if (!ObjectId.isValid(params.id) || !ObjectId.isValid(params.staffId)) {
+  if (!ObjectId.isValid(routeParams.id) || !ObjectId.isValid(routeParams.staffId)) {
     return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
   }
 
   try {
     const db = await getDb();
-    const eventId = new ObjectId(params.id);
-    const staffId = new ObjectId(params.staffId);
+    const eventId = new ObjectId(routeParams.id);
+    const staffId = new ObjectId(routeParams.staffId);
 
     // 1. Verify event ownership (to authorize the action)
     const event = await db.collection("events").findOne({ _id: eventId, org_id: userId });
@@ -39,3 +40,4 @@ export async function DELETE(
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
+

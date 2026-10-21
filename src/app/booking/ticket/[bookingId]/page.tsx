@@ -269,8 +269,16 @@ function TicketViewContent() {
             </div>
             <h1 className="text-4xl font-black tracking-tight">{data.event_name}</h1>
           </div>
-          <div className="flex items-center gap-3">
-            <Button 
+          <div className="flex flex-wrap items-center gap-3 print:hidden">
+            <Button asChild className="bg-[#36f4a4] text-black hover:bg-[#36f4a4]/90 font-bold rounded-full px-6">
+              <a
+                href={`/api/embed/bookings/${params.bookingId}/ticket/pdf?userId=${encodeURIComponent(userId ?? "")}&visitorId=${encodeURIComponent(visitorId ?? "")}`}
+                download
+              >
+                <Download className="mr-2 h-4 w-4" /> Download PDF
+              </a>
+            </Button>
+            <Button
               onClick={() => window.print()}
               className="bg-white text-black hover:bg-zinc-200 font-bold rounded-full px-6"
             >

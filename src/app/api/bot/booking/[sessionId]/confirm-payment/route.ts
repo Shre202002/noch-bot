@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 
 /**
  * DECOMMISSIONED SIMULATION ENDPOINT
@@ -9,10 +9,12 @@ import { NextRequest, NextResponse } from "next/server";
  */
 export async function POST(
   req: NextRequest,
-  { params }: { params: { sessionId: string } }
+  { params }: { params: Promise<{ sessionId: string }> }
 ) {
   return NextResponse.json({ 
     error: "Forbidden", 
     message: "Simulation endpoint is disabled. Use the production webhook endpoint for payment confirmation." 
   }, { status: 403 });
 }
+
+

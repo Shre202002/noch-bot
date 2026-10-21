@@ -1,22 +1,23 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { getUserIdFromCookie } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const routeParams = await params;
   const userId = await getUserIdFromCookie();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  if (!ObjectId.isValid(params.id)) {
+  if (!ObjectId.isValid(routeParams.id)) {
     return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
   }
 
   try {
     const db = await getDb();
-    const eventId = new ObjectId(params.id);
+    const eventId = new ObjectId(routeParams.id);
     const body = await req.json(); // Array of { field_id, order_index }
 
     if (!Array.isArray(body)) {
@@ -44,3 +45,4 @@ export async function PUT(
     return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 });
   }
 }
+

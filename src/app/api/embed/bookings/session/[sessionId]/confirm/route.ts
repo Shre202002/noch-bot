@@ -5,8 +5,16 @@ import { Booking } from "@/models/Booking";
 import { stripeAdapter } from "@/lib/payments/stripe";
 import { razorpayAdapter } from "@/lib/payments/razorpay";
 import { paypalAdapter } from "@/lib/payments/paypal";
+import { cashfreeAdapter } from "@/lib/payments/cashfree";
 import { decryptCredentials } from "@/lib/credentialCrypto";
+import { placeHold, releaseExpiredHolds, releaseHold, reserveCapacity } from "@/lib/eventCapacity";
+import { issueTicketsForBooking } from "@/lib/ticketIssuance";
+import { notifyBookingConfirmed } from "@/lib/bookingNotifications";
+import { ticketPageUrl, ticketPdfUrl } from "@/lib/ticketLinks";
 import crypto from "crypto";
+
+/** Minutes a paid booking's seats stay held while the visitor pays. */
+const PAYMENT_HOLD_MINUTES = 15;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -17,7 +25,8 @@ const corsHeaders = {
 const adapters: Record<string, any> = {
   stripe: stripeAdapter,
   razorpay: razorpayAdapter,
-  paypal: paypalAdapter
+  paypal: paypalAdapter,
+  cashfree: cashfreeAdapter,
 };
 
 export async function OPTIONS() {
@@ -68,34 +77,32 @@ export async function POST(
       return NextResponse.json({ error: "Event has already ended" }, { status: 410, headers: corsHeaders });
     }
 
-    // Capacity Check
-    const activeBookingsResult = await db.collection("bookings").aggregate([
-      {
-        $match: {
-          event_id: event._id,
-          status: { $in: ["confirmed", "pending_payment"] },
-          $or: [
-            { expires_at: { $gt: new Date() } },
-            { expires_at: { $exists: false } }
-          ]
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          totalQuantity: { $sum: "$quantity" }
-        }
-      }
-    ]).toArray();
+    // Free bookings issue signed tickets right away; refuse before taking seats if signing is not configured.
+    if (!event.is_paid && !process.env.TICKET_QR_SECRET) {
+      console.error("[confirm_api_error] TICKET_QR_SECRET is not set; cannot issue tickets");
+      return NextResponse.json({ error: "Ticketing is temporarily unavailable. Please try again later." }, { status: 503, headers: corsHeaders });
+    }
 
-    const reservedSeats = activeBookingsResult.length > 0 ? activeBookingsResult[0].totalQuantity : 0;
+    // Capacity: give back seats from abandoned checkouts, then take seats atomically on the event counters
+    // (sold for free events, held for paid ones), so two visitors can never both get the last seats.
+    await releaseExpiredHolds(event._id);
+    const holdExpiresAt = new Date(Date.now() + PAYMENT_HOLD_MINUTES * 60000);
+    const taken = event.is_paid
+      ? await placeHold(event._id, session.quantity, PAYMENT_HOLD_MINUTES)
+      : await reserveCapacity(event._id, session.quantity);
 
-    if (event.capacity - reservedSeats < session.quantity) {
-      return NextResponse.json({ 
-        error: "Not enough seats available", 
-        available_seats: Math.max(0, event.capacity - reservedSeats) 
+    if (!taken) {
+      const latest = await db.collection("events").findOne({ _id: event._id });
+      const available = latest ? latest.capacity - (latest.tickets_sold ?? 0) - (latest.tickets_held ?? 0) : 0;
+      return NextResponse.json({
+        error: "Not enough seats available",
+        available_seats: Math.max(0, available)
       }, { status: 409, headers: corsHeaders });
     }
+    /** Give the seats back if this booking cannot go ahead. */
+    const returnSeats = () => event.is_paid
+      ? releaseHold(event._id, session.quantity)
+      : db.collection("events").updateOne({ _id: event._id, tickets_sold: { $gte: session.quantity } }, { $inc: { tickets_sold: -session.quantity } });
 
     const bookingCode = `NBK-${new Date().getFullYear()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
     const amountTotal = event.is_paid ? (event.price || 0) * session.quantity : 0;
@@ -123,27 +130,54 @@ export async function POST(
       quantity: session.quantity,
       amount_total: amountTotal,
       currency: event.currency,
-      ticket_codes: Array.from({ length: session.quantity }).map(() => `EVT-${crypto.randomBytes(4).toString('hex').toUpperCase()}`),
+      // Real, scannable codes are issued into `tickets` once the booking is confirmed.
+      ticket_codes: [],
       source: "chat_widget",
       created_at: new Date(),
       updated_at: new Date(),
       confirmed_at: event.is_paid ? undefined : new Date(),
-      expires_at: event.is_paid ? new Date(Date.now() + 15 * 60000) : undefined
+      expires_at: event.is_paid ? holdExpiresAt : undefined,
+      hold_placed: event.is_paid ? true : undefined
     };
 
-    const result = await db.collection("bookings").insertOne(newBooking);
-    const bookingId = result.insertedId;
+    let bookingId: ObjectId;
+    try {
+      const result = await db.collection("bookings").insertOne(newBooking);
+      bookingId = result.insertedId;
+    } catch (insertError) {
+      await returnSeats();
+      throw insertError;
+    }
+
+    /** Mark a paid booking failed and give its held seats back (only once, and only while still pending). */
+    const failPendingBooking = async () => {
+      const claimed = await db.collection("bookings").findOneAndUpdate(
+        { _id: bookingId, status: "pending_payment" },
+        { $set: { status: "failed", payment_status: "failed", updated_at: new Date() } }
+      );
+      if (claimed) await releaseHold(event._id, session.quantity);
+    };
 
     if (!event.is_paid) {
+      // Issue the tickets the door scanner checks, and store their codes on the booking.
+      const tickets = await issueTicketsForBooking({ _id: bookingId, event_id: event._id, quantity: session.quantity });
+      await db.collection("bookings").updateOne(
+        { _id: bookingId },
+        { $set: { ticket_codes: tickets.map((t) => t.ticket_code) } }
+      );
       await db.collection("booking_sessions").updateOne(
         { _id: session._id },
         { $set: { status: "confirmed", current_step: "complete", booking_id: bookingId, updated_at: new Date() } }
       );
+      await notifyBookingConfirmed(bookingId);
       return NextResponse.json({
         status: "confirmed",
         booking_id: bookingId.toString(),
         booking_code: bookingCode,
-        download_url: `/api/embed/bookings/${bookingId}/ticket?userId=${userId}&visitorId=${visitorId}`
+        download_url: `/api/embed/bookings/${bookingId}/ticket?userId=${userId}&visitorId=${visitorId}`,
+        ticket_page_url: ticketPageUrl(bookingId.toString(), userId, visitorId),
+        ticket_pdf_url: ticketPdfUrl(bookingId.toString(), userId, visitorId),
+        emailed_to: session.answers.find((a: any) => a.validation_rule === 'email_format')?.value ?? null
       }, { headers: corsHeaders });
     }
 
@@ -154,7 +188,7 @@ export async function POST(
     });
 
     if (!gateway || !adapters[gateway.provider]) {
-      await db.collection("bookings").updateOne({ _id: bookingId }, { $set: { status: "failed", payment_status: "failed" } });
+      await failPendingBooking();
       await db.collection("booking_sessions").updateOne({ _id: session._id }, { $set: { status: "failed", current_step: "payment", updated_at: new Date() } });
       return NextResponse.json({ error: "Payment gateway not configured or unsupported for conversational booking" }, { status: 501, headers: corsHeaders });
     }
@@ -172,7 +206,8 @@ export async function POST(
         quantity: session.quantity,
         successUrl: `${process.env.NEXTAUTH_URL}/booking/success?bid=${bookingId}`,
         cancelUrl: `${process.env.NEXTAUTH_URL}/booking/cancel?bid=${bookingId}`,
-        customerEmail: session.answers.find((a: any) => a.validation_rule === 'email_format')?.value
+        customerEmail: session.answers.find((a: any) => a.validation_rule === 'email_format')?.value,
+        customerPhone: session.answers.find((a: any) => a.validation_rule === 'phone_format')?.value
       }, credentials);
 
       // SECURITY: Generate a one-time access token for the payment bridge
@@ -237,7 +272,7 @@ export async function POST(
       }, { headers: corsHeaders });
     } catch (paymentErr: any) {
       console.error("[checkout_error]", paymentErr);
-      await db.collection("bookings").updateOne({ _id: bookingId }, { $set: { status: "failed", payment_status: "failed" } });
+      await failPendingBooking();
       await db.collection("booking_sessions").updateOne({ _id: session._id }, { $set: { status: "failed", current_step: "payment", updated_at: new Date() } });
       return NextResponse.json({ error: "Failed to initiate payment session." }, { status: 500, headers: corsHeaders });
     }

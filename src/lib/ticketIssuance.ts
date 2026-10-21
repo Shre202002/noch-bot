@@ -1,12 +1,27 @@
 import { ObjectId } from 'mongodb';
 import crypto from 'crypto';
 import { getDb } from './db';
-import { Booking } from '@/models/Booking';
 import { Ticket } from '@/models/Ticket';
 
-const TICKET_QR_SECRET = process.env.TICKET_QR_SECRET;
-if (!TICKET_QR_SECRET) {
-  throw new Error('CRITICAL: TICKET_QR_SECRET environment variable is missing.');
+/**
+ * The secret that signs ticket QR payloads. Read when a ticket is issued rather than at import, so routes that only
+ * sometimes issue tickets (e.g. widget booking confirmation) still work for paid checkouts if it is missing, and the
+ * failure is a clear error at the point that needs it.
+ */
+function ticketQrSecret(): string {
+  const secret = process.env.TICKET_QR_SECRET;
+  if (!secret) throw new Error('CRITICAL: TICKET_QR_SECRET environment variable is missing.');
+  return secret;
+}
+
+/**
+ * The subset of Booking data ticket issuance depends on. Accepts full Booking
+ * documents as well as pre-update snapshots returned by findOneAndUpdate.
+ */
+export interface IssuableBooking {
+  _id?: ObjectId;
+  event_id: ObjectId;
+  quantity: number;
 }
 
 /**
@@ -27,9 +42,13 @@ function generateReadableCode(length = 8): string {
  * Handles collisions gracefully with retries.
  * Idempotent: Handles partial issuance and avoids duplicates using ticket_index.
  */
-export async function issueTicketsForBooking(booking: Booking): Promise<Ticket[]> {
+export async function issueTicketsForBooking(booking: IssuableBooking): Promise<Ticket[]> {
+  if (!booking._id) {
+    throw new Error('Cannot issue tickets for a booking without an _id.');
+  }
+
   const db = await getDb();
-  
+
   // 1. Identify existing tickets for this booking
   const existingTickets = await db.collection('tickets')
     .find({ booking_id: booking._id })
@@ -58,7 +77,7 @@ export async function issueTicketsForBooking(booking: Booking): Promise<Ticket[]
       const ticketCode = `EVT-${generateReadableCode()}`;
       
       const qrPayloadHash = crypto
-        .createHmac('sha256', TICKET_QR_SECRET!)
+        .createHmac('sha256', ticketQrSecret())
         .update(`${ticketCode}:${booking._id}:${booking.event_id}`)
         .digest('hex');
 

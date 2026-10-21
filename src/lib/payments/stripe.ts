@@ -1,10 +1,10 @@
-import Stripe from 'stripe';
+﻿import Stripe from 'stripe';
 import { PaymentGatewayAdapter, CheckoutParams, WebhookResult, CheckoutResult } from './adapter';
 
 export class StripeAdapter implements PaymentGatewayAdapter {
   private getClient(secretKey: string): Stripe {
     return new Stripe(secretKey, {
-      apiVersion: '2024-06-20',
+      apiVersion: '2025-02-24.acacia',
     });
   }
 
@@ -89,3 +89,4 @@ export class StripeAdapter implements PaymentGatewayAdapter {
 }
 
 export const stripeAdapter = new StripeAdapter();
+

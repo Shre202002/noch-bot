@@ -1,8 +1,8 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState, Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { Loader2, ShieldCheck, AlertCircle } from "lucide-center";
+import { Loader2, ShieldCheck, AlertCircle } from "lucide-react";
 
 /**
  * @fileOverview Secure internal payment bridge page for SDK-based gateways (Razorpay).
@@ -116,3 +116,4 @@ export default function PaymentBridgePage() {
     </Suspense>
   );
 }
+

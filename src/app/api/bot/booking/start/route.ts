@@ -17,11 +17,11 @@ export async function POST(req: NextRequest) {
     }
 
     const db = await getDb();
-    
+
     // Look up event by widget ID
-    const event = await db.collection("events").findOne({ 
+    const event = await db.collection("events").findOne({
       chatbot_widget_id: new ObjectId(chatbot_widget_id),
-      status: "published" 
+      status: "published"
     });
 
     if (!event) {
@@ -37,8 +37,9 @@ export async function POST(req: NextRequest) {
 
     // Initialize session
     const sessionId = crypto.randomUUID();
-    
+
     const newBooking: Booking = {
+      org_id: event.org_id,
       event_id: event._id,
       session_id: sessionId,
       status: 'in_progress',
