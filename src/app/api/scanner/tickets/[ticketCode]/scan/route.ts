@@ -32,6 +32,11 @@ export async function POST(
     const ticket = await db.collection("tickets").findOne({ ticket_code: ticketCode });
     if (!ticket) return NextResponse.json({ error: "Ticket not found" }, { status: 404 });
 
+    // Test tickets (made to try the booking) never admit anyone.
+    if (ticket.is_test) {
+      return NextResponse.json({ error: "This is a test ticket", reason: "test_ticket" }, { status: 409 });
+    }
+
     // 2. Scoping Check
     if (staff.event_id && !staff.event_id.equals(ticket.event_id)) {
       return NextResponse.json({ error: "Not authorized for this event" }, { status: 403 });
@@ -78,12 +83,12 @@ export async function POST(
     if (!result) {
       // Re-fetch to see why it failed (retry check)
       const existing = await db.collection("tickets").findOne({ ticket_code: ticketCode });
-      
+
       if (existing?.status === "scanned" && client_scan_id && existing.client_scan_id === client_scan_id) {
          return NextResponse.json({ success: true, ticket: existing, details: "Retry accepted" });
       }
 
-      return NextResponse.json({ 
+      return NextResponse.json({
         error: "Cannot scan ticket",
         reason: existing?.status || "unknown",
         scanned_at: existing?.scanned_at,

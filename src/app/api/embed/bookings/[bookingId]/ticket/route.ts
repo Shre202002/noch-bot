@@ -46,15 +46,15 @@ export async function GET(
     const isPaidIfRequired = booking.payment_status === "not_required" || booking.payment_status === "paid";
 
     if (!isConfirmed || !isPaidIfRequired) {
-      return NextResponse.json({ 
-        error: "Ticket is not available until booking is confirmed and paid." 
+      return NextResponse.json({
+        error: "Ticket is not available until booking is confirmed and paid."
       }, { status: 409, headers: corsHeaders });
     }
 
     // Fetch latest design branding from event, scoped by org_id for security
-    const event = await db.collection("events").findOne({ 
-      _id: booking.event_id, 
-      org_id: userId 
+    const event = await db.collection("events").findOne({
+      _id: booking.event_id,
+      org_id: userId
     });
 
     return NextResponse.json({
@@ -68,6 +68,7 @@ export async function GET(
         attendee: booking.attendee,
         quantity: booking.quantity,
         ticket_codes: booking.ticket_codes,
+        is_test: !!booking.is_test,
         template_id: event?.ticket_template_id || booking.event_snapshot.ticket_template_id || "dark",
         logo_url: event?.logo_url,
         bg_removed_logo_url: event?.bg_removed_logo_url,

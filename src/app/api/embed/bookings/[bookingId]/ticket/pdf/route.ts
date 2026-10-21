@@ -45,6 +45,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ book
       attendeeName: attendeeNameFrom(booking.attendee?.answers),
       ticketCodes: codes,
       accentColor: event?.ticket_color_palette?.accent_color ?? null,
+      isTest: !!booking.is_test,
     });
 
     const fileName = `tickets-${String(booking.booking_code ?? bookingId).replace(/[^A-Za-z0-9-]/g, "")}.pdf`;

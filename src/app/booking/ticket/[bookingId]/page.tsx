@@ -3,9 +3,9 @@
 import { useEffect, useState, Suspense } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
-import { 
-  FileText, Calendar, MapPin, User, Ticket as TicketIcon, 
-  Printer, Download, ArrowLeft, Loader2, AlertCircle, 
+import {
+  FileText, Calendar, MapPin, User, Ticket as TicketIcon,
+  Printer, Download, ArrowLeft, Loader2, AlertCircle,
   CheckCircle2, ShieldCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,7 @@ interface TicketData {
   };
   quantity: number;
   ticket_codes: string[];
+  is_test?: boolean;
   template_id: string;
   logo_url: string | null;
   bg_removed_logo_url?: string | null;
@@ -44,10 +45,10 @@ function TicketViewContent() {
   const params = useParams();
   const searchParams = useSearchParams();
   const router = useRouter();
-  
+
   const userId = searchParams.get("userId");
   const visitorId = searchParams.get("visitorId");
-  
+
   const [data, setData] = useState<TicketData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -96,8 +97,8 @@ function TicketViewContent() {
         </div>
         <h1 className="text-2xl font-bold text-white mb-2">Access Denied</h1>
         <p className="text-zinc-400 max-w-xs mx-auto mb-8">{error || "This ticket is not available for download."}</p>
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           onClick={() => router.push("/")}
           className="rounded-full border-white/10 text-white hover:bg-white/5"
         >
@@ -153,7 +154,7 @@ function TicketViewContent() {
     switch (data.template_id) {
       case 'minimal':
         return (
-          <div 
+          <div
             className="flex w-full flex-col md:flex-row rounded-xl overflow-hidden shadow-xl"
             style={{ backgroundColor: "#ffffff", color: "#000000", border: `1px solid ${palette.border_color}` }}
           >
@@ -183,7 +184,7 @@ function TicketViewContent() {
         );
       case 'modern':
         return (
-          <div 
+          <div
             className="flex w-full flex-col md:flex-row rounded-2xl overflow-hidden shadow-2xl"
             style={{ backgroundColor: palette.background_color, color: palette.text_color }}
           >
@@ -207,7 +208,7 @@ function TicketViewContent() {
         );
       case 'classic':
         return (
-          <div 
+          <div
             className="w-full border-2 rounded-3xl overflow-hidden shadow-xl relative"
             style={{ backgroundColor: "#fdfbf7", color: "#433322", borderColor: "#e5e0d8" }}
           >
@@ -238,7 +239,7 @@ function TicketViewContent() {
       case 'dark':
       default:
         return (
-          <div 
+          <div
             className="relative flex flex-col md:flex-row bg-[#111111] border border-white/5 rounded-[2rem] overflow-hidden shadow-2xl hover:border-[#36f4a4]/20 transition-all duration-500"
           >
             <div className="w-full md:w-64 p-8 flex flex-col items-center justify-center bg-white text-black border-b md:border-b-0 md:border-r border-dashed border-zinc-300">
@@ -314,10 +315,24 @@ function TicketViewContent() {
           </div>
         </div>
 
+        {data.is_test && (
+          <p role="note" className="rounded-2xl border border-red-500/40 bg-red-500/10 px-5 py-3 text-sm font-semibold text-red-200">
+            TEST TICKET: made to try the booking. It cannot be used for entry.
+          </p>
+        )}
+
         <div className="grid gap-8">
           {data.ticket_codes.map((code, index) => (
-            <div key={code}>
+            <div key={code} className="relative">
               {renderTemplate(code, index)}
+              {data.is_test && (
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute right-3 top-3 z-10 rotate-6 rounded-md border-2 border-red-500 bg-red-500/90 px-3 py-1 text-xs font-black uppercase tracking-widest text-white shadow-lg"
+                >
+                  Test ticket
+                </span>
+              )}
             </div>
           ))}
         </div>

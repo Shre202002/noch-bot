@@ -163,6 +163,8 @@ export type BookingRow = {
   status_label: string;
   group: BookingGroup | null;
   payment_status?: string;
+  /** A test booking made by the organizer: shown as TESTED TICKET and kept out of counts. */
+  is_test: boolean;
   created_at: Date;
   confirmed_at: Date | null;
   source: BookingSource;
@@ -177,14 +179,19 @@ export type BookingList = {
   total: number;
   page: number;
   pageSize: number;
+  /** Real bookings per group; test bookings are not counted here. */
   counts: Record<BookingGroup, number>;
+  /** How many test bookings this event has. */
+  testCount: number;
   truncated: boolean;
 };
+
+export type BookingFilter = BookingGroup | 'all' | 'test';
 
 export async function listEventBookings(
   db: Db,
   eventId: ObjectId,
-  opts: { q?: string; group?: BookingGroup | 'all'; page?: number; now?: Date } = {}
+  opts: { q?: string; group?: BookingFilter; page?: number; now?: Date } = {}
 ): Promise<BookingList> {
   const page = Math.max(1, Math.floor(opts.page ?? 1));
   const query = (opts.q ?? '').trim().toLowerCase();
@@ -194,8 +201,12 @@ export async function listEventBookings(
   await releaseExpiredHolds(eventId, opts.now);
 
   const countRows = await bookings
-    .aggregate<{ _id: string; count: number }>([{ $match: { event_id: eventId } }, { $group: { _id: '$status', count: { $sum: 1 } } }])
+    .aggregate<{ _id: string; count: number }>([
+      { $match: { event_id: eventId, is_test: { $ne: true } } },
+      { $group: { _id: '$status', count: { $sum: 1 } } },
+    ])
     .toArray();
+  const testCount = await bookings.countDocuments({ event_id: eventId, is_test: true });
   const counts = Object.fromEntries((Object.keys(BOOKING_GROUPS) as BookingGroup[]).map((g) => [g, 0])) as Record<BookingGroup, number>;
   for (const row of countRows) {
     const group = groupOfStatus(row._id);
@@ -203,7 +214,13 @@ export async function listEventBookings(
   }
 
   const filter: Record<string, unknown> = { event_id: eventId };
-  if (opts.group && opts.group !== 'all') filter.status = { $in: [...BOOKING_GROUPS[opts.group]] };
+  if (opts.group === 'test') {
+    filter.is_test = true;
+  } else if (opts.group && opts.group !== 'all') {
+    // A status filter shows real bookings only; tests are reached through the Test filter or All.
+    filter.status = { $in: [...BOOKING_GROUPS[opts.group]] };
+    filter.is_test = { $ne: true };
+  }
 
   let matched: Array<Record<string, any>>;
   let total: number;
@@ -252,6 +269,7 @@ export async function listEventBookings(
       status_label: STATUS_LABELS[b.status] ?? b.status,
       group: groupOfStatus(b.status),
       payment_status: b.payment_status,
+      is_test: !!b.is_test,
       created_at: b.created_at,
       confirmed_at: b.confirmed_at ?? null,
       source: bookingSource(b),
@@ -262,7 +280,7 @@ export async function listEventBookings(
     };
   });
 
-  return { rows, total, page, pageSize: BOOKINGS_PAGE_SIZE, counts, truncated };
+  return { rows, total, page, pageSize: BOOKINGS_PAGE_SIZE, counts, testCount, truncated };
 }
 
 async function loadTickets(db: Db, eventId: ObjectId, bookingIds: ObjectId[]) {
@@ -289,6 +307,7 @@ export type CheckInOutcome =
   | { outcome: 'already_checked_in'; scanned_at: Date | null }
   | { outcome: 'booking_not_confirmed'; booking_status: string }
   | { outcome: 'ticket_void'; ticket_status: string }
+  | { outcome: 'test_ticket' }
   | { outcome: 'not_found' };
 
 /**
@@ -305,6 +324,7 @@ export async function checkInTicket(
   const tickets = db.collection('tickets');
   const ticket = await tickets.findOne({ ticket_code: ticketCode, event_id: eventId });
   if (!ticket) return { outcome: 'not_found' };
+  if (ticket.is_test) return { outcome: 'test_ticket' };
 
   const booking = await db.collection('bookings').findOne({ _id: ticket.booking_id, event_id: eventId });
   if (!booking) return { outcome: 'not_found' };
@@ -366,6 +386,7 @@ export async function reconcileBooking(
   const bookings = db.collection('bookings');
   const existing = await bookings.findOne({ _id: bookingId, event_id: eventId });
   if (!existing) return { ok: false, error: 'Booking not found.', code: 'not_found' };
+  if (existing.is_test) return { ok: false, error: 'This is a test booking. Clear test bookings instead.', code: 'not_allowed' };
 
   if (action === 'mark_refunded') {
     const res = await bookings.findOneAndUpdate(
@@ -397,7 +418,8 @@ export async function reconcileBooking(
 }
 
 /** Which actions the organizer may take on a booking in this status; the UI shows exactly these. */
-export function allowedActions(status: string): ReconcileAction[] {
+export function allowedActions(status: string, isTest = false): ReconcileAction[] {
+  if (isTest) return [];
   if (status === 'needs_refund') return ['mark_refunded'];
   if ((BOOKING_GROUPS.awaiting_payment as readonly string[]).includes(status)) return ['cancel'];
   return [];

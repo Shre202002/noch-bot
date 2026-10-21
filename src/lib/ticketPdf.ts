@@ -1,4 +1,4 @@
-import { PDFDocument, StandardFonts, rgb, type PDFFont, type RGB } from 'pdf-lib';
+import { PDFDocument, StandardFonts, degrees, rgb, type PDFFont, type RGB } from 'pdf-lib';
 import QRCode from 'qrcode';
 
 /**
@@ -15,6 +15,8 @@ export interface TicketPdfInput {
   ticketCodes: string[];
   /** Hex colour from the event's ticket palette, used for the header band. */
   accentColor?: string | null;
+  /** A test ticket: marked on every page so it can never be mistaken for a real one. */
+  isTest?: boolean;
 }
 
 const PAGE = { width: 420, height: 595 }; // A5 portrait, points
@@ -130,8 +132,19 @@ export async function buildTicketPdf(input: TicketPdfInput): Promise<Uint8Array>
     if (input.bookingCode) {
       page.drawText(`Booking ${safe(input.bookingCode)}`, { x: MARGIN, y: 48, size: 9, font: regular, color: muted });
     }
-    const note = 'Show this QR code at the entrance. Each ticket can be scanned once.';
-    page.drawText(note, { x: MARGIN, y: 34, size: 8, font: regular, color: muted });
+    const note = input.isTest
+      ? 'TEST TICKET. It was made to try the booking and cannot be used for entry.'
+      : 'Show this QR code at the entrance. Each ticket can be scanned once.';
+    page.drawText(note, { x: MARGIN, y: 34, size: 8, font: input.isTest ? bold : regular, color: input.isTest ? rgb(0.75, 0.1, 0.1) : muted });
+
+    if (input.isTest) {
+      const red = rgb(0.8, 0.12, 0.12);
+      // A band across the top and a large diagonal mark, so a printed or screenshotted copy is still plainly a test.
+      page.drawRectangle({ x: 0, y: PAGE.height - 16, width: PAGE.width, height: 16, color: red });
+      const banner = 'TEST TICKET - NOT VALID FOR ENTRY';
+      page.drawText(banner, { x: (PAGE.width - bold.widthOfTextAtSize(banner, 8)) / 2, y: PAGE.height - 11.5, size: 8, font: bold, color: rgb(1, 1, 1) });
+      page.drawText('TEST', { x: 70, y: 150, size: 120, font: bold, color: red, opacity: 0.14, rotate: degrees(35) });
+    }
   }
 
   return doc.save();

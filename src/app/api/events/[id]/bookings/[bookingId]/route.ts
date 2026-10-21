@@ -26,11 +26,11 @@ export async function GET(
     if (!event) return NextResponse.json({ error: "Event not found" }, { status: 404 });
 
     // 2. Fetch booking (full)
-    const booking = await db.collection("bookings").findOne({ 
-      _id: bookingId, 
-      event_id: eventId 
+    const booking = await db.collection("bookings").findOne({
+      _id: bookingId,
+      event_id: eventId
     });
-    
+
     if (!booking) return NextResponse.json({ error: "Booking not found" }, { status: 404 });
 
     // 3. Fetch linked tickets
@@ -38,12 +38,12 @@ export async function GET(
       .find({ booking_id: bookingId })
       .toArray();
 
-    return NextResponse.json({ 
-      success: true, 
-      data: { 
-        ...booking, 
-        tickets 
-      } 
+    return NextResponse.json({
+      success: true,
+      data: {
+        ...booking,
+        tickets
+      }
     });
   } catch (error) {
     console.error("[booking_get_detail]", error);
@@ -57,6 +57,7 @@ const CHECK_IN_MESSAGES = {
   already_checked_in: "This ticket was already checked in.",
   booking_not_confirmed: "This booking is not confirmed, so its tickets cannot be checked in.",
   ticket_void: "This ticket is no longer valid.",
+  test_ticket: "This is a test ticket, so it cannot be checked in.",
   not_found: "Ticket not found for this event.",
 } as const;
 

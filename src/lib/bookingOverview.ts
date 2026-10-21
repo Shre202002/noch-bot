@@ -13,6 +13,8 @@ export type EventBookingSummary = {
   counts: Record<BookingGroup, number>;
   confirmed_tickets: number;
   checked_in: number;
+  /** Test bookings made by the organizer; never part of the real numbers above. */
+  tests: number;
 };
 
 const emptyCounts = () =>
@@ -27,18 +29,25 @@ export async function bookingOverview(db: Db, orgId: string): Promise<EventBooki
   if (events.length === 0) return [];
   const ids = events.map((e) => e._id);
 
-  const [byStatus, scanned] = await Promise.all([
+  const [byStatus, scanned, testRows] = await Promise.all([
     db
       .collection('bookings')
       .aggregate<{ _id: { event: unknown; status: string }; count: number; quantity: number }>([
-        { $match: { event_id: { $in: ids } } },
+        { $match: { event_id: { $in: ids }, is_test: { $ne: true } } },
         { $group: { _id: { event: '$event_id', status: '$status' }, count: { $sum: 1 }, quantity: { $sum: '$quantity' } } },
       ])
       .toArray(),
     db
       .collection('tickets')
       .aggregate<{ _id: unknown; count: number }>([
-        { $match: { event_id: { $in: ids }, status: 'scanned' } },
+        { $match: { event_id: { $in: ids }, status: 'scanned', is_test: { $ne: true } } },
+        { $group: { _id: '$event_id', count: { $sum: 1 } } },
+      ])
+      .toArray(),
+    db
+      .collection('bookings')
+      .aggregate<{ _id: unknown; count: number }>([
+        { $match: { event_id: { $in: ids }, is_test: true } },
         { $group: { _id: '$event_id', count: { $sum: 1 } } },
       ])
       .toArray(),
@@ -56,6 +65,7 @@ export async function bookingOverview(db: Db, orgId: string): Promise<EventBooki
     if (row._id.status === 'confirmed') confirmedTickets.set(key, (confirmedTickets.get(key) ?? 0) + (row.quantity ?? 0));
   }
   const checkedIn = new Map(scanned.map((r) => [String(r._id), r.count]));
+  const tests = new Map(testRows.map((r) => [String(r._id), r.count]));
 
   return events.map((e) => {
     const key = String(e._id);
@@ -70,6 +80,7 @@ export async function bookingOverview(db: Db, orgId: string): Promise<EventBooki
       counts: counts.get(key) ?? emptyCounts(),
       confirmed_tickets: confirmedTickets.get(key) ?? 0,
       checked_in: checkedIn.get(key) ?? 0,
+      tests: tests.get(key) ?? 0,
     };
   });
 }

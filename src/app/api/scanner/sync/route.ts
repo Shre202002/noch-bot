@@ -26,12 +26,17 @@ export async function POST(req: NextRequest) {
 
     for (const scan of scans) {
       const { ticket_code, scanned_at, scan_device_info, client_scan_id } = scan;
-      
+
       try {
         const ticket = await db.collection("tickets").findOne({ ticket_code });
-        
+
         if (!ticket) {
           results.push({ ticket_code, result: "invalid", details: "Ticket not found" });
+          continue;
+        }
+
+        if (ticket.is_test) {
+          results.push({ ticket_code, result: "invalid", details: "Test ticket" });
           continue;
         }
 
@@ -72,7 +77,7 @@ export async function POST(req: NextRequest) {
         } else {
           // Already scanned - check for ID-based retry or timestamp conflict
           const existing = await db.collection("tickets").findOne({ ticket_code });
-          
+
           if (existing?.status === "scanned") {
             // 1. Check if this is a safe retry of the same attempt
             if (client_scan_id && existing.client_scan_id === client_scan_id) {
@@ -85,13 +90,13 @@ export async function POST(req: NextRequest) {
             const attemptTime = clientTimestamp.getTime();
 
             if (existingTime < attemptTime) {
-              results.push({ 
-                ticket_code, 
-                result: "duplicate_conflict", 
-                details: `Already scanned at ${existing.scanned_at}` 
+              results.push({
+                ticket_code,
+                result: "duplicate_conflict",
+                details: `Already scanned at ${existing.scanned_at}`
               });
             } else {
-              // This should theoretically not happen if sync order matches real time, 
+              // This should theoretically not happen if sync order matches real time,
               // unless there is clock skew between devices.
               console.warn(`[scanner_sync_skew] Batch attempt ${attemptTime} is EARLIER than DB ${existingTime} for ${ticket_code}`);
               results.push({ ticket_code, result: "duplicate_conflict", details: "Ticket already scanned" });
