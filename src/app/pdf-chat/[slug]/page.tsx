@@ -4,7 +4,33 @@
 import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useParams } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
-import { ArrowUp, Square, FileText, ChevronDown } from 'lucide-react';
+import remarkGfm from 'remark-gfm';
+import { ArrowUp, Square, FileText, Sun, Moon, LogOut } from 'lucide-react';
+import { LinkSignIn, type GateMode } from './link-sign-in';
+
+const REQUEST_TIMEOUT_MS = 60_000;
+
+// Visitors on a shared link never see raw API errors; each failure maps to a polite next step.
+const VISITOR_ERRORS = {
+  network: "I couldn't reach the assistant. Check your connection and try again.",
+  timeout: 'The assistant is taking too long to answer. Please try again.',
+  limit: 'This document assistant has reached its message limit for now. Please try again later.',
+  unavailable: 'This document is no longer available for chat.',
+  server: 'Something went wrong on our side. Please try again in a moment.',
+};
+
+/** Which gate screen to show for a link-session problem reported by the API. */
+function gateFor(code: string | undefined, message: string | undefined): { mode: GateMode; notice: string | null } {
+  if (code === 'blocked' || code === 'pending' || code === 'rejected') return { mode: code, notice: message || null };
+  if (code === 'replaced') return { mode: 'signin', notice: message || null };
+  return { mode: 'signin', notice: null };
+}
+
+function visitorErrorFor(status: number): string {
+  if (status === 429) return VISITOR_ERRORS.limit;
+  if (status === 401 || status === 403 || status === 404) return VISITOR_ERRORS.unavailable;
+  return VISITOR_ERRORS.server;
+}
 
 type Message = { role: 'user' | 'assistant'; content: string; createdAt?: string };
 
@@ -46,7 +72,7 @@ const mdComponents = {
     <td style={{ border: '1px solid var(--bg-300)', padding: '7px 12px' }}>{children}</td>
   ),
   blockquote: ({ children }: any) => (
-    <blockquote style={{ borderLeft: '3px solid #D97757', paddingLeft: 14, margin: '10px 0', opacity: 0.85, fontStyle: 'italic' }}>{children}</blockquote>
+    <blockquote style={{ borderLeft: '2px solid var(--bg-300)', paddingLeft: 14, margin: '10px 0', color: 'var(--text-300)' }}>{children}</blockquote>
   ),
   code: ({ children }: any) => (
     <code style={{ background: 'var(--bg-200)', borderRadius: 5, padding: '1px 6px', fontSize: 12, fontFamily: 'monospace' }}>{children}</code>
@@ -65,7 +91,7 @@ function TypingDots() {
           width: 7, height: 7, borderRadius: '50%',
           background: 'var(--text-400)',
           display: 'inline-block',
-          animation: `typingBounce 1.2s infinite ${i * 0.2}s`,
+          animation: `typingPulse 1.2s infinite ${i * 0.2}s`,
         }} />
       ))}
     </div>
@@ -96,6 +122,9 @@ function PdfChat() {
   const [label, setLabel]           = useState('PDF Assistant');
   const [loadError, setLoadError]   = useState('');
   const [loadingMeta, setLoadingMeta] = useState(true);
+  // Sign-in protected links: the gate replaces the chat until the visitor holds a valid link session.
+  const [linkGate, setLinkGate] = useState<{ mode: GateMode; notice: string | null } | null>(null);
+  const [linkLoginId, setLinkLoginId] = useState('');
   const [isDark, setIsDark]         = useState(false);
 
   const [messages, setMessages]     = useState<Message[]>([]);
@@ -135,19 +164,44 @@ function PdfChat() {
   }, []);
 
   // ── Load slug ─────────────────────────────────────────────────────────────
-  useEffect(() => {
+  const loadLink = useCallback(async () => {
     if (!slug) return;
-    fetch(`/api/pdf-links/${slug}`)
-      .then(r => r.json())
-      .then(d => {
-        if (d.error) { setLoadError(d.error); return; }
-        setFileId(d.fileId);
-        setUserId(d.userId);
-        setLabel(d.label || d.filename || 'PDF Assistant');
-      })
-      .catch(() => setLoadError('Failed to load chat.'))
-      .finally(() => setLoadingMeta(false));
+    const base = `/api/pdf-links/${encodeURIComponent(String(slug))}`;
+    try {
+      const r = await fetch(base);
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok || d.error) {
+        setLoadError(r.status === 404 ? "This chat link isn't available." : "We couldn't load this chat. Please try again.");
+        return;
+      }
+      setLabel(d.label || d.filename || 'PDF Assistant');
+      if (d.requireLogin && !d.signedIn) {
+        // Ask why there is no session, so a locked or pending account sees its own screen.
+        const me = await fetch(`${base}/auth/me`).then(res => res.json()).catch(() => ({}));
+        setLinkGate(gateFor(me.code, me.message));
+        setFileId('');
+        return;
+      }
+      setLinkGate(null);
+      setLinkLoginId(d.loginId || '');
+      setFileId(d.fileId);
+      setUserId(d.userId);
+    } catch {
+      setLoadError("We couldn't load this chat. Check your connection and try again.");
+    } finally {
+      setLoadingMeta(false);
+    }
   }, [slug]);
+
+  useEffect(() => { loadLink(); }, [loadLink]);
+
+  const signOutLink = async () => {
+    await fetch(`/api/pdf-links/${encodeURIComponent(String(slug))}/auth/logout`, { method: 'POST' }).catch(() => {});
+    setLinkLoginId('');
+    setMessages([]);
+    setFileId('');
+    setLinkGate({ mode: 'signin', notice: null });
+  };
 
   // ── Auto scroll ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -163,7 +217,7 @@ function PdfChat() {
     };
     el.addEventListener('scroll', onScroll);
     return () => el.removeEventListener('scroll', onScroll);
-  }, []);
+  }, [loadingMeta, linkGate]);
 
   useEffect(() => { if (loading) setAutoScroll(true); }, [loading]);
 
@@ -190,7 +244,7 @@ function PdfChat() {
       if (controller.signal.aborted) {
         clearInterval(intervalRef.current!);
         intervalRef.current = null;
-        setMessages(prev => [...prev, { role: 'assistant', content: text.slice(0, i) + ' ▋', createdAt: new Date().toISOString() }]);
+        setMessages(prev => [...prev, { role: 'assistant', content: text.slice(0, i) + '\n\n_Response stopped._', createdAt: new Date().toISOString() }]);
         setTypingText('');
         setIsTyping(false);
         return;
@@ -227,6 +281,8 @@ function PdfChat() {
 
     const controller = new AbortController();
     setAbortCtrl(controller);
+    let timedOut = false;
+    const timeout = setTimeout(() => { timedOut = true; controller.abort(); }, REQUEST_TIMEOUT_MS);
 
     try {
       const res = await fetch('/api/chat/pdf', {
@@ -235,8 +291,21 @@ function PdfChat() {
         body: JSON.stringify({ message: userText, fileId, userId, sessionId, slug, label }),
         signal: controller.signal,
       });
-      const data = await res.json();
-      const responseText = data.error ? '⚠️ ' + data.error : data.answer || 'Sorry, no response.';
+      clearTimeout(timeout);
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 401 && data.code) {
+        setLoading(false);
+        setAbortCtrl(null);
+        setMessages(messages);
+        setInput(userText);
+        setFileId('');
+        setLinkLoginId('');
+        setLinkGate(gateFor(data.code === 'session_replaced' ? 'replaced' : data.code, data.error));
+        return;
+      }
+      const responseText = !res.ok || data.error
+        ? visitorErrorFor(res.ok ? 500 : res.status)
+        : data.answer || "Sorry, I couldn't find an answer to that in this document.";
 
       setLoading(false);
       runTypewriter(responseText, controller, (full) => {
@@ -244,10 +313,13 @@ function PdfChat() {
         setAbortCtrl(null);
       });
     } catch (err: any) {
+      clearTimeout(timeout);
       setLoading(false);
       setAbortCtrl(null);
-      if (err?.name === 'AbortError') return;
-      setMessages([...newMessages, { role: 'assistant', content: '⚠️ Network error. Try again.', createdAt: new Date().toISOString() }]);
+      // A user-initiated Stop needs no reply; a timeout does.
+      if (err?.name === 'AbortError' && !timedOut) return;
+      const content = timedOut ? VISITOR_ERRORS.timeout : VISITOR_ERRORS.network;
+      setMessages([...newMessages, { role: 'assistant', content, createdAt: new Date().toISOString() }]);
     }
   };
 
@@ -268,9 +340,32 @@ function PdfChat() {
     return (
       <div className={isDark ? 'dark' : ''} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100dvh', background: 'var(--bg-0)', flexDirection: 'column', gap: 12 }}>
         <style>{cssVars + keyframes}</style>
-        <div style={{ fontSize: 48 }}>📄</div>
-        <p style={{ color: '#ef4444', fontSize: 15, fontWeight: 500 }}>{loadError}</p>
+        <FileText aria-hidden="true" size={40} color="var(--text-400)" />
+        <p role="alert" style={{ color: 'var(--text-100)', fontSize: 15, fontWeight: 500, margin: 0, textAlign: 'center', padding: '0 24px' }}>{loadError}</p>
         <p style={{ color: 'var(--text-400)', fontSize: 13 }}>This chat link may have been removed.</p>
+      </div>
+    );
+  }
+
+  if (linkGate) {
+    return (
+      <div className={isDark ? 'dark' : ''} style={{ fontFamily: "'Inter', system-ui, sans-serif", display: 'flex', flexDirection: 'column', minHeight: '100dvh', background: 'var(--bg-0)', color: 'var(--text-100)' }}>
+        <style>{cssVars + keyframes}</style>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '12px 16px' }}>
+          <button type="button" className="pc-focus" onClick={() => setIsDark(!isDark)}
+            aria-label={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
+            style={{ background: 'var(--bg-200)', border: '1px solid var(--bg-300)', borderRadius: 8, minWidth: 44, minHeight: 44, display: 'grid', placeItems: 'center', color: 'var(--text-300)', cursor: 'pointer' }}>
+            {isDark ? <Sun aria-hidden="true" size={16} /> : <Moon aria-hidden="true" size={16} />}
+          </button>
+        </div>
+        <LinkSignIn
+          key={`${linkGate.mode}-${linkGate.notice ?? ''}`}
+          slug={String(slug)}
+          label={label}
+          initialMode={linkGate.mode}
+          notice={linkGate.notice}
+          onSignedIn={() => { setLoadingMeta(true); loadLink(); }}
+        />
       </div>
     );
   }
@@ -298,17 +393,27 @@ function PdfChat() {
             {loading ? 'Thinking...' : isTyping ? 'Typing...' : 'Ready'}
           </div>
         </div>
+        {linkLoginId && (
+          <button type="button" className="pc-focus" onClick={signOutLink}
+            aria-label={`Sign out ${linkLoginId}`}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'transparent', border: '1px solid var(--bg-300)', borderRadius: 8, minHeight: 44, padding: '0 12px', color: 'var(--text-300)', cursor: 'pointer', fontSize: 13, flexShrink: 0, maxWidth: 180 }}>
+            <LogOut aria-hidden="true" size={14} style={{ flexShrink: 0 }} />
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{linkLoginId}</span>
+          </button>
+        )}
         {/* Dark mode toggle */}
         <button
+          type="button" className="pc-focus"
           onClick={() => setIsDark(!isDark)}
-          style={{ background: 'var(--bg-200)', border: '1px solid var(--bg-300)', borderRadius: 8, padding: '6px 10px', color: 'var(--text-300)', cursor: 'pointer', fontSize: 14 }}
+          aria-label={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
+          style={{ background: 'var(--bg-200)', border: '1px solid var(--bg-300)', borderRadius: 8, minWidth: 44, minHeight: 44, display: 'grid', placeItems: 'center', color: 'var(--text-300)', cursor: 'pointer', fontSize: 14, flexShrink: 0 }}
         >
-          {isDark ? '☀️' : '🌙'}
+          {isDark ? <Sun aria-hidden="true" size={16} /> : <Moon aria-hidden="true" size={16} />}
         </button>
       </div>
 
       {/* ── Messages ── */}
-      <div ref={containerRef} style={{ flex: 1, overflowY: 'auto', padding: '24px 16px 12px', display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 780, width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
+      <div ref={containerRef} className="pc-motion" role="log" aria-live="polite" aria-relevant="additions" aria-busy={isActive} aria-label={`Conversation about ${label}`} style={{ flex: 1, overflowY: 'auto', padding: '24px 16px 12px', display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 780, width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
 
         {/* Empty state */}
         {messages.length === 0 && !loading && !isTyping && (
@@ -320,14 +425,14 @@ function PdfChat() {
               <p style={{ fontWeight: 600, color: 'var(--text-100)', margin: 0, fontSize: 18 }}>Ask me about this document</p>
               <p style={{ color: 'var(--text-400)', fontSize: 13, margin: '6px 0 0', maxWidth: 320 }}>{label}</p>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, width: '100%', maxWidth: 400 }}>
+            <div className="grid grid-cols-1 min-[420px]:grid-cols-2" style={{ gap: 8, width: '100%', maxWidth: 400 }}>
               {SUGGESTIONS.map(s => (
-                <button key={s.text} onClick={() => sendMessage(s.text)}
+                <button key={s.text} type="button" className="pc-focus" onClick={() => sendMessage(s.text)}
                   style={{ fontSize: 12, padding: '10px 14px', borderRadius: 12, border: '1px solid var(--bg-300)', background: 'var(--bg-100)', color: 'var(--text-300)', textAlign: 'left', cursor: 'pointer', transition: 'all 0.15s', lineHeight: 1.4, display: 'flex', alignItems: 'center', gap: 8 }}
                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#D97757'; (e.currentTarget as HTMLElement).style.color = '#D97757'; (e.currentTarget as HTMLElement).style.background = 'rgba(217,119,87,0.05)'; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--bg-300)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-300)'; (e.currentTarget as HTMLElement).style.background = 'var(--bg-100)'; }}
                 >
-                  <span>{s.icon}</span>{s.text}
+                  <span aria-hidden="true">{s.icon}</span>{s.text}
                 </button>
               ))}
             </div>
@@ -344,13 +449,14 @@ function PdfChat() {
               borderRadius: msg.role === 'user' ? '18px 18px 4px 18px' : '4px 18px 18px 18px',
               background: msg.role === 'user' ? '#D97757' : 'var(--bg-100)',
               color: msg.role === 'user' ? '#fff' : 'var(--text-100)',
-              fontSize: 14, lineHeight: 1.65,
+              fontSize: 14, lineHeight: 1.65, overflowWrap: 'anywhere', minWidth: 0,
               border: msg.role === 'assistant' ? '1px solid var(--bg-300)' : 'none',
               boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
             }}>
+              <span className="sr-only">{msg.role === 'user' ? 'You: ' : 'Assistant: '}</span>
               {msg.role === 'user'
-                ? <span style={{ fontWeight: 500 }}>{msg.content}</span>
-                : <ReactMarkdown components={mdComponents}>{msg.content}</ReactMarkdown>
+                ? <span style={{ fontWeight: 500, whiteSpace: 'pre-wrap' }}>{msg.content}</span>
+                : <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{msg.content}</ReactMarkdown>
               }
             </div>
           </div>
@@ -358,7 +464,7 @@ function PdfChat() {
 
         {/* Loading dots */}
         {loading && (
-          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', animation: 'fadeInUp 0.2s ease' }}>
+          <div aria-hidden="true" style={{ display: 'flex', gap: 10, alignItems: 'flex-start', animation: 'fadeInUp 0.2s ease' }}>
             <BotAvatar />
             <div style={{ padding: '12px 16px', borderRadius: '4px 18px 18px 18px', background: 'var(--bg-100)', border: '1px solid var(--bg-300)', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
               <TypingDots />
@@ -368,10 +474,10 @@ function PdfChat() {
 
         {/* Typewriter */}
         {isTyping && typingText && (
-          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', animation: 'fadeInUp 0.2s ease' }}>
+          <div aria-hidden="true" style={{ display: 'flex', gap: 10, alignItems: 'flex-start', animation: 'fadeInUp 0.2s ease' }}>
             <BotAvatar />
             <div style={{ maxWidth: '78%', padding: '12px 16px', borderRadius: '4px 18px 18px 18px', background: 'var(--bg-100)', color: 'var(--text-100)', fontSize: 14, lineHeight: 1.65, border: '1px solid var(--bg-300)', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-              <ReactMarkdown components={mdComponents}>{typingText}</ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{typingText}</ReactMarkdown>
               <span style={{ display: 'inline-block', width: 2, height: '1em', background: '#D97757', marginLeft: 2, animation: 'cursorBlink 0.7s infinite', verticalAlign: 'text-bottom' }} />
             </div>
           </div>
@@ -381,7 +487,7 @@ function PdfChat() {
       </div>
 
       {/* ── Input area ── */}
-      <div style={{ padding: '12px 16px 20px', flexShrink: 0 }}>
+      <div style={{ padding: '12px 16px max(20px, env(safe-area-inset-bottom))', flexShrink: 0 }}>
         <div style={{ maxWidth: 780, margin: '0 auto' }}>
           <div style={{
             background: 'var(--bg-100)',
@@ -391,12 +497,14 @@ function PdfChat() {
             overflow: 'hidden',
             transition: 'box-shadow 0.2s',
           }}
-            onFocus={() => {}}
+            className="pc-input-card"
           >
             {/* Textarea */}
             <div style={{ padding: '14px 16px 8px' }}>
               <textarea
                 ref={textareaRef}
+                aria-label={`Ask about ${label}`}
+                enterKeyHint="send"
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
@@ -422,7 +530,7 @@ function PdfChat() {
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 {/* Stop button */}
                 {isActive && (
-                  <button onClick={stopResponse}
+                  <button type="button" className="pc-focus" aria-label="Stop response" onClick={stopResponse}
                     style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, padding: '6px 12px', color: '#ef4444', fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s' }}
                     onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.15)'}
                     onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.08)'}
@@ -433,10 +541,10 @@ function PdfChat() {
                 )}
 
                 {/* Send button */}
-                <button onClick={() => sendMessage()}
+                <button type="button" className="pc-focus pc-send" aria-label="Send message" onClick={() => sendMessage()}
                   disabled={!input.trim() || isActive}
                   style={{
-                    width: 34, height: 34, borderRadius: 10, border: 'none',
+                    borderRadius: 10, border: 'none',
                     background: input.trim() && !isActive ? '#D97757' : 'var(--bg-300)',
                     color: input.trim() && !isActive ? '#fff' : 'var(--text-400)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -446,7 +554,7 @@ function PdfChat() {
                   onMouseEnter={e => { if (input.trim() && !isActive) (e.currentTarget as HTMLElement).style.background = '#C6613F'; }}
                   onMouseLeave={e => { if (input.trim() && !isActive) (e.currentTarget as HTMLElement).style.background = '#D97757'; }}
                 >
-                  <ArrowUp size={16} />
+                  <ArrowUp aria-hidden="true" size={16} />
                 </button>
               </div>
             </div>
@@ -485,7 +593,14 @@ const keyframes = `
   @keyframes spin         { to { transform: rotate(360deg); } }
   @keyframes fadeInUp     { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
   @keyframes cursorBlink  { 0%,100%{opacity:1} 50%{opacity:0} }
-  @keyframes typingBounce { 0%,60%,100%{transform:translateY(0);opacity:.4} 30%{transform:translateY(-5px);opacity:1} }
+  @keyframes typingPulse  { 0%,60%,100%{opacity:.35} 30%{opacity:1} }
+  .pc-focus:focus-visible { outline: 2px solid #D97757; outline-offset: 2px; }
+  .pc-input-card:focus-within { outline: 2px solid #D97757; outline-offset: 2px; }
+  .pc-send { width: 40px; height: 40px; }
+  @media (pointer: coarse) { .pc-send { width: 44px; height: 44px; } }
+  @media (prefers-reduced-motion: reduce) {
+    .pc-motion, .pc-motion * { animation: none !important; }
+  }
 `;
 
 // ── Page wrapper ──────────────────────────────────────────────────────────────

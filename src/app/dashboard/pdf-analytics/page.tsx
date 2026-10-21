@@ -59,7 +59,7 @@ const mdComponents = {
 };
 
 function MiniChart({ data, color }: { data: ChartPoint[]; color: string }) {
-  if (!data.length) return <div style={{ color: '#4a4e56', fontSize: 12, textAlign: 'center', padding: '20px 0' }}>No data yet</div>;
+  if (!data.length) return <div style={{ color: 'var(--nb-text-tertiary)', fontSize: 12, textAlign: 'center', padding: '20px 0' }}>No data yet</div>;
 
   const max = Math.max(...data.map(d => d.count), 1);
   const width = 400;
@@ -155,7 +155,7 @@ export default function PdfAnalyticsPage() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 400, color: '#36f4a4', flexDirection: 'column', gap: 12 }}>
         <div style={{ width: 28, height: 28, border: '2px solid #36f4a4', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-        <span style={{ color: '#7d8187', fontSize: 13 }}>Loading analytics...</span>
+        <span style={{ color: 'var(--nb-text-secondary)', fontSize: 13 }}>Loading analytics...</span>
       </div>
     );
   }
@@ -175,11 +175,11 @@ export default function PdfAnalyticsPage() {
           <TrendingUp size={24} color="#36f4a4" />
           <h1 style={{ fontSize: 28, fontWeight: 400, color: '#fff', letterSpacing: '-0.6px', margin: 0 }}>PDF Chat Analytics</h1>
         </div>
-        <p style={{ fontSize: 13, color: '#7d8187', margin: 0 }}>Real conversations from your shared PDF links</p>
+        <p style={{ fontSize: 13, color: 'var(--nb-text-secondary)', margin: 0 }}>Real conversations from your shared PDF links</p>
       </div>
 
       {/* ── Stat Cards ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 24 }}>
+      <div className="grid grid-cols-2 xl:grid-cols-4" style={{ gap: 14, marginBottom: 24 }}>
         {[
           { label: 'Total Sessions',    value: stats?.totalSessions ?? 0,   icon: Users,          color: '#36f4a4' },
           { label: 'Total Messages',    value: stats?.totalMessages ?? 0,   icon: MessageSquare,  color: '#60a5fa' },
@@ -188,7 +188,7 @@ export default function PdfAnalyticsPage() {
         ].map(card => (
           <div key={card.label} style={{ background: '#1f2228', border: '1px solid #2a2d35', borderRadius: 14, padding: '18px 20px', animation: 'fadeIn 0.2s ease' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-              <span style={{ fontSize: 12, color: '#7d8187' }}>{card.label}</span>
+              <span style={{ fontSize: 12, color: 'var(--nb-text-secondary)' }}>{card.label}</span>
               <card.icon size={16} color={card.color} />
             </div>
             <div style={{ fontSize: 28, fontWeight: 700, color: card.color }}>{card.value}</div>
@@ -197,7 +197,7 @@ export default function PdfAnalyticsPage() {
       </div>
 
       {/* ── Charts ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 24 }}>
+      <div className="grid grid-cols-1 lg:grid-cols-2" style={{ gap: 14, marginBottom: 24 }}>
         {[
           { title: 'Sessions Over Time', data: sessionsOverTime, color: '#36f4a4' },
           { title: 'User Messages Over Time', data: messagesOverTime, color: '#60a5fa' },
@@ -207,8 +207,8 @@ export default function PdfAnalyticsPage() {
             <MiniChart data={chart.data} color={chart.color} />
             {chart.data.length > 0 && (
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
-                <span style={{ fontSize: 10, color: '#4a4e56' }}>{formatShortDate(chart.data[0].date)}</span>
-                <span style={{ fontSize: 10, color: '#4a4e56' }}>{formatShortDate(chart.data[chart.data.length - 1].date)}</span>
+                <span style={{ fontSize: 10, color: 'var(--nb-text-tertiary)' }}>{formatShortDate(chart.data[0].date)}</span>
+                <span style={{ fontSize: 10, color: 'var(--nb-text-tertiary)' }}>{formatShortDate(chart.data[chart.data.length - 1].date)}</span>
               </div>
             )}
           </div>
@@ -221,13 +221,14 @@ export default function PdfAnalyticsPage() {
           <FileText size={15} color="#36f4a4" /> PDF Performance
         </div>
         {pdfStats.length === 0 ? (
-          <div style={{ color: '#4a4e56', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>No data yet — share a PDF link to start tracking</div>
+          <div style={{ color: 'var(--nb-text-tertiary)', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>No data yet — share a PDF link to start tracking</div>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <div style={{ overflowX: 'auto', margin: '0 -20px', padding: '0 20px' }}>
+          <table style={{ width: '100%', minWidth: 480, borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid #2a2d35' }}>
                 {['PDF', 'Sessions', 'Messages', 'Last Active'].map(h => (
-                  <th key={h} style={{ textAlign: 'left', padding: '8px 12px', color: '#7d8187', fontWeight: 500, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</th>
+                  <th key={h} style={{ textAlign: 'left', padding: '8px 12px', color: 'var(--nb-text-secondary)', fontWeight: 500, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -244,11 +245,12 @@ export default function PdfAnalyticsPage() {
                   </td>
                   <td style={{ padding: '10px 12px', color: '#60a5fa' }}>{pdf.sessions}</td>
                   <td style={{ padding: '10px 12px', color: '#a78bfa' }}>{pdf.totalMessages}</td>
-                  <td style={{ padding: '10px 12px', color: '#7d8187' }}>{pdf.lastActive ? formatDate(pdf.lastActive) : '—'}</td>
+                  <td style={{ padding: '10px 12px', color: 'var(--nb-text-secondary)' }}>{pdf.lastActive ? formatDate(pdf.lastActive) : '—'}</td>
                 </tr>
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
@@ -258,7 +260,7 @@ export default function PdfAnalyticsPage() {
           <div style={{ fontSize: 13, color: '#fff', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8 }}>
             <MessageSquare size={15} color="#36f4a4" />
             Chat Sessions
-            <span style={{ fontSize: 11, color: '#7d8187', fontWeight: 400 }}>({filteredSessions.length})</span>
+            <span style={{ fontSize: 11, color: 'var(--nb-text-secondary)', fontWeight: 400 }}>({filteredSessions.length})</span>
             {filterFileId !== 'all' && (
               <button onClick={() => setFilterFileId('all')} style={{ fontSize: 10, background: '#36f4a420', color: '#36f4a4', border: 'none', borderRadius: 4, padding: '2px 8px', cursor: 'pointer' }}>
                 Clear filter ×
@@ -269,12 +271,12 @@ export default function PdfAnalyticsPage() {
             placeholder="Search by label or IP..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            style={{ background: '#0a0a0a', border: '1px solid #2a2d35', borderRadius: 8, padding: '7px 12px', color: '#fff', fontSize: 12, outline: 'none', width: 220 }}
+            style={{ background: '#0a0a0a', border: '1px solid #2a2d35', borderRadius: 8, padding: '7px 12px', color: '#fff', fontSize: 12, outline: 'none', width: '100%', maxWidth: 260, minHeight: 36 }}
           />
         </div>
 
         {filteredSessions.length === 0 ? (
-          <div style={{ color: '#4a4e56', fontSize: 13, textAlign: 'center', padding: '30px 0' }}>
+          <div style={{ color: 'var(--nb-text-tertiary)', fontSize: 13, textAlign: 'center', padding: '30px 0' }}>
             No sessions yet — share a PDF link to start getting conversations
           </div>
         ) : (
@@ -291,7 +293,7 @@ export default function PdfAnalyticsPage() {
                     <div style={{ fontSize: 13, color: '#fff', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {session.label || 'Untitled PDF'}
                     </div>
-                    <div style={{ fontSize: 11, color: '#7d8187', marginTop: 2, display: 'flex', gap: 10 }}>
+                    <div style={{ fontSize: 11, color: 'var(--nb-text-secondary)', marginTop: 2, display: 'flex', flexWrap: 'wrap', columnGap: 10, rowGap: 2 }}>
                       <span><Clock size={10} style={{ display: 'inline', marginRight: 3 }} />{formatDate(session.createdAt)}</span>
                       <span><Globe size={10} style={{ display: 'inline', marginRight: 3 }} />{session.ip || 'Unknown IP'}</span>
                     </div>
@@ -300,9 +302,9 @@ export default function PdfAnalyticsPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: 18, fontWeight: 700, color: '#36f4a4' }}>{session.messageCount}</div>
-                    <div style={{ fontSize: 10, color: '#7d8187' }}>messages</div>
+                    <div style={{ fontSize: 10, color: 'var(--nb-text-secondary)' }}>messages</div>
                   </div>
-                  <ChevronRight size={16} color="#4a4e56" />
+                  <ChevronRight size={16} color="var(--nb-icon-muted)" />
                 </div>
               </div>
             ))}
@@ -320,21 +322,21 @@ export default function PdfAnalyticsPage() {
             <div style={{ padding: '16px 20px', borderBottom: '1px solid #2a2d35', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 600, color: '#fff' }}>{selectedSession.label || 'Untitled PDF'}</div>
-                <div style={{ fontSize: 11, color: '#7d8187', marginTop: 2, display: 'flex', gap: 12 }}>
+                <div style={{ fontSize: 11, color: 'var(--nb-text-secondary)', marginTop: 2, display: 'flex', gap: 12 }}>
                   <span>📅 {formatDate(selectedSession.createdAt)}</span>
                   <span>🌐 {selectedSession.ip || 'Unknown'}</span>
                   <span>💬 {selectedSession.messageCount} messages</span>
                 </div>
               </div>
               <button onClick={() => setSelectedSession(null)}
-                style={{ background: 'transparent', border: 'none', color: '#7d8187', cursor: 'pointer', padding: 4 }}>
+                style={{ background: 'transparent', border: 'none', color: 'var(--nb-text-secondary)', cursor: 'pointer', padding: 4 }}>
                 <X size={18} />
               </button>
             </div>
 
             {/* User agent */}
             {selectedSession.userAgent && (
-              <div style={{ padding: '8px 20px', background: '#161a1f', borderBottom: '1px solid #2a2d35', fontSize: 10, color: '#4a4e56', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <div style={{ padding: '8px 20px', background: '#161a1f', borderBottom: '1px solid #2a2d35', fontSize: 10, color: 'var(--nb-text-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 🖥 {selectedSession.userAgent}
               </div>
             )}
@@ -342,12 +344,12 @@ export default function PdfAnalyticsPage() {
             {/* Messages */}
             <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
               {loadingMessages ? (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 100, gap: 10, color: '#7d8187' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 100, gap: 10, color: 'var(--nb-text-secondary)' }}>
                   <div style={{ width: 20, height: 20, border: '2px solid #36f4a4', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
                   Loading messages...
                 </div>
               ) : sessionMessages.length === 0 ? (
-                <div style={{ textAlign: 'center', color: '#4a4e56', fontSize: 13, padding: '30px 0' }}>No messages in this session</div>
+                <div style={{ textAlign: 'center', color: 'var(--nb-text-tertiary)', fontSize: 13, padding: '30px 0' }}>No messages in this session</div>
               ) : (
                 sessionMessages.map((msg, i) => (
                   <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start', gap: 8 }}>
@@ -363,7 +365,7 @@ export default function PdfAnalyticsPage() {
                         ? msg.content
                         : <ReactMarkdown components={mdComponents}>{msg.content}</ReactMarkdown>
                       }
-                      <div style={{ fontSize: 9, color: msg.role === 'user' ? '#00000060' : '#4a4e56', marginTop: 4, textAlign: 'right' }}>
+                      <div style={{ fontSize: 9, color: msg.role === 'user' ? '#00000060' : 'var(--nb-text-tertiary)', marginTop: 4, textAlign: 'right' }}>
                         {formatDate(msg.createdAt)} · ~{msg.tokenEstimate} tokens
                       </div>
                     </div>

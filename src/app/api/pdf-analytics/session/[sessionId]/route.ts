@@ -1,17 +1,18 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { getUserIdFromCookie } from '@/lib/auth';
 import { getDb } from '@/lib/db';
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { sessionId: string } }
+  { params }: { params: Promise<{ sessionId: string }> }
 ) {
+  const routeParams = await params;
   try {
     const userId = await getUserIdFromCookie();
     if (!userId) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
 
     const db = await getDb();
-    const { sessionId } = params;
+    const { sessionId } = routeParams;
 
     // Verify session belongs to this user's PDF
     const session = await db.collection('chat_sessions').findOne({ sessionId, userId });
@@ -44,3 +45,4 @@ export async function GET(
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
+

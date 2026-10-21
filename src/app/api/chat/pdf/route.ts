@@ -2,9 +2,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUserIdFromCookie } from '@/lib/auth';
 import { embedText } from '@/lib/embeddings';
-import { qdrant } from '@/lib/qdrant';
-import { PDF_COLLECTION } from '@/lib/qdrantPdf';
+import { searchPdfChunks } from '@/lib/vectorStore';
+import { NOT_DELETED } from '@/lib/pdfRetention';
+import { LINK_AUTH_MESSAGES, linkCookieName, verifyLinkSession } from '@/lib/linkUserAuth';
 import { getOrCreateSession, saveMessage } from '@/lib/chatSessions';
+import { GroqUnavailableError, GROQ_UNAVAILABLE_REPLY } from '@/lib/groq';
+import {
+  answerWithGuards,
+  checkUserInput,
+  groundedRules,
+  INJECTION_REPLY,
+  logBlockedInput,
+  selectRelevant,
+  wrapSources,
+} from '@/lib/llmGuard';
+import { getDb } from '@/lib/db';
+import { answerTabularQuestion } from '@/lib/tabularChat';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,8 +25,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, x-session-id, x-slug, x-label',
 };
 
-const GROQ_API_KEY = process.env.GROQ_API_KEY!;
-const GROQ_MODEL = 'llama-3.3-70b-versatile';
+
+/** Exact reply when the document does not contain the answer. */
+const PDF_NO_ANSWER = "I couldn't find that in this document.";
+/** Atlas cosine score below which a chunk is treated as unrelated (calibrated on gemini-embedding-001). */
+const MIN_RELEVANCE_SCORE = 0.74;
 
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: corsHeaders });
@@ -21,41 +37,62 @@ export async function OPTIONS() {
 
 export async function POST(req: NextRequest) {
   try {
-    // ── Auth — optional for shared links ─────────────────────
-    // For shared links, userId comes from the body (PDF owner)
-    // For dashboard, it comes from cookie
-    let ownerId = '';
-    try {
-      const cookieUserId = await getUserIdFromCookie();
-      if (cookieUserId) ownerId = cookieUserId;
-    } catch { /* shared link — no cookie */ }
-
     const body = await req.json();
-    const {
-      message,
-      fileId,
-      userId,       // PDF owner id (sent by shared chat page)
-      sessionId,    // visitor session id (sent by shared chat page)
-      slug,         // share slug
-      label,        // PDF label
-    } = body as {
+    const { message, sessionId, label } = body as {
       message?: string;
       fileId?: string;
-      userId?: string;
       sessionId?: string;
       slug?: string;
       label?: string;
     };
 
-    // Use cookie userId for dashboard, body userId for shared links
-    if (!ownerId && userId) ownerId = userId;
-
-    if (!ownerId) {
-      return NextResponse.json({ error: 'Not authenticated.' }, { status: 401, headers: corsHeaders });
-    }
-
     if (!message?.trim()) {
       return NextResponse.json({ error: 'message is required.' }, { status: 400, headers: corsHeaders });
+    }
+
+    // ── Resolve owner + file ──────────────────────────────────
+    // Shared links: owner and file come from the slug record, never from the
+    // request body. Dashboard: owner is the cookie user, and a requested file
+    // must belong to them.
+    const db = await getDb();
+    let ownerId = '';
+    let fileId: string | undefined;
+    let slug: string | undefined;
+    let linkLoginId: string | undefined;
+
+    if (typeof body.slug === 'string' && body.slug) {
+      const link = await db.collection('pdf_links').findOne({ slug: body.slug, ...NOT_DELETED });
+      if (!link) {
+        return NextResponse.json({ error: 'Chat link not found.' }, { status: 404, headers: corsHeaders });
+      }
+      // Sign-in protected links: only the account's current device, while approved, may chat.
+      if (link.requireLogin) {
+        const session = await verifyLinkSession(db, link.slug, req.cookies.get(linkCookieName(link.slug))?.value);
+        if ('error' in session) {
+          const code = session.error === 'none' ? 'login_required' : session.error === 'replaced' ? 'session_replaced' : session.error;
+          return NextResponse.json(
+            { code, error: LINK_AUTH_MESSAGES[session.error] },
+            { status: 401, headers: corsHeaders }
+          );
+        }
+        linkLoginId = session.user.loginId;
+      }
+      ownerId = link.userId;
+      fileId = link.fileId;
+      slug = link.slug;
+    } else {
+      try {
+        ownerId = (await getUserIdFromCookie()) || '';
+      } catch { /* no session */ }
+      if (!ownerId) {
+        return NextResponse.json({ error: 'Not authenticated.' }, { status: 401, headers: corsHeaders });
+      }
+      fileId = typeof body.fileId === 'string' && body.fileId ? body.fileId : undefined;
+    }
+
+    const fileDoc = fileId ? await db.collection('pdf_files').findOne({ userId: ownerId, fileId, ...NOT_DELETED }) : null;
+    if (fileId && !fileDoc) {
+      return NextResponse.json({ error: 'Document not found.' }, { status: 404, headers: corsHeaders });
     }
 
     const now = new Date().toISOString();
@@ -65,7 +102,7 @@ export async function POST(req: NextRequest) {
       const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || '';
       const userAgent = req.headers.get('user-agent') || '';
 
-      await getOrCreateSession(sessionId, slug, fileId, ownerId, label || 'PDF', { ip, userAgent });
+      await getOrCreateSession(sessionId, slug, fileId, ownerId, label || 'PDF', { ip, userAgent, loginId: linkLoginId });
 
       await saveMessage({
         sessionId,
@@ -78,58 +115,80 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // ── Embed query ───────────────────────────────────────────
-    const queryVector = await embedText(message!);
+    const reply = async (answer: string, extra: Record<string, unknown> = {}) => {
+      if (sessionId && slug && fileId) {
+        await saveMessage({ sessionId, slug, fileId, ownerId, role: 'assistant', content: answer, createdAt: new Date().toISOString() });
+      }
+      return NextResponse.json({ answer, ...extra }, { headers: corsHeaders });
+    };
 
-    // ── Qdrant filter ─────────────────────────────────────────
-    const mustFilters: object[] = [{ key: 'userId', match: { value: ownerId } }];
-    if (fileId) mustFilters.push({ key: 'fileId', match: { value: fileId } });
+    // ── Prompt-injection check ────────────────────────────────
+    const question = message.trim();
+    const verdict = await checkUserInput([{ role: 'user', content: question }]);
+    if (verdict.blocked) {
+      logBlockedInput('pdf_chat', verdict, question);
+      return reply(INJECTION_REPLY);
+    }
+
+    // ── Tabular files (CSV / XLSX) ────────────────────────────
+    if (fileDoc && (fileDoc.docType === 'csv' || fileDoc.docType === 'xlsx')) {
+      const { answer, mode } = await answerTabularQuestion({
+        question,
+        userId: ownerId,
+        fileId: fileId!,
+        fileLabel: fileDoc.label || fileDoc.filename,
+        sheets: fileDoc.sheets ?? [],
+        rowVectorsReady: fileDoc.rowVectors === 'ready',
+      });
+      return reply(answer, { sources: [fileDoc.filename], mode });
+    }
+
+    // ── Embed query ───────────────────────────────────────────
+    const queryVector = await embedText(question);
 
     // ── Semantic search ───────────────────────────────────────
-    const searchResult = await qdrant.search(PDF_COLLECTION, {
-      vector: queryVector,
-      limit: 6,
-      filter: { must: mustFilters },
-      with_payload: true,
-    });
+    // Keep the top 2 even when weakly related so summaries and metadata
+    // questions still work; grounding rules and the fact check handle the rest.
+    const searchResult = selectRelevant(
+      await searchPdfChunks(ownerId, queryVector, 6, fileId),
+      { minScore: MIN_RELEVANCE_SCORE, keepAtLeast: 2 }
+    );
 
     if (!searchResult || searchResult.length === 0) {
-      const noResult = "Hmm, I couldn't find anything relevant in your PDF(s) for that question. 🤔\n\nTry rephrasing your question, or make sure the right PDF is selected.";
+      const noResult = "I couldn't find anything relevant in this document. Try rephrasing your question, or check that the right file is selected.";
 
-      // Save assistant "no result" reply too
-      if (sessionId && slug && fileId) {
-        await saveMessage({ sessionId, slug, fileId, ownerId, role: 'assistant', content: noResult, createdAt: new Date().toISOString() });
-      }
-
-      return NextResponse.json({ answer: noResult }, { headers: corsHeaders });
+      return reply(noResult);
     }
 
     // ── Build context ─────────────────────────────────────────
-    const firstPayload = searchResult[0]?.payload as Record<string, unknown>;
-    const pdfMeta = `[PDF Metadata]
-    - Filename: ${firstPayload?.filename || 'Unknown'}
-    - Total Pages: ${firstPayload?.pageCount || 'Unknown'}
-    - Total Chunks: ${firstPayload?.totalChunks || 'Unknown'}`;
+    const firstPayload = searchResult[0] as Record<string, unknown>;
+    const pdfMeta = [
+      `Filename: ${firstPayload?.filename || 'Unknown'}`,
+      `Total Pages: ${firstPayload?.pageCount || 'Unknown'}`,
+      `Total Chunks: ${firstPayload?.totalChunks || 'Unknown'}`,
+    ].join('\n');
 
-    const context = pdfMeta + '\n\n---\n\n' + searchResult
-      .map((r, i) => {
-        const p = r.payload as Record<string, unknown>;
-        const src = p.filename ? `[${p.filename}]` : '[PDF]';
-        const content = (p.markdown as string) || (p.text as string);
-        return `${src} Chunk ${i + 1}:\n${content}`;
-      })
-      .join('\n\n---\n\n');
+    // Retrieved text is wrapped as delimited data with planted instructions defused.
+    const sourcesText = wrapSources([
+      { label: 'PDF metadata', text: pdfMeta },
+      ...searchResult.map((r) => {
+        const p = r as Record<string, unknown>;
+        const pages = typeof p.pageStart === 'number'
+          ? p.pageStart === p.pageEnd ? `page ${p.pageStart}` : `pages ${p.pageStart}-${p.pageEnd}`
+          : '';
+        return {
+          label: [p.filename || 'PDF', pages].filter(Boolean).join(', '),
+          text: (p.markdown as string) || (p.text as string),
+        };
+      }),
+    ]);
 
-    const sources = [...new Set(searchResult.map(r => (r.payload as any).filename || 'Unknown file'))];
+    const sources = [...new Set(searchResult.map(r => r.filename || 'Unknown file'))];
 
     // ── Groq ──────────────────────────────────────────────────
-    const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${GROQ_API_KEY}` },
-      body: JSON.stringify({
-        model: GROQ_MODEL,
-        temperature: 0.2,
-        max_tokens: 3000,
+    let answer: string;
+    try {
+      const result = await answerWithGuards({
         messages: [
           {
             role: 'system',
@@ -153,12 +212,12 @@ export async function POST(req: NextRequest) {
             - Use > blockquotes for important definitions
             - Add a **📌 Quick Summary** section at the end of long answers
             - Use emojis as section markers: 📚 💡 ⚡ ✅ ❌ 🔑 🎯 🔍
-            - Minimum response for concept questions: 3 sections with examples
+            - Minimum response for concept questions: 3 sections with examples taken from the PDF
             - End every long answer with: "Want me to dive deeper into any of these? 🚀"
             
             ### Answer Rules
-            - For "teach me" or "explain": start from basics, build up with examples
-            - For definitions: > blockquote first, then expand with real-world analogy
+            - For "teach me" or "explain": start from basics, building only on what the PDF says
+            - For definitions: > blockquote first, then expand using the PDF's own explanation
             - For comparisons: ALWAYS use a table — never plain text
             - For "list" requests: use numbered or bullet lists with brief explanation per item
             - **For simple factual questions (page count, dates, names): 1 sentence ONLY**
@@ -215,46 +274,37 @@ export async function POST(req: NextRequest) {
             
             ## UNIVERSAL RULES (Always Apply)
             - Answer ONLY from the provided PDF context — never hallucinate facts
-            - PDF metadata is in [PDF Metadata] at the top — use it for page count, filename questions
-            - "How many pages" / "what file is this" → answer from [PDF Metadata] in 1 sentence only
+            - PDF metadata is in the source labeled "PDF metadata" — use it for page count, filename questions
+            - "How many pages" / "what file is this" → answer from the PDF metadata in 1 sentence only
             - For simple yes/no or factual questions: 1-2 sentences max, no headers, no lists
             - Be precise with numbers, specs, and dates — never approximate unless the PDF does
-            - If the answer is not in the PDF: say so warmly — "I couldn't find that in this document 🤔"
-            - Never show your reasoning process — only show the final polished answer`,
+            - If the answer is not in the PDF, reply exactly: "${PDF_NO_ANSWER}"
+            - Never show your reasoning process — only show the final polished answer
+
+${groundedRules(PDF_NO_ANSWER)}`,
           },
           {
             role: 'user',
-            content: `PDF Context:\n\n${context}\n\n---\n\nUser Query: ${message}`,
+            content: `${sourcesText}\n\nUser question: ${question}`,
           },
         ],
-      }),
-    });
-
-    if (!groqResponse.ok) {
-      const err = await groqResponse.text();
-      throw new Error(`Groq API error (${groqResponse.status}): ${err}`);
-    }
-
-    const groqData = await groqResponse.json();
-    const answer = groqData.choices?.[0]?.message?.content || 'Hmm, something went wrong. Please try again!';
-
-    // ── Save assistant reply ───────────────────────────────────
-    if (sessionId && slug && fileId) {
-      await saveMessage({
-        sessionId,
-        slug,
-        fileId,
-        ownerId,
-        role: 'assistant',
-        content: answer,
-        createdAt: new Date().toISOString(),
+        sourcesText,
+        question,
+        refusal: PDF_NO_ANSWER,
+        temperature: 0.2,
+        maxTokens: 1500,
+        emptyReply: 'Something went wrong. Please try again.',
       });
+      answer = result.answer;
+    } catch (err) {
+      if (!(err instanceof GroqUnavailableError)) throw err;
+      answer = GROQ_UNAVAILABLE_REPLY;
     }
 
-    return NextResponse.json({ answer, sources, chunksUsed: searchResult.length }, { headers: corsHeaders });
+    return reply(answer, { sources, chunksUsed: searchResult.length });
 
   } catch (err: any) {
     console.error('[pdf-chat] Error:', err?.message);
-    return NextResponse.json({ error: err?.message || 'PDF chat failed.' }, { status: 500, headers: corsHeaders });
+    return NextResponse.json({ error: 'Document chat failed. Please try again.' }, { status: 500, headers: corsHeaders });
   }
 }

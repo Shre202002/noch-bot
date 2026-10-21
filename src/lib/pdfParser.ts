@@ -1,230 +1,231 @@
-// export interface ParsedPDF {
-//   text: string;
-//   pageCount: number;
-//   info: Record<string, unknown>;
-// }
-
-// export interface PDFChunk {
-//   text: string;
-//   chunkIndex: number;
-//   totalChunks: number;
-// }
-
-// /** Parse a PDF Buffer into raw text + metadata */
-// export async function parsePDF(buffer: Buffer): Promise<ParsedPDF> {
-//   const { extractText } = await import('unpdf');
-
-//   const uint8 = new Uint8Array(buffer);
-//   const { text, totalPages } = await extractText(uint8, { mergePages: true });
-
-//   return {
-//     text: typeof text === 'string' ? text : text.join('\n'),
-//     pageCount: totalPages,
-//     info: {},
-//   };
-// }
-
-// /** Split text into ~300-word overlapping chunks */
-// export function chunkText(text: string, wordsPerChunk = 300, overlapWords = 30): PDFChunk[] {
-//   const words = text.replace(/\s+/g, ' ').trim().split(' ').filter(Boolean);
-
-//   if (words.length === 0) return [];
-
-//   const chunks: PDFChunk[] = [];
-//   let start = 0;
-
-//   while (start < words.length) {
-//     const end = Math.min(start + wordsPerChunk, words.length);
-//     chunks.push({
-//       text: words.slice(start, end).join(' '),
-//       chunkIndex: chunks.length,
-//       totalChunks: 0,
-//     });
-//     if (end >= words.length) break;
-//     start += wordsPerChunk - overlapWords;
-//   }
-
-//   const total = chunks.length;
-//   chunks.forEach(c => { c.totalChunks = total; });
-
-//   return chunks;
-// }
-
-// /** Generate a stable numeric ID for Qdrant points */
-// export function numericId(str: string): number {
-//   let hash = 0;
-//   for (let i = 0; i < str.length; i++) {
-//     const char = str.charCodeAt(i);
-//     hash = ((hash << 5) - hash) + char;
-//     hash = (hash & hash);
-//   }
-//   return Math.abs(hash) || 1;
-// }
-
-import { unified } from 'unified';
-
 export interface ParsedPDF {
+  /** Plain text of the whole document, pages separated by blank lines. */
   text: string;
+  /** Lightly structured Markdown of the whole document (headings, bullets, paragraphs). */
   markdown: string;
+  /** Text of each page, as extracted (index 0 = page 1). */
+  pages: string[];
   pageCount: number;
   info: Record<string, unknown>;
 }
 
 export interface PDFChunk {
+  /** Plain text used for embedding. */
   text: string;
+  /** Markdown version shown to the LLM as context. */
   markdown: string;
   chunkIndex: number;
   totalChunks: number;
+  /** 1-based page range the chunk was taken from. */
+  pageStart: number;
+  pageEnd: number;
 }
 
-// ── 1. Parse PDF ─────────────────────────────────────────────────────────────
+export interface ChunkOptions {
+  wordsPerChunk?: number;
+  overlapWords?: number;
+}
 
+const DEFAULT_WORDS_PER_CHUNK = 220;
+const DEFAULT_OVERLAP_WORDS = 40;
+
+// ── 1. Parse PDF ────────────────────────────────────────────────────────────
+
+/**
+ * Extract text page by page. unpdf's mergePages mode drops every line break,
+ * which leaves nothing to split on; per-page mode keeps one line per visual line.
+ */
 export async function parsePDF(buffer: Buffer): Promise<ParsedPDF> {
   const { extractText } = await import('unpdf');
-  const uint8 = new Uint8Array(buffer);
-  const { text, totalPages } = await extractText(uint8, { mergePages: true });
+  const { text, totalPages } = await extractText(new Uint8Array(buffer), { mergePages: false });
 
-  const raw = typeof text === 'string' ? text : text.join('\n');
-  const markdown = textToMarkdown(raw);
+  const pages = (Array.isArray(text) ? text : [text]).map((page) => page ?? '');
+  const segmentsByPage = pages.map((page, i) => pageToSegments(page, i + 1));
 
   return {
-    text: raw,
-    markdown,
+    text: segmentsByPage
+      .map((segments) => segments.map((s) => s.text).join(' '))
+      .filter(Boolean)
+      .join('\n\n'),
+    markdown: segmentsToMarkdown(segmentsByPage.flat()),
+    pages,
     pageCount: totalPages,
     info: {},
   };
 }
 
-// ── 2. Convert raw text → clean Markdown ─────────────────────────────────────
+// ── 2. Page text → structured segments ─────────────────────────────────────
 
-export function textToMarkdown(raw: string): string {
-  const lines = raw.split('\n');
-  const output: string[] = [];
+type SegmentKind = 'heading' | 'bullet' | 'sentence';
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-
-    // Skip empty lines (we'll re-add paragraph breaks)
-    if (!line) {
-      output.push('');
-      continue;
-    }
-
-    // ALL CAPS short line → Heading (e.g. "INTRODUCTION", "CHAPTER 1")
-    if (
-      line === line.toUpperCase() &&
-      line.length > 2 &&
-      line.length < 80 &&
-      /[A-Z]/.test(line) &&
-      !/^\d+$/.test(line) // not just a page number
-    ) {
-      output.push(`## ${toTitleCase(line)}`);
-      continue;
-    }
-
-    // Numbered section like "1. Introduction" or "3.2 Methods"
-    if (/^\d+(\.\d+)*\s+[A-Z]/.test(line) && line.length < 80) {
-      output.push(`### ${line}`);
-      continue;
-    }
-
-    // Bullet points (various unicode bullets)
-    if (/^[•·▪▸▶\-–*]\s+/.test(line)) {
-      const content = line.replace(/^[•·▪▸▶\-–*]\s+/, '').trim();
-      output.push(`- ${content}`);
-      continue;
-    }
-
-    // Numbered list item  "1. something"
-    if (/^\d+\.\s+/.test(line)) {
-      output.push(line);
-      continue;
-    }
-
-    // Key-value pairs (common in PDFs): "Author: John Doe"
-    if (/^[A-Za-z ]{2,30}:\s+\S/.test(line) && line.length < 120) {
-      const colonIdx = line.indexOf(':');
-      const key = line.slice(0, colonIdx).trim();
-      const value = line.slice(colonIdx + 1).trim();
-      output.push(`**${key}:** ${value}`);
-      continue;
-    }
-
-    // Regular paragraph text
-    output.push(line);
-  }
-
-  return output
-    .join('\n')
-    .replace(/\n{3,}/g, '\n\n')  // max 1 blank line between blocks
-    .trim();
+interface Segment {
+  kind: SegmentKind;
+  text: string;
+  page: number;
+  /** Paragraph counter, used to put blank lines between paragraphs in Markdown. */
+  paragraph: number;
 }
 
-// ── 3. Chunk the Markdown (not raw text) ─────────────────────────────────────
-//    Chunks on Markdown = fewer tokens, cleaner semantic boundaries
+const BULLET_RE = /^[•·▪▸▶►◦‣○●■□✓✔\-–—*]\s*/;
+const SENTENCE_SPLIT_RE = /(?<=[.!?:;])\s+(?=["'“‘(\[]?[A-Z0-9•])/;
 
-export function chunkText(
-  markdown: string,
-  wordsPerChunk = 250,   // reduced from 300 — Markdown is denser
-  overlapWords = 25
-): PDFChunk[] {
-  // Split on paragraph/heading boundaries first for cleaner chunks
-  const blocks = markdown
-    .split(/\n\n+/)
-    .map(b => b.trim())
-    .filter(Boolean);
+function isHeading(line: string): boolean {
+  if (line.length < 3 || line.length > 80 || /[.,;]$/.test(line)) return false;
+  const words = line.split(/\s+/);
+  if (words.length > 10) return false;
+  // "INTRODUCTION", "CHAPTER 3"
+  if (line === line.toUpperCase() && /[A-Z]{2}/.test(line)) return true;
+  // "1. Introduction", "3.2 Methods"
+  return /^\d+(\.\d+)*\.?\s+[A-Z]/.test(line);
+}
 
-  // Re-merge blocks into word-limited chunks
+let paragraphCounter = 0;
+
+function pageToSegments(pageText: string, page: number): Segment[] {
+  const lines = pageText.split(/\r?\n/).map((l) => l.replace(/\s+/g, ' ').trim());
+  const segments: Segment[] = [];
+  let paragraph: string[] = [];
+
+  const flushParagraph = () => {
+    if (paragraph.length === 0) return;
+    // Re-join hyphenated words broken across lines: "auto-" + "matic".
+    const joined = paragraph.join('\n').replace(/([a-z])-\n([a-z])/g, '$1$2').replace(/\n/g, ' ');
+    const id = ++paragraphCounter;
+    for (const sentence of joined.split(SENTENCE_SPLIT_RE)) {
+      const text = sentence.trim();
+      if (text) segments.push({ kind: 'sentence', text, page, paragraph: id });
+    }
+    paragraph = [];
+  };
+
+  for (const line of lines) {
+    if (!line) {
+      flushParagraph();
+      continue;
+    }
+    // Bare page numbers ("3", "Page 3 of 10") add noise to every chunk.
+    if (/^(page\s+)?\d+(\s+of\s+\d+)?$/i.test(line)) continue;
+
+    if (BULLET_RE.test(line) && line.replace(BULLET_RE, '').length > 0 && !/^[-–—]\d/.test(line)) {
+      flushParagraph();
+      segments.push({ kind: 'bullet', text: line.replace(BULLET_RE, ''), page, paragraph: ++paragraphCounter });
+    } else if (isHeading(line)) {
+      flushParagraph();
+      segments.push({ kind: 'heading', text: line, page, paragraph: ++paragraphCounter });
+    } else {
+      paragraph.push(line);
+    }
+  }
+  flushParagraph();
+  return segments;
+}
+
+function segmentsToMarkdown(segments: Segment[]): string {
+  const out: string[] = [];
+  let prev: Segment | undefined;
+  for (const s of segments) {
+    const sameParagraph = prev && prev.kind === 'sentence' && s.kind === 'sentence' && prev.paragraph === s.paragraph;
+    const sameList = prev && prev.kind === 'bullet' && s.kind === 'bullet';
+    const separator = !prev ? '' : sameParagraph ? ' ' : sameList ? '\n' : '\n\n';
+    const body = s.kind === 'heading' ? `## ${s.text}` : s.kind === 'bullet' ? `- ${s.text}` : s.text;
+    out.push(separator + body);
+    prev = s;
+  }
+  return out.join('').trim();
+}
+
+// ── 3. Chunk ────────────────────────────────────────────────────────────────
+
+const wordCount = (text: string) => text.split(/\s+/).filter(Boolean).length;
+
+/** Split a segment that alone exceeds the chunk budget (e.g. a table with no punctuation). */
+function splitOversized(segment: Segment, maxWords: number): Segment[] {
+  const words = segment.text.split(/\s+/).filter(Boolean);
+  if (words.length <= maxWords) return [segment];
+  const parts: Segment[] = [];
+  for (let i = 0; i < words.length; i += maxWords) {
+    parts.push({ ...segment, text: words.slice(i, i + maxWords).join(' ') });
+  }
+  return parts;
+}
+
+/**
+ * Chunk page texts into ~wordsPerChunk-word chunks on sentence boundaries,
+ * carrying ~overlapWords of trailing sentences into the next chunk and
+ * recording the page range of every chunk.
+ */
+export function chunkPages(pages: string[], options: ChunkOptions = {}): PDFChunk[] {
+  const wordsPerChunk = options.wordsPerChunk ?? DEFAULT_WORDS_PER_CHUNK;
+  const overlapWords = options.overlapWords ?? DEFAULT_OVERLAP_WORDS;
+
+  const segments = pages
+    .flatMap((page, i) => pageToSegments(page, i + 1))
+    .flatMap((s) => splitOversized(s, wordsPerChunk));
+
   const chunks: PDFChunk[] = [];
-  let currentWords: string[] = [];
-  let currentBlocks: string[] = [];
+  let current: Segment[] = [];
+  let currentWords = 0;
+  // Segments carried over as overlap; a chunk made only of these is not emitted.
+  let carried = 0;
 
   const flush = () => {
-    if (currentBlocks.length === 0) return;
-    const chunkMarkdown = currentBlocks.join('\n\n');
+    if (current.length <= carried) return;
+    const markdown = segmentsToMarkdown(current);
     chunks.push({
-      text: chunkMarkdown.replace(/[#*_`]/g, '').replace(/\s+/g, ' ').trim(), // plain text for embedding
-      markdown: chunkMarkdown,
+      text: current.map((s) => s.text).join(' '),
+      markdown,
       chunkIndex: chunks.length,
       totalChunks: 0,
+      pageStart: current[0].page,
+      pageEnd: current[current.length - 1].page,
     });
   };
 
-  for (const block of blocks) {
-    const blockWords = block.split(/\s+/).filter(Boolean);
+  for (const segment of segments) {
+    const words = wordCount(segment.text);
+    const full = currentWords + words > wordsPerChunk;
+    // Start a new chunk at a heading once the current one is reasonably filled.
+    const headingBreak = segment.kind === 'heading' && currentWords >= wordsPerChunk * 0.5;
 
-    // If adding this block exceeds limit, flush and start new chunk with overlap
-    if (currentWords.length + blockWords.length > wordsPerChunk && currentWords.length > 0) {
+    if ((full || headingBreak) && current.length > carried) {
+      // A heading at the very end of a chunk belongs with the section it introduces.
+      const trailingHeadings: Segment[] = [];
+      while (current.length > carried + 1 && current[current.length - 1].kind === 'heading') {
+        trailingHeadings.unshift(current.pop()!);
+      }
       flush();
-      // Overlap: carry last N words into next chunk
-      const overlapText = currentWords.slice(-overlapWords).join(' ');
-      currentWords = overlapText ? overlapText.split(' ') : [];
-      currentBlocks = overlapText ? [overlapText] : [];
+      if (trailingHeadings.length > 0) {
+        current = trailingHeadings;
+        currentWords = trailingHeadings.reduce((n, s) => n + wordCount(s.text), 0);
+        carried = 0;
+        current.push(segment);
+        currentWords += words;
+        continue;
+      }
+      // Overlap: trailing sentences/bullets (never headings) up to overlapWords.
+      const overlap: Segment[] = [];
+      let overlapCount = 0;
+      for (let i = current.length - 1; i >= 0 && !headingBreak; i--) {
+        const w = wordCount(current[i].text);
+        if (current[i].kind === 'heading' || overlapCount + w > overlapWords) break;
+        overlap.unshift(current[i]);
+        overlapCount += w;
+      }
+      current = overlap;
+      currentWords = overlapCount;
+      carried = overlap.length;
     }
 
-    currentWords.push(...blockWords);
-    currentBlocks.push(block);
+    current.push(segment);
+    currentWords += words;
   }
+  flush();
 
-  flush(); // last chunk
-
-  // Back-fill totalChunks
-  const total = chunks.length;
-  chunks.forEach(c => { c.totalChunks = total; });
-
+  chunks.forEach((c) => { c.totalChunks = chunks.length; });
   return chunks;
 }
 
-// ── 4. Helpers ────────────────────────────────────────────────────────────────
-
-function toTitleCase(str: string): string {
-  const minorWords = new Set(['a', 'an', 'the', 'and', 'but', 'or', 'for', 'nor', 'on', 'at', 'to', 'by', 'in', 'of']);
-  return str
-    .toLowerCase()
-    .split(' ')
-    .map((word, i) => (i === 0 || !minorWords.has(word)) ? word.charAt(0).toUpperCase() + word.slice(1) : word)
-    .join(' ');
-}
+// ── 4. Helpers ──────────────────────────────────────────────────────────────
 
 export function numericId(str: string): number {
   let hash = 0;
