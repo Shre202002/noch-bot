@@ -100,6 +100,8 @@ export function FormBuilder({
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
   const [saving, setSaving] = useState(false);
   const [dialogError, setDialogError] = useState("");
+  /** New questions are either picked from the suggestions or written from scratch; these never share a screen. */
+  const [mode, setMode] = useState<"suggested" | "custom">("suggested");
   const [addingKeys, setAddingKeys] = useState<string[]>([]);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -110,6 +112,7 @@ export function FormBuilder({
   const openNew = () => {
     setEditing(null);
     setDraft(EMPTY_DRAFT);
+    setMode("suggested");
     setDialogError("");
     setDialogOpen(true);
   };
@@ -123,6 +126,7 @@ export function FormBuilder({
       custom_regex: field.custom_regex ?? "",
       is_required: field.is_required,
     });
+    setMode("custom");
     setDialogError("");
     setDialogOpen(true);
   };
@@ -352,24 +356,75 @@ export function FormBuilder({
             <DialogDescription>
               {editing
                 ? "Change how the bot asks this question."
-                : "Pick a ready-made question, or write your own. Nothing is added until you press Add question."}
+                : mode === "suggested"
+                ? "Pick ready-made questions. Each one is added to your form as soon as you click it."
+                : "Write a custom question. It is added only when you press Add question."}
             </DialogDescription>
           </DialogHeader>
 
           {!editing && (
-            <section aria-label="Suggested questions" className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-4">
-              <div className="flex items-center gap-2 text-sm font-semibold text-white">
-                <Sparkles aria-hidden="true" className="h-4 w-4 text-[#36f4a4]" /> Suggested questions
-                <span className="text-xs font-normal text-white/40">Click to add instantly</span>
-              </div>
+            <div role="tablist" aria-label="How to add a question" className="grid grid-cols-2 gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1">
+              {([
+                { value: "suggested", title: "Suggested", hint: "One click each", Icon: Sparkles },
+                { value: "custom", title: "Write your own", hint: "Custom question", Icon: Pencil },
+              ] as const).map(({ value, title, hint, Icon }) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="tab"
+                  aria-selected={mode === value}
+                  onClick={() => {
+                    setMode(value);
+                    setDialogError("");
+                  }}
+                  className={`flex cursor-pointer items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-left transition-colors ${
+                    mode === value ? "bg-[#36f4a4]/10 text-white ring-1 ring-[#36f4a4]/60" : "text-white/55 hover:bg-white/5 hover:text-white"
+                  }`}
+                >
+                  <Icon aria-hidden="true" className={`h-4 w-4 shrink-0 ${mode === value ? "text-[#36f4a4]" : ""}`} />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold leading-tight">{title}</span>
+                    <span className="block text-[11px] leading-tight text-white/45">{hint}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {!editing && mode === "suggested" && (
+            <section role="tabpanel" aria-label="Suggested questions" className="space-y-4">
+              <p className="text-sm text-white/60">
+                Click a question to add it to your form straight away.{" "}
+                <span className="text-white/40">
+                  {SUGGESTIONS.filter((s) => isAdded(s, fields)).length} of {SUGGESTIONS.length} added
+                </span>
+              </p>
               {renderChips()}
-              <div className="flex items-center gap-3 pt-1 text-xs uppercase tracking-widest text-white/30">
-                <span className="h-px flex-1 bg-white/10" /> or write your own <span className="h-px flex-1 bg-white/10" />
-              </div>
+              {dialogError && (
+                <p role="alert" className="flex items-center gap-2 text-sm text-red-400">
+                  <AlertCircle aria-hidden="true" className="h-4 w-4 shrink-0" />
+                  {dialogError}
+                </p>
+              )}
+              <DialogFooter className="gap-2 sm:items-center sm:justify-between sm:gap-0">
+                <button
+                  type="button"
+                  onClick={() => setMode("custom")}
+                  className="cursor-pointer text-left text-sm text-white/60 underline-offset-4 hover:text-white hover:underline"
+                >
+                  Need something else? Write your own
+                </button>
+                <Button type="button" onClick={() => setDialogOpen(false)} className={`font-bold cursor-pointer ${GREEN}`}>
+                  Done
+                </Button>
+              </DialogFooter>
             </section>
           )}
 
+          {(editing || mode === "custom") && (
           <form
+            role={editing ? undefined : "tabpanel"}
+            aria-label={editing ? undefined : "Write your own question"}
             className="space-y-4"
             onSubmit={(e) => {
               e.preventDefault();
@@ -384,7 +439,7 @@ export function FormBuilder({
                 onChange={(e) => setDraft({ ...draft, label: e.target.value })}
                 placeholder="e.g. What is your favourite session topic?"
                 className="bg-black/40 border-white/10 text-white"
-                autoFocus={!!editing}
+                autoFocus
               />
             </div>
 
@@ -462,8 +517,14 @@ export function FormBuilder({
             )}
 
             <DialogFooter className="gap-2 sm:gap-0">
-              <Button type="button" variant="ghost" onClick={() => setDialogOpen(false)} disabled={saving} className="text-white hover:bg-white/5 cursor-pointer">
-                {editing ? "Cancel" : "Close"}
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => (editing ? setDialogOpen(false) : setMode("suggested"))}
+                disabled={saving}
+                className="text-white hover:bg-white/5 cursor-pointer"
+              >
+                {editing ? "Cancel" : "Back to suggestions"}
               </Button>
               <Button type="submit" disabled={saving || !!problem} className={`font-bold cursor-pointer ${GREEN}`}>
                 {saving && <Loader2 aria-hidden="true" className="mr-2 h-4 w-4 animate-spin" />}
@@ -471,6 +532,7 @@ export function FormBuilder({
               </Button>
             </DialogFooter>
           </form>
+          )}
         </DialogContent>
       </Dialog>
     </div>
