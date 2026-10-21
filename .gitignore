@@ -39,7 +39,15 @@ next-env.d.ts
 
 .genkit/*
 .env*
+!scraper/.env.example
+env.txt
 
 # firebase
 firebase-debug.log
 firestore-debug.log
+.venv/
+__pycache__/
+.claude/
+.codex/
+.impeccable/
+.planning/research/.cache/
