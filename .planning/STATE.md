@@ -2,11 +2,11 @@
 gsd_state_version: "1.0"
 current_phase: 1
 current_phase_name: Scrapling Website Crawl
-status: planning
-stopped_at: Phase 1 context gathered
-last_updated: "2026-10-01T19:33:06.721Z"
-last_activity: 2026-10-01
-last_activity_desc: Roadmap created with three ordered feature slices and complete v1 requirement traceability.
+status: verifying
+stopped_at: Phase 1 implemented; awaiting Atlas/E2E acceptance and crawler deployment
+last_updated: "2026-10-08T12:35:00.000Z"
+last_activity: 2026-10-08
+last_activity_desc: Scrapling crawler service, provider integration, generation-safe publishing and dashboard results implemented and tested locally.
 state_head: ba962d26fdff12914415892a69da6d109b8dd97e
 progress:
   total_phases: 3
@@ -28,9 +28,9 @@ See: .planning/PROJECT.md (updated 2026-10-01)
 ## Current Position
 
 Phase: 1 of 3 (Scrapling Website Crawl)
-Plan: Not yet planned
-Status: Ready to plan
-Last activity: 2026-10-01 - Roadmap created with three ordered feature slices and complete v1 requirement traceability.
+Plan: 01-01 implemented (see phases/01-scrapling-website-crawl/01-01-SUMMARY.md)
+Status: Awaiting acceptance (Atlas index rebuild, real E2E crawl + chat, crawler deployment)
+Last activity: 2026-10-08 - Phase 1 implemented; 40 Python + 148 TS tests pass, typecheck clean, live service smoke test passed.
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -69,7 +69,7 @@ None yet.
 
 ### Blockers/Concerns
 
-- Phase 1 planning must verify the pinned Scrapling/runtime APIs, private network and egress controls, and Atlas searchable-generation readiness behavior.
+- Phase 1 acceptance: confirm the Atlas index rebuild with the generationId filter, run a real dashboard → Atlas → /bot + embed answer check and a failed-recrawl preservation check, and deploy the scraper/ service with CRAWLER_SERVICE_URL/TOKEN.
 - Phase 3 planning must map booking/payment transitions and reconciliation across dashboard, chatbot, and embedded flows.
 
 ## Deferred Items

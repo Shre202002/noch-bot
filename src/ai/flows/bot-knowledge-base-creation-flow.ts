@@ -1,8 +1,8 @@
-'use server';
+﻿'use server';
 /**
  * @fileOverview This file implements the Genkit flow for creating a bot's knowledge base.
  * It handles crawling a given URL, extracting text, chunking it, generating embeddings,
- * and storing them in Qdrant, along with saving fallback content to MongoDB.
+ * and storing them in MongoDB Atlas Vector Search, along with saving fallback content to MongoDB.
  *
  * - botKnowledgeBaseCreationFlow - The main Genkit flow for knowledge base creation.
  * - BotKnowledgeBaseCreationInput - The input type for the flow.
@@ -95,25 +95,25 @@ function chunkText(text: string, wordChunkSize: number = 500): string[] {
 }
 
 /**
- * Mocks upserting vectors to Qdrant. In a real application, this would interact
- * with the Qdrant client (`src/lib/qdrant.ts`).
+ * Mocks upserting vectors to MongoDB Atlas Vector Search. In a real application, this would interact
+ * with the vector store client (`src/lib/vectorStore.ts`).
  */
-async function upsertVectorsToQdrant(
+async function upsertVectorsToVectorStore(
   chunks: { text: string; embedding: number[]; chunkIndex: number }[],
   userId: string,
   url: string
 ): Promise<void> {
-  console.log(`Mock: Upserting ${chunks.length} chunks to Qdrant for userId: ${userId}, url: ${url}`);
+  console.log(`Mock: Upserting ${chunks.length} chunks to vector store for userId: ${userId}, url: ${url}`);
   // Simulate API call delay
   await new Promise(resolve => setTimeout(resolve, 500));
   // In a real implementation:
-  // import { qdrantClient } from '@/lib/qdrant';
+  // import { replaceKnowledgeChunks } from '@/lib/vectorStore';
   // const points = chunks.map((chunk, index) => ({
   //   id: `${userId}-${url}-${chunk.chunkIndex}`, // Or a more robust ID
   //   vector: chunk.embedding,
   //   payload: { userId, url, text: chunk.text, chunkIndex: chunk.chunkIndex },
   // }));
-  // await qdrantClient.upsert('nocta_chunks', { points });
+  // await replaceKnowledgeChunks(userId, points);
 }
 
 /**
@@ -168,26 +168,25 @@ const botKnowledgeBaseCreationFlow = ai.defineFlow(
       const textChunks = chunkText(fullText, 500);
       console.log(`Text split into ${textChunks.length} chunks.`);
 
-      // 3. For each chunk: Embed and Upsert to Qdrant
-      const qdrantUpsertPayloads: { text: string; embedding: number[]; chunkIndex: number }[] = [];
+      // 3. For each chunk: Embed and upsert to vector store
+      const vectorUpsertPayloads: { text: string; embedding: number[]; chunkIndex: number }[] = [];
       for (let i = 0; i < textChunks.length; i++) {
         const chunk = textChunks[i];
         console.log(`Processing chunk ${i + 1}/${textChunks.length}`);
 
         // a. Call Gemini text-embedding-004
-        const embedResponse = await ai.embed({
+        const embedResponse = await (ai as any).embed({
           model: 'googleai/text-embedding-004',
-          content: [
-            { text: chunk }
-          ],
+          content: chunk,
         });
-        const embedding = embedResponse.embedding;
+        const [embeddingResult] = embedResponse;
+        const embedding = embeddingResult?.embedding;
 
         if (!embedding || embedding.length === 0) {
           throw new Error(`Failed to generate embedding for chunk ${i}`);
         }
 
-        qdrantUpsertPayloads.push({
+        vectorUpsertPayloads.push({
           text: chunk,
           embedding: embedding,
           chunkIndex: i,
@@ -195,9 +194,9 @@ const botKnowledgeBaseCreationFlow = ai.defineFlow(
         chunksProcessed++;
       }
 
-      // b. Upsert to Qdrant nocta_chunks
-      await upsertVectorsToQdrant(qdrantUpsertPayloads, userId, url);
-      console.log('All chunks upserted to Qdrant.');
+      // b. Upsert to MongoDB Atlas Vector Search
+      await upsertVectorsToVectorStore(vectorUpsertPayloads, userId, url);
+      console.log('All chunks upserted to vector store.');
 
       // 4. Save fallback content (first 3000 chars) to MongoDB
       const fallbackContent = fullText.substring(0, 3000);
@@ -215,3 +214,5 @@ const botKnowledgeBaseCreationFlow = ai.defineFlow(
     }
   }
 );
+
+

@@ -24,6 +24,24 @@ export type KnowledgeData = {
   botIcon?: string;
   botColor?: string;
   chunkCount?: number;
+  /** Website crawl generation that chat retrieval searches. Set only after the generation is searchable. */
+  activeGenerationId?: string;
+  pagesIndexed?: number;
+  lastCrawl?: CrawlAttemptSummary;
+};
+
+/** Most recent crawl attempt, successful or not. Failures never change the active knowledge fields. */
+export type CrawlAttemptSummary = {
+  status: "succeeded" | "failed";
+  at: string;
+  correlationId: string;
+  /** Redacted (no query string) submitted URL. */
+  url: string;
+  provider: "scrapling" | "legacy" | null;
+  fallbackUsed: boolean;
+  pagesIndexed: number;
+  chunks: number;
+  reason?: string;
 };
 
 export type Account = {
