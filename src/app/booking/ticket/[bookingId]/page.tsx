@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { TicketFace } from "@/components/TicketFace";
 import { isFaceTemplate } from "@/lib/ticketTemplates";
+import { resolveTicketLogo } from "@/lib/ticketEmblems";
 
 interface TicketData {
   booking_id: string;
@@ -28,6 +29,7 @@ interface TicketData {
   logo_url: string | null;
   bg_removed_logo_url?: string | null;
   remove_background?: boolean;
+  logo_emblem?: string | null;
   ticket_color_palette?: {
     background_color: string;
     text_color: string;
@@ -123,7 +125,7 @@ function TicketViewContent() {
     qr_background_color: "#ffffff"
   };
 
-  const displayLogo = data.remove_background ? data.bg_removed_logo_url || data.logo_url : data.logo_url;
+  const displayLogo = resolveTicketLogo(data, palette);
 
   const attendeeName =
     data.attendee.answers.find((a) => a.label.toLowerCase().includes('name'))?.value?.toString() || 'Guest';
@@ -212,6 +214,7 @@ function TicketViewContent() {
              <div className="absolute -left-3 top-[40%] h-6 w-6 rounded-full bg-[#0a0a0a]" />
              <div className="absolute -right-3 top-[40%] h-6 w-6 rounded-full bg-[#0a0a0a]" />
              <div className="p-8 text-center border-b-2 border-dashed border-[#e5e0d8]">
+                {displayLogo && <img src={displayLogo} alt="Logo" className="mx-auto mb-3 h-10 w-auto object-contain" />}
                 <h2 className="text-3xl font-serif italic mb-1">{data.event_name}</h2>
                 <p className="text-[10px] font-bold uppercase tracking-widest text-[#a09488]">Admission Pass • #{data.booking_code}</p>
              </div>

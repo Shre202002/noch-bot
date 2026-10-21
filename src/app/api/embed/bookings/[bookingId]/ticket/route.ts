@@ -72,6 +72,7 @@ export async function GET(
         logo_url: event?.logo_url,
         bg_removed_logo_url: event?.bg_removed_logo_url,
         remove_background: !!event?.remove_background,
+        logo_emblem: event?.logo_emblem ?? null,
         ticket_color_palette: event?.ticket_color_palette
       }
     }, { headers: corsHeaders });

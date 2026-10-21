@@ -1,7 +1,8 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { getUserIdFromCookie } from "@/lib/auth";
 import { getDb } from "@/lib/db";
+import { buildLogoUpdates } from "@/lib/ticketEmblems";
 
 /**
  * Saves ticket logo configuration to an event.
@@ -23,19 +24,16 @@ export async function PATCH(
     const eventId = new ObjectId(routeParams.id);
     const body = await req.json();
 
-    const { logo_url, logo_file_id, remove_background, bg_removed_logo_url } = body;
+    // Only the fields that were sent are changed, so toggling background removal or choosing an emblem
+    // never erases an uploaded logo.
+    const built = buildLogoUpdates(body);
+    if (!built.ok) return NextResponse.json({ error: built.error }, { status: 400 });
 
     // Verify ownership
     const event = await db.collection("events").findOne({ _id: eventId, org_id: userId });
     if (!event) return NextResponse.json({ error: "Event not found" }, { status: 404 });
 
-    const updates: any = {
-      logo_url: logo_url || null,
-      logo_file_id: logo_file_id || null,
-      remove_background: !!remove_background,
-      bg_removed_logo_url: bg_removed_logo_url || null,
-      updated_at: new Date()
-    };
+    const updates: Record<string, unknown> = { ...built.updates, updated_at: new Date() };
 
     await db.collection("events").updateOne(
       { _id: eventId, org_id: userId },

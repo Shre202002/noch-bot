@@ -5,6 +5,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { cn } from '@/lib/utils';
 import { TicketColorPalette } from '@/models/Event';
 import { TICKET_TEMPLATE_DEFAULT_PALETTES, isFaceTemplate } from '@/lib/ticketTemplates';
+import { resolveTicketLogo } from '@/lib/ticketEmblems';
 import { TicketFace } from '@/components/TicketFace';
 
 interface FormField {
@@ -24,6 +25,7 @@ interface EventData {
   remove_background?: boolean;
   form_fields: FormField[];
   ticket_color_palette?: TicketColorPalette;
+  logo_emblem?: string | null;
 }
 
 interface TicketPreviewProps {
@@ -45,10 +47,8 @@ export function TicketPreview({ event, templateId }: TicketPreviewProps) {
 
   const palette = event.ticket_color_palette || TICKET_TEMPLATE_DEFAULT_PALETTES[templateId] || TICKET_TEMPLATE_DEFAULT_PALETTES.dark;
 
-  // Decide which logo to show
-  const displayLogoUrl = event.remove_background && event.bg_removed_logo_url 
-    ? event.bg_removed_logo_url 
-    : event.logo_url;
+  // Decide which logo to show: an uploaded image, else the chosen emblem
+  const displayLogoUrl = resolveTicketLogo(event, palette);
 
   // Dummy attendee data for preview based on actual form fields
   const attendeeDetails = event.form_fields.map(field => ({
@@ -133,6 +133,7 @@ export function TicketPreview({ event, templateId }: TicketPreviewProps) {
           <div className="absolute -right-3 top-[35%] h-6 w-6 rounded-full bg-black/10 border-2" style={{ borderColor: palette.border_color }} />
           <div className="p-8 text-center border-b-2 border-dashed" style={{ borderColor: palette.border_color }}>
             <p className="absolute top-4 left-4 text-[9px] font-bold opacity-30" style={{ color: palette.muted_text_color }}># {ticketCode}</p>
+            {displayLogoUrl && <img src={displayLogoUrl} alt="Logo" className="mx-auto mb-3 max-h-10 max-w-28 object-contain" />}
             <h2 className="text-3xl font-serif italic mb-2 tracking-tighter">{event.name}</h2>
             <p className="text-xs font-bold uppercase tracking-widest opacity-60" style={{ color: palette.accent_color }}>Admission Ticket</p>
           </div>

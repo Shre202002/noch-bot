@@ -24,6 +24,7 @@ import { Switch } from "@/components/ui/switch";
 import { FormBuilder, type FormField } from "./form-builder";
 import { EventProgress } from "./event-progress";
 import { TemplatePicker } from "./template-picker";
+import { EmblemPicker } from "./emblem-picker";
 import { TICKET_TEMPLATES } from "@/lib/ticketTemplates";
 import { GoLivePanel, StepFooter, StepTabsBar, nextStepTab, type StepDef } from "./step-nav";
 import { eventReadiness, isTicketDesignConfirmed } from "@/lib/eventReadiness";
@@ -68,6 +69,7 @@ interface EventData {
   logo_file_id?: string | null;
   remove_background?: boolean;
   bg_removed_logo_url?: string | null;
+  logo_emblem?: string | null;
   form_fields: FormField[];
 }
 
@@ -553,6 +555,8 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
   const [savingSettings, setSavingSettings] = useState(false);
   const [isSavingPalette, setIsSavingPalette] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [logoMode, setLogoMode] = useState<"upload" | "emblem">(event.logo_emblem && !event.logo_url ? "emblem" : "upload");
+  const [savingEmblem, setSavingEmblem] = useState(false);
   const designConfirmed = isTicketDesignConfirmed(event);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -720,6 +724,24 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
     }
   };
 
+  // Saves only the emblem; an uploaded logo is left as it is (it still takes priority on the ticket).
+  const chooseEmblem = async (id: string | null) => {
+    setSavingEmblem(true);
+    try {
+      const res = await fetch(`/api/events/${event._id}/ticket-logo`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ logo_emblem: id }),
+      });
+      if (!res.ok) throw new Error("Could not save the emblem");
+      onUpdate();
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Could not save", description: err.message });
+    } finally {
+      setSavingEmblem(false);
+    }
+  };
+
   const removeLogo = async () => {
     try {
       await fetch(`/api/events/${event._id}/ticket-logo`, {
@@ -746,10 +768,8 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
   );
 
   return (
-    <div className="grid gap-8 lg:grid-cols-2 lg:items-start">
-      {/* On large screens the editing column stays in place and scrolls on its own, so the controls
-          never leave view while the ticket preview sits beside them. */}
-      <div className="space-y-8 lg:sticky lg:top-4 lg:max-h-[calc(100vh-9rem)] lg:overflow-y-auto lg:overscroll-contain lg:pb-6 lg:pr-3 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.18)_transparent]">
+    <div className="grid gap-8 lg:grid-cols-2">
+      <div className="space-y-8">
         <section className="space-y-6">
           <div>
             <h3 className="font-bold text-white text-lg">Ticket design</h3>
@@ -761,6 +781,28 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
               <span aria-hidden="true" className="grid size-5 place-content-center rounded-full bg-white/10 text-[11px] font-bold">1</span>
               Event logo
             </Label>
+            <div role="tablist" aria-label="Logo source" className="inline-flex rounded-full border border-white/10 bg-white/[0.03] p-1">
+              {([
+                { value: "upload", label: "Upload image" },
+                { value: "emblem", label: "Emblem" },
+              ] as const).map((o) => (
+                <button
+                  key={o.value}
+                  type="button"
+                  role="tab"
+                  aria-selected={logoMode === o.value}
+                  onClick={() => setLogoMode(o.value)}
+                  className={`cursor-pointer rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                    logoMode === o.value ? "bg-[#36f4a4]/15 text-white ring-1 ring-[#36f4a4]/60" : "text-white/55 hover:text-white"
+                  }`}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+
+            {logoMode === "upload" ? (
+              <div className="space-y-4">
             <div className="flex items-center gap-4">
               <div className="h-20 w-20 rounded-xl border border-white/10 bg-black/40 flex items-center justify-center overflow-hidden">
                 {event.logo_url ? (
@@ -822,6 +864,23 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
                   onCheckedChange={toggleBackgroundRemoval}
                   disabled={savingSettings}
                   className="cursor-pointer"
+                />
+              </div>
+            )}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {event.logo_url && (
+                  <p role="note" className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-200">
+                    Your uploaded logo is used on the ticket. Remove it to use an emblem.
+                  </p>
+                )}
+                <EmblemPicker
+                  value={event.logo_emblem ?? null}
+                  tile={palette.background_color}
+                  ink={palette.text_color}
+                  busy={savingEmblem}
+                  onChange={chooseEmblem}
                 />
               </div>
             )}
@@ -908,15 +967,16 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
         </Card>
       </div>
 
-      <div className="relative">
-        <div className="lg:sticky lg:top-4">
+      {/* The preview is the sticky grid item itself, so it stays in view for the whole height of the form. */}
+      <div className="lg:sticky lg:top-4 lg:self-start">
+        <div>
           <div className="mb-4 flex items-center justify-between gap-3">
             <h3 className="text-xs font-bold uppercase tracking-widest text-white/50">Live ticket preview</h3>
             <span className="rounded-full border border-white/10 px-2.5 py-0.5 text-[11px] text-white/60">
               {TICKET_TEMPLATES.find((t) => t.id === templateId)?.name}
             </span>
           </div>
-          <div className="rounded-3xl border border-white/10 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.06),transparent_70%)] bg-black/30 p-4 sm:p-8">
+          <div className="rounded-3xl border border-white/10 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.06),transparent_70%)] bg-black/30 p-4 lg:p-5">
             <div className="mx-auto flex justify-center">
               <TicketPreview
                 event={{...event, ticket_color_palette: palette}}
@@ -924,7 +984,7 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
               />
             </div>
           </div>
-          <p className="mt-3 text-center text-[11px] text-white/40">Shown with a sample attendee. Real tickets use each person's own details.</p>
+          <p className="mt-3 text-center text-[11px] text-white/40 [@media(max-height:760px)]:hidden">Shown with a sample attendee. Real tickets use each person's own details.</p>
           {savingSettings && (
             <div className="mt-4 flex items-center justify-center gap-2 text-xs text-primary animate-pulse">
               <Loader2 className="h-3 w-3 animate-spin" />

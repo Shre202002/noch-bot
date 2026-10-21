@@ -43,6 +43,8 @@ export interface Event {
   logo_file_id?: string | null;
   remove_background?: boolean;
   bg_removed_logo_url?: string | null;
+  /** Id of a built-in emblem (see lib/ticketEmblems.ts), used as the logo when nothing was uploaded. */
+  logo_emblem?: string | null;
   ticket_design?: TicketDesign; // New structured object
   banner_url: string | null;
   chatbot_widget_id: ObjectId;
