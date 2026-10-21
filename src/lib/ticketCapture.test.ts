@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cropRect, pageSizeFor, ticketPdfFileName } from "@/lib/ticketCapture";
+import { cropRect, pageSizeFor, ticketPdfFileName, ticketPngFileName } from "@/lib/ticketCapture";
 import { ticketDownloadPageUrl, ticketPageUrl } from "@/lib/ticketLinks";
 
 describe("pageSizeFor", () => {
@@ -34,6 +34,14 @@ describe("ticketPdfFileName", () => {
 
   it("has a name when there is no code", () => {
     expect(ticketPdfFileName(null)).toBe("tickets-booking.pdf");
+  });
+});
+
+describe("ticketPngFileName", () => {
+  it("has one file for one ticket and numbers several", () => {
+    expect(ticketPngFileName("NBK-2026-3E0493", 0, 1)).toBe("ticket-NBK-2026-3E0493.png");
+    expect(ticketPngFileName("NBK-2026-3E0493", 1, 3)).toBe("ticket-NBK-2026-3E0493-2.png");
+    expect(ticketPngFileName(null, 0, 1)).toBe("ticket-booking.png");
   });
 });
 

@@ -5,7 +5,7 @@ import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
 import {
   FileText, Calendar, MapPin, User, Ticket as TicketIcon,
-  Printer, Download, ArrowLeft, Loader2, AlertCircle,
+  Printer, Download, Image as ImageIcon, ArrowLeft, Loader2, AlertCircle,
   CheckCircle2, ShieldCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { TicketFace } from "@/components/TicketFace";
 import { isFaceTemplate } from "@/lib/ticketTemplates";
 import { resolveTicketLogo } from "@/lib/ticketEmblems";
-import { savePdf, ticketPdfFileName, ticketPdfFromElements } from "@/lib/ticketCapture";
+import { savePdf, savePng, ticketPdfFileName, ticketPdfFromElements, ticketPngFileName, ticketPngFromElement } from "@/lib/ticketCapture";
 
 interface TicketData {
   booking_id: string;
@@ -76,6 +76,25 @@ function TicketViewContent() {
       setPreparing(false);
     }
   }, [data, preparing, params.bookingId, userId, visitorId]);
+
+  /** One PNG per ticket, each exactly as shown; several are saved in turn with a short pause between them. */
+  const downloadPng = useCallback(async () => {
+    if (!data || preparing) return;
+    const cards = Array.from(cardsRef.current?.querySelectorAll<HTMLElement>("[data-ticket-card]") ?? []);
+    setPreparing(true);
+    setPdfNote(null);
+    try {
+      for (let i = 0; i < cards.length; i++) {
+        savePng(await ticketPngFromElement(cards[i]), ticketPngFileName(data.booking_code, i, cards.length));
+        if (i < cards.length - 1) await new Promise((resolve) => setTimeout(resolve, 400));
+      }
+    } catch (err) {
+      console.warn("[ticket_png_capture]", err);
+      setPdfNote("Could not save the ticket as an image. Try Download PDF instead.");
+    } finally {
+      setPreparing(false);
+    }
+  }, [data, preparing]);
 
   // A link from the chat opens this page already set to save the PDF, once the tickets are on screen.
   useEffect(() => {
@@ -339,6 +358,13 @@ function TicketViewContent() {
               {preparing ? "Preparing…" : "Download PDF"}
             </Button>
             <Button
+              onClick={() => void downloadPng()}
+              disabled={preparing}
+              className="bg-[#36f4a4] text-black hover:bg-[#36f4a4]/90 font-bold rounded-full px-6"
+            >
+              <ImageIcon className="mr-2 h-4 w-4" /> Download PNG
+            </Button>
+            <Button
               onClick={() => window.print()}
               className="bg-white text-black hover:bg-zinc-200 font-bold rounded-full px-6"
             >
@@ -362,6 +388,7 @@ function TicketViewContent() {
               {data.is_test && (
                 <span
                   aria-hidden="true"
+                  data-test-stamp
                   className="pointer-events-none absolute right-3 top-3 z-10 rotate-6 rounded-md border-2 border-red-500 bg-red-500/90 px-3 py-1 text-xs font-black uppercase tracking-widest text-white shadow-lg"
                 >
                   Test ticket
