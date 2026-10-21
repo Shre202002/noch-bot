@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { TicketFace } from "@/components/TicketFace";
+import { isFaceTemplate } from "@/lib/ticketTemplates";
 
 interface TicketData {
   booking_id: string;
@@ -123,7 +125,29 @@ function TicketViewContent() {
 
   const displayLogo = data.remove_background ? data.bg_removed_logo_url || data.logo_url : data.logo_url;
 
+  const attendeeName =
+    data.attendee.answers.find((a) => a.label.toLowerCase().includes('name'))?.value?.toString() || 'Guest';
+  const extraDetails = data.attendee.answers
+    .filter((a) => a.value != null && String(a.value) !== '' && !a.label.toLowerCase().includes('name'))
+    .map((a) => ({ label: a.label, value: String(a.value) }));
+
   const renderTemplate = (code: string, index: number) => {
+    if (isFaceTemplate(data.template_id)) {
+      return (
+        <TicketFace
+          templateId={data.template_id}
+          palette={palette}
+          eventName={data.event_name}
+          dateText={formattedDate}
+          venue={data.venue}
+          attendeeName={attendeeName}
+          code={code}
+          ticketLabel={`Ticket ${index + 1} of ${data.quantity}`}
+          logoUrl={displayLogo}
+          details={extraDetails}
+        />
+      );
+    }
     switch (data.template_id) {
       case 'minimal':
         return (

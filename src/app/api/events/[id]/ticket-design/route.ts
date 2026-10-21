@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { getUserIdFromCookie } from "@/lib/auth";
 import { getDb } from "@/lib/db";
+import { isKnownTemplate } from "@/lib/ticketTemplates";
 
 const HEX_REGEX = /^#([0-9A-Fa-f]{6})$/;
 
@@ -26,6 +27,10 @@ export async function PATCH(
     const body = await req.json();
 
     const { template_id, color_palette } = body;
+
+    if (template_id !== undefined && !isKnownTemplate(template_id)) {
+      return NextResponse.json({ error: "Unknown ticket design" }, { status: 400 });
+    }
 
     // Verify ownership
     const event = await db.collection("events").findOne({ _id: eventId, org_id: userId });

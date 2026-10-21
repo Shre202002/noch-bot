@@ -23,6 +23,8 @@ import { TicketPreview, TICKET_TEMPLATE_DEFAULT_PALETTES } from "@/components/Ti
 import { Switch } from "@/components/ui/switch";
 import { FormBuilder, type FormField } from "./form-builder";
 import { EventProgress } from "./event-progress";
+import { TemplatePicker } from "./template-picker";
+import { TICKET_TEMPLATES } from "@/lib/ticketTemplates";
 import { GoLivePanel, StepFooter, StepTabsBar, nextStepTab, type StepDef } from "./step-nav";
 import { eventReadiness, isTicketDesignConfirmed } from "@/lib/eventReadiness";
 import { TicketColorPalette } from "@/models/Event";
@@ -731,13 +733,6 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
     }
   };
 
-  const templates = [
-    { id: "modern", name: "Bold Graphic", color: "bg-blue-600" },
-    { id: "minimal", name: "Boarding Pass", color: "bg-emerald-500" },
-    { id: "dark", name: "Premium Dark", color: "bg-zinc-900 border border-[#d4af37]" },
-    { id: "classic", name: "Vintage Raffle", color: "bg-[#fcf9f2] text-black" }
-  ];
-
   const ColorInput = ({ label, value, paletteKey }: { label: string, value: string, paletteKey: keyof TicketColorPalette }) => (
     <div className="space-y-2">
       <div className="flex justify-between items-center">
@@ -751,16 +746,21 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
   );
 
   return (
-    <div className="grid gap-8 lg:grid-cols-2">
-      <div className="space-y-8">
+    <div className="grid gap-8 lg:grid-cols-2 lg:items-start">
+      {/* On large screens the editing column stays in place and scrolls on its own, so the controls
+          never leave view while the ticket preview sits beside them. */}
+      <div className="space-y-8 lg:sticky lg:top-4 lg:max-h-[calc(100vh-9rem)] lg:overflow-y-auto lg:overscroll-contain lg:pb-6 lg:pr-3 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.18)_transparent]">
         <section className="space-y-6">
           <div>
-            <h3 className="font-bold text-white text-lg">Visual Branding</h3>
-            <p className="text-sm text-muted-foreground">Upload a logo and pick a template.</p>
+            <h3 className="font-bold text-white text-lg">Ticket design</h3>
+            <p className="text-sm text-muted-foreground">Add your logo, pick a design, then tune the colours. The preview updates as you go.</p>
           </div>
 
           <div className="space-y-4">
-            <Label className="text-white">Event Logo</Label>
+            <Label className="flex items-center gap-2 text-white">
+              <span aria-hidden="true" className="grid size-5 place-content-center rounded-full bg-white/10 text-[11px] font-bold">1</span>
+              Event logo
+            </Label>
             <div className="flex items-center gap-4">
               <div className="h-20 w-20 rounded-xl border border-white/10 bg-black/40 flex items-center justify-center overflow-hidden">
                 {event.logo_url ? (
@@ -828,27 +828,22 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
           </div>
 
           <div className="space-y-4">
-            <Label className="text-white">Base Template</Label>
-            <div className="grid grid-cols-2 gap-3">
-              {templates.map(t => (
-                <button
-                  key={t.id}
-                  onClick={() => handleTemplateChange(t.id)}
-                  className={`flex flex-col items-center gap-3 p-4 rounded-2xl border transition-all cursor-pointer ${templateId === t.id ? 'border-[#36f4a4] bg-[#36f4a4]/5' : 'border-white/5 bg-white/2'}`}
-                >
-                  <div className={`h-12 w-full rounded-lg ${t.color}`} />
-                  <span className="text-sm font-bold text-white">{t.name}</span>
-                </button>
-              ))}
+            <div className="flex items-baseline justify-between gap-3">
+              <Label className="flex items-center gap-2 text-white">
+                <span aria-hidden="true" className="grid size-5 place-content-center rounded-full bg-white/10 text-[11px] font-bold">2</span>
+                Choose a design
+              </Label>
+              <span className="text-[11px] text-white/40">{TICKET_TEMPLATES.length} designs</span>
             </div>
+            <TemplatePicker value={templateId} onChange={handleTemplateChange} />
           </div>
         </section>
 
         <section className="space-y-6 pt-4 border-t border-white/5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Palette className="h-5 w-5 text-[#36f4a4]" />
-              <h3 className="font-bold text-white text-lg">Customize Colors</h3>
+              <span aria-hidden="true" className="grid size-5 place-content-center rounded-full bg-white/10 text-[11px] font-bold text-white">3</span>
+              <h3 className="font-bold text-white text-base">Customize colours</h3>
             </div>
             <div className="flex items-center gap-4">
               {isSavingPalette && (
@@ -914,14 +909,22 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
       </div>
 
       <div className="relative">
-        <div className="sticky top-24">
-          <h3 className="text-xs font-bold uppercase tracking-widest text-white/50 mb-4 text-center">Live Ticket Preview</h3>
-          <div className="mx-auto flex justify-center scale-90 sm:scale-100">
-             <TicketPreview 
-              event={{...event, ticket_color_palette: palette}} 
-              templateId={templateId} 
-             />
+        <div className="lg:sticky lg:top-4">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h3 className="text-xs font-bold uppercase tracking-widest text-white/50">Live ticket preview</h3>
+            <span className="rounded-full border border-white/10 px-2.5 py-0.5 text-[11px] text-white/60">
+              {TICKET_TEMPLATES.find((t) => t.id === templateId)?.name}
+            </span>
           </div>
+          <div className="rounded-3xl border border-white/10 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.06),transparent_70%)] bg-black/30 p-4 sm:p-8">
+            <div className="mx-auto flex justify-center">
+              <TicketPreview
+                event={{...event, ticket_color_palette: palette}}
+                templateId={templateId}
+              />
+            </div>
+          </div>
+          <p className="mt-3 text-center text-[11px] text-white/40">Shown with a sample attendee. Real tickets use each person's own details.</p>
           {savingSettings && (
             <div className="mt-4 flex items-center justify-center gap-2 text-xs text-primary animate-pulse">
               <Loader2 className="h-3 w-3 animate-spin" />

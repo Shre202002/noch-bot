@@ -4,6 +4,8 @@ import React from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { cn } from '@/lib/utils';
 import { TicketColorPalette } from '@/models/Event';
+import { TICKET_TEMPLATE_DEFAULT_PALETTES, isFaceTemplate } from '@/lib/ticketTemplates';
+import { TicketFace } from '@/components/TicketFace';
 
 interface FormField {
   _id: string;
@@ -29,40 +31,8 @@ interface TicketPreviewProps {
   templateId: string;
 }
 
-export const TICKET_TEMPLATE_DEFAULT_PALETTES: Record<string, TicketColorPalette> = {
-  modern: {
-    background_color: "#2563eb",
-    text_color: "#ffffff",
-    accent_color: "#ffffff",
-    border_color: "#3b82f6",
-    muted_text_color: "#bfdbfe",
-    qr_background_color: "#ffffff",
-  },
-  dark: {
-    background_color: "#0c0c1d",
-    text_color: "#ffffff",
-    accent_color: "#d4af37",
-    border_color: "#1e1e3f",
-    muted_text_color: "#6b6b65",
-    qr_background_color: "#ffffff",
-  },
-  classic: {
-    background_color: "#fcf9f2",
-    text_color: "#433322",
-    accent_color: "#ccbb99",
-    border_color: "#ddccaa",
-    muted_text_color: "#73726c",
-    qr_background_color: "#ffffff",
-  },
-  minimal: {
-    background_color: "#ffffff",
-    text_color: "#0f172a",
-    accent_color: "#10b981",
-    border_color: "#e2e8f0",
-    muted_text_color: "#64748b",
-    qr_background_color: "#ffffff",
-  },
-};
+// The palettes now live in the shared registry; re-exported so existing imports keep working.
+export { TICKET_TEMPLATE_DEFAULT_PALETTES };
 
 export function TicketPreview({ event, templateId }: TicketPreviewProps) {
   const ticketCode = "EVT-DEMO-123456";
@@ -93,6 +63,23 @@ export function TicketPreview({ event, templateId }: TicketPreviewProps) {
       className="max-h-12 max-w-24 object-contain" 
     />
   ) : null;
+
+  if (isFaceTemplate(templateId)) {
+    return (
+      <TicketFace
+        templateId={templateId}
+        palette={palette}
+        eventName={event.name}
+        dateText={formattedDate}
+        venue={event.venue}
+        attendeeName="John Doe"
+        code={ticketCode}
+        ticketLabel="Ticket 1 of 1"
+        logoUrl={displayLogoUrl}
+        details={attendeeDetails.filter((d) => d.label.toLowerCase() !== 'full name' && d.label.toLowerCase() !== 'name')}
+      />
+    );
+  }
 
   switch (templateId) {
     case 'minimal': // Template 1 — "Boarding Pass"
