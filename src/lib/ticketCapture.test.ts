@@ -1,22 +1,28 @@
 import { describe, expect, it } from "vitest";
-import { pageSizeFor, ticketPdfFileName } from "@/lib/ticketCapture";
+import { cropRect, pageSizeFor, ticketPdfFileName } from "@/lib/ticketCapture";
 import { ticketDownloadPageUrl, ticketPageUrl } from "@/lib/ticketLinks";
 
 describe("pageSizeFor", () => {
-  it("adds an even margin around a card that fits on the page", () => {
-    expect(pageSizeFor(400, 200)).toEqual({ width: 448, height: 248, scale: 1 });
-  });
-
-  it("scales a wide card down so the page is never wider than A4", () => {
-    const size = pageSizeFor(1000, 500);
-    expect(size.width).toBe(595);
-    expect(size.scale).toBeCloseTo(0.547, 2);
-    // The card keeps its proportions.
-    expect((size.width - 48) / (size.height - 48)).toBeCloseTo(2, 1);
+  it("is the card at its natural size, with no margin", () => {
+    expect(pageSizeFor(520, 400)).toEqual({ width: 390, height: 300 });
   });
 
   it("copes with an empty measurement", () => {
-    expect(pageSizeFor(0, 0).width).toBeGreaterThan(0);
+    expect(pageSizeFor(0, 0)).toEqual({ width: 1, height: 1 });
+  });
+});
+
+describe("cropRect", () => {
+  it("finds the card inside the wrapper, scaled by the capture ratio", () => {
+    const wrapper = { left: 100, top: 50, width: 900, height: 400 };
+    const card = { left: 290, top: 50, width: 520, height: 400 };
+    expect(cropRect(wrapper, card, 3)).toEqual({ x: 570, y: 0, width: 1560, height: 1200 });
+  });
+
+  it("never starts outside the image", () => {
+    const rect = cropRect({ left: 100, top: 100, width: 10, height: 10 }, { left: 90, top: 80, width: 5, height: 5 }, 2);
+    expect(rect.x).toBe(0);
+    expect(rect.y).toBe(0);
   });
 });
 

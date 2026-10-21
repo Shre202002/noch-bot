@@ -1,19 +1,31 @@
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, rgb } from 'pdf-lib';
 
 /**
  * The ticket PDF is a capture of the tickets as the visitor sees them (one per page), so it can never differ from the
- * chosen design. Browser only: it reads the drawn elements.
+ * chosen design. Browser only: it reads the drawn elements. Each page is exactly the ticket, with nothing around it.
  */
 
-const MARGIN = 24; // points
-const MAX_PAGE_WIDTH = 595; // A4 width in points; wider cards are scaled down
+const PIXEL_RATIO = 3; // capture sharpness; keeps the QR code scannable
+const PT_PER_PX = 0.75; // 96 px per inch on screen, 72 points per inch in a PDF
 
-/** Page size in points for a card of the given on-screen size: the card plus an even margin, never wider than A4. */
-export function pageSizeFor(cardWidth: number, cardHeight: number): { width: number; height: number; scale: number } {
-  const w = Math.max(1, cardWidth);
-  const h = Math.max(1, cardHeight);
-  const scale = Math.min(1, (MAX_PAGE_WIDTH - MARGIN * 2) / w);
-  return { width: Math.round(w * scale + MARGIN * 2), height: Math.round(h * scale + MARGIN * 2), scale };
+/** Page size in points for a card of the given on-screen size: the card at its natural size. */
+export function pageSizeFor(cardWidth: number, cardHeight: number): { width: number; height: number } {
+  return {
+    width: Math.max(1, Math.round(cardWidth * PT_PER_PX)),
+    height: Math.max(1, Math.round(cardHeight * PT_PER_PX)),
+  };
+}
+
+type Box = { left: number; top: number; width: number; height: number };
+
+/** Where the card sits inside the captured wrapper image, in image pixels (the capture is scaled by `pixelRatio`). */
+export function cropRect(wrapper: Box, card: Box, pixelRatio: number): { x: number; y: number; width: number; height: number } {
+  return {
+    x: Math.max(0, Math.round((card.left - wrapper.left) * pixelRatio)),
+    y: Math.max(0, Math.round((card.top - wrapper.top) * pixelRatio)),
+    width: Math.max(1, Math.round(card.width * pixelRatio)),
+    height: Math.max(1, Math.round(card.height * pixelRatio)),
+  };
 }
 
 /** File name for the download, from the booking code (letters, digits and dashes only). */
@@ -29,6 +41,30 @@ function dataUrlToBytes(dataUrl: string): Uint8Array {
   return bytes;
 }
 
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error('Could not read the captured ticket'));
+    image.src = src;
+  });
+}
+
+/** The captured wrapper cut down to the card inside it, so the page has no empty space or shadow around the ticket. */
+async function cropToCard(png: string, wrapper: HTMLElement): Promise<string> {
+  const card = wrapper.firstElementChild;
+  if (!card) return png;
+  const crop = cropRect(wrapper.getBoundingClientRect(), card.getBoundingClientRect(), PIXEL_RATIO);
+  const image = await loadImage(png);
+  const canvas = document.createElement('canvas');
+  canvas.width = crop.width;
+  canvas.height = crop.height;
+  const context = canvas.getContext('2d');
+  if (!context) return png;
+  context.drawImage(image, crop.x, crop.y, crop.width, crop.height, 0, 0, crop.width, crop.height);
+  return canvas.toDataURL('image/png');
+}
+
 /** Capture each element as an image and put one per page. Throws if a card cannot be captured (the caller falls back). */
 export async function ticketPdfFromElements(elements: HTMLElement[], title: string): Promise<Uint8Array> {
   if (elements.length === 0) throw new Error('No tickets to capture');
@@ -39,12 +75,15 @@ export async function ticketPdfFromElements(elements: HTMLElement[], title: stri
   const pdf = await PDFDocument.create();
   pdf.setTitle(title);
   for (const el of elements) {
-    const rect = el.getBoundingClientRect();
-    const png = await toPng(el, { pixelRatio: 3, cacheBust: true });
-    const image = await pdf.embedPng(dataUrlToBytes(png));
-    const size = pageSizeFor(rect.width, rect.height);
+    // The wrapper is captured (not just the card) so the "Test ticket" stamp that sits over a test ticket is included.
+    const wrapperPng = await toPng(el, { pixelRatio: PIXEL_RATIO, cacheBust: true });
+    const image = await pdf.embedPng(dataUrlToBytes(await cropToCard(wrapperPng, el)));
+    const card = (el.firstElementChild ?? el).getBoundingClientRect();
+    const size = pageSizeFor(card.width, card.height);
     const page = pdf.addPage([size.width, size.height]);
-    page.drawImage(image, { x: MARGIN, y: MARGIN, width: size.width - MARGIN * 2, height: size.height - MARGIN * 2 });
+    // The card's rounded corners are transparent; paper white behind them.
+    page.drawRectangle({ x: 0, y: 0, width: size.width, height: size.height, color: rgb(1, 1, 1) });
+    page.drawImage(image, { x: 0, y: 0, width: size.width, height: size.height });
   }
   return pdf.save();
 }
