@@ -11,7 +11,7 @@ import { placeHold, releaseExpiredHolds, releaseHold, reserveCapacity } from "@/
 import { issueTicketsForBooking } from "@/lib/ticketIssuance";
 import { notifyBookingConfirmed } from "@/lib/bookingNotifications";
 import { testGate } from "@/lib/testBooking";
-import { ticketPageUrl, ticketPdfUrl } from "@/lib/ticketLinks";
+import { ticketPageUrl, ticketDownloadPageUrl } from "@/lib/ticketLinks";
 import crypto from "crypto";
 
 /** Minutes a paid booking's seats stay held while the visitor pays. */
@@ -201,7 +201,7 @@ export async function POST(
         booking_code: bookingCode,
         download_url: `/api/embed/bookings/${bookingId}/ticket?userId=${userId}&visitorId=${visitorId}`,
         ticket_page_url: ticketPageUrl(bookingId.toString(), userId, visitorId),
-        ticket_pdf_url: ticketPdfUrl(bookingId.toString(), userId, visitorId),
+        ticket_pdf_url: ticketDownloadPageUrl(bookingId.toString(), userId, visitorId),
         emailed_to: isTest ? null : (session.answers.find((a: any) => a.validation_rule === 'email_format')?.value ?? null)
       }, { headers: corsHeaders });
     }

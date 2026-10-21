@@ -90,7 +90,7 @@ describe("free event booking through the website widget", () => {
     expect(data.status).toBe("confirmed");
     bookingId = data.booking_id;
     expect(data.ticket_page_url).toBe(`/booking/ticket/${bookingId}?userId=${ORG}&visitorId=${VISITOR}`);
-    expect(data.ticket_pdf_url).toBe(`/api/embed/bookings/${bookingId}/ticket/pdf?userId=${ORG}&visitorId=${VISITOR}`);
+    expect(data.ticket_pdf_url).toBe(`/booking/ticket/${bookingId}?userId=${ORG}&visitorId=${VISITOR}&download=1`);
     expect(data.emailed_to).toBe("asha@example.com");
 
     const booking = await db.collection("bookings").findOne({ _id: new ObjectId(bookingId) });
@@ -151,7 +151,7 @@ describe("free event booking through the website widget", () => {
   it("downloads the tickets as a 2-page PDF, only for the visitor who booked", async () => {
     const { PDFDocument } = await import("pdf-lib");
     const { GET } = await import("@/app/api/embed/bookings/[bookingId]/ticket/pdf/route");
-    const res = await GET(json(`/api/embed/bookings/${bookingId}/ticket/pdf?userId=${ORG}&visitorId=${VISITOR}`, "GET"), params({ bookingId }));
+    const res = await GET(json(`/booking/ticket/${bookingId}?userId=${ORG}&visitorId=${VISITOR}&download=1`, "GET"), params({ bookingId }));
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("application/pdf");
     expect(res.headers.get("content-disposition")).toMatch(/attachment; filename="tickets-NBK-/);

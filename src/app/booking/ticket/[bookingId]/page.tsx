@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useCallback, useEffect, useRef, useState, Suspense } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
 import {
@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { TicketFace } from "@/components/TicketFace";
 import { isFaceTemplate } from "@/lib/ticketTemplates";
 import { resolveTicketLogo } from "@/lib/ticketEmblems";
+import { savePdf, ticketPdfFileName, ticketPdfFromElements } from "@/lib/ticketCapture";
 
 interface TicketData {
   booking_id: string;
@@ -52,6 +53,37 @@ function TicketViewContent() {
   const [data, setData] = useState<TicketData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [preparing, setPreparing] = useState(false);
+  const [pdfNote, setPdfNote] = useState<string | null>(null);
+  const cardsRef = useRef<HTMLDivElement>(null);
+  const autoDownloaded = useRef(false);
+  const wantsDownload = searchParams.get("download") === "1";
+
+  /** The PDF is a capture of the tickets as shown, one per page; if that fails the server-drawn PDF is the fallback. */
+  const downloadPdf = useCallback(async () => {
+    if (!data || preparing) return;
+    const cards = Array.from(cardsRef.current?.querySelectorAll<HTMLElement>("[data-ticket-card]") ?? []);
+    setPreparing(true);
+    setPdfNote(null);
+    try {
+      const bytes = await ticketPdfFromElements(cards, `Tickets - ${data.event_name}`);
+      savePdf(bytes, ticketPdfFileName(data.booking_code));
+    } catch (err) {
+      console.warn("[ticket_pdf_capture]", err);
+      setPdfNote("Could not save the tickets as shown, so a plain PDF was downloaded instead.");
+      window.location.href = `/api/embed/bookings/${params.bookingId}/ticket/pdf?userId=${encodeURIComponent(userId ?? "")}&visitorId=${encodeURIComponent(visitorId ?? "")}`;
+    } finally {
+      setPreparing(false);
+    }
+  }, [data, preparing, params.bookingId, userId, visitorId]);
+
+  // A link from the chat opens this page already set to save the PDF, once the tickets are on screen.
+  useEffect(() => {
+    if (!wantsDownload || !data || autoDownloaded.current) return;
+    autoDownloaded.current = true;
+    const timer = setTimeout(() => void downloadPdf(), 600);
+    return () => clearTimeout(timer);
+  }, [wantsDownload, data, downloadPdf]);
 
   useEffect(() => {
     async function fetchTicket() {
@@ -298,13 +330,13 @@ function TicketViewContent() {
             <h1 className="text-4xl font-black tracking-tight">{data.event_name}</h1>
           </div>
           <div className="flex flex-wrap items-center gap-3 print:hidden">
-            <Button asChild className="bg-[#36f4a4] text-black hover:bg-[#36f4a4]/90 font-bold rounded-full px-6">
-              <a
-                href={`/api/embed/bookings/${params.bookingId}/ticket/pdf?userId=${encodeURIComponent(userId ?? "")}&visitorId=${encodeURIComponent(visitorId ?? "")}`}
-                download
-              >
-                <Download className="mr-2 h-4 w-4" /> Download PDF
-              </a>
+            <Button
+              onClick={() => void downloadPdf()}
+              disabled={preparing}
+              className="bg-[#36f4a4] text-black hover:bg-[#36f4a4]/90 font-bold rounded-full px-6"
+            >
+              {preparing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+              {preparing ? "Preparing…" : "Download PDF"}
             </Button>
             <Button
               onClick={() => window.print()}
@@ -321,9 +353,11 @@ function TicketViewContent() {
           </p>
         )}
 
-        <div className="grid gap-8">
+        {pdfNote && <p role="status" className="text-sm text-amber-300 print:hidden">{pdfNote}</p>}
+
+        <div className="grid gap-8" ref={cardsRef}>
           {data.ticket_codes.map((code, index) => (
-            <div key={code} className="relative">
+            <div key={code} className="relative" data-ticket-card>
               {renderTemplate(code, index)}
               {data.is_test && (
                 <span
@@ -348,7 +382,7 @@ function TicketViewContent() {
         @media print {
           body { background: white !important; color: black !important; }
           .min-h-screen { min-height: auto !important; padding: 0 !important; background: white !important; }
-          .text-white { color: black !important; }
+          [data-ticket-card], [data-ticket-card] * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           .print\:hidden { display: none !important; }
         }
       `}</style>

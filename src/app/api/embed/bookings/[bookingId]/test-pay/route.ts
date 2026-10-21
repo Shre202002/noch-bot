@@ -3,7 +3,7 @@ import { ObjectId } from "mongodb";
 import { getUserIdFromCookie } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { confirmTestBooking } from "@/lib/testBooking";
-import { ticketPageUrl, ticketPdfUrl } from "@/lib/ticketLinks";
+import { ticketPageUrl, ticketDownloadPageUrl } from "@/lib/ticketLinks";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ boo
       result,
       status: current.status,
       ticket_page_url: current.status === "confirmed" ? ticketPageUrl(id, userId, visitorId) : undefined,
-      ticket_pdf_url: current.status === "confirmed" ? ticketPdfUrl(id, userId, visitorId) : undefined,
+      ticket_pdf_url: current.status === "confirmed" ? ticketDownloadPageUrl(id, userId, visitorId) : undefined,
     });
   } catch (error) {
     console.error("[test_pay]", error);

@@ -737,7 +737,7 @@
     var text = headline;
     if (data.emailed_to) text += '\nWe have also emailed your tickets to ' + data.emailed_to + '.';
     var links = [];
-    if (data.ticket_pdf_url) links.push({ href: normalizeUrl(data.ticket_pdf_url), label: 'Download PDF', download: true, primary: true });
+    if (data.ticket_pdf_url) links.push({ href: normalizeUrl(data.ticket_pdf_url), label: 'Download PDF', primary: true }); // opens the ticket page, which saves the PDF itself
     if (data.ticket_page_url) links.push({ href: normalizeUrl(data.ticket_page_url), label: 'View ticket' });
     addMessage('assistant', text, links.length ? { links: links } : null);
   }

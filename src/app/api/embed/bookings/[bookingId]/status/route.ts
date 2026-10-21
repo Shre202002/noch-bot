@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/db";
 import { releaseExpiredHolds } from "@/lib/eventCapacity";
-import { ticketPageUrl, ticketPdfUrl } from "@/lib/ticketLinks";
+import { ticketPageUrl, ticketDownloadPageUrl } from "@/lib/ticketLinks";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -44,7 +44,7 @@ export async function GET(
       can_download_ticket: canDownload,
       download_url: canDownload ? `/api/embed/bookings/${bookingId}/ticket?userId=${userId}&visitorId=${visitorId}` : undefined,
       ticket_page_url: canDownload ? ticketPageUrl(bookingId, userId, visitorId) : undefined,
-      ticket_pdf_url: canDownload ? ticketPdfUrl(bookingId, userId, visitorId) : undefined,
+      ticket_pdf_url: canDownload ? ticketDownloadPageUrl(bookingId, userId, visitorId) : undefined,
     };
   };
 

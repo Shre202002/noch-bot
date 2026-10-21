@@ -11,7 +11,15 @@ export function ticketPageUrl(bookingId: string, orgId: string, visitorId: strin
   return `/booking/ticket/${encodeURIComponent(bookingId)}?${query(orgId, visitorId)}`;
 }
 
-/** Direct PDF download, one page per ticket. */
+/**
+ * The ticket page set to save its PDF as soon as it has drawn the tickets. The PDF is a capture of the tickets as shown,
+ * so it always matches the chosen design.
+ */
+export function ticketDownloadPageUrl(bookingId: string, orgId: string, visitorId: string): string {
+  return `${ticketPageUrl(bookingId, orgId, visitorId)}&download=1`;
+}
+
+/** Server-drawn PDF (generic layout), kept as the fallback when the page cannot capture the tickets. */
 export function ticketPdfUrl(bookingId: string, orgId: string, visitorId: string): string {
   return `/api/embed/bookings/${encodeURIComponent(bookingId)}/ticket/pdf?${query(orgId, visitorId)}`;
 }
