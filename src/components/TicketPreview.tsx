@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { QRCodeSVG } from 'qrcode.react';
+import { QRCodeSVG as RawQRCodeSVG } from 'qrcode.react';
 import { cn } from '@/lib/utils';
 import { TicketColorPalette } from '@/models/Event';
 import { TICKET_TEMPLATE_DEFAULT_PALETTES, isFaceTemplate } from '@/lib/ticketTemplates';
@@ -36,7 +36,10 @@ interface TicketPreviewProps {
 // The palettes now live in the shared registry; re-exported so existing imports keep working.
 export { TICKET_TEMPLATE_DEFAULT_PALETTES };
 
-export function TicketPreview({ event, templateId }: TicketPreviewProps) {
+// The QR code only depends on its value and colour, so it skips redraws while other colours are dragged.
+const QRCodeSVG = React.memo(RawQRCodeSVG);
+
+function TicketPreviewImpl({ event, templateId }: TicketPreviewProps) {
   const ticketCode = "EVT-DEMO-123456";
   const formattedDate = new Date(event.start_at).toLocaleDateString(undefined, {
     weekday: 'short',
@@ -245,3 +248,5 @@ export function TicketPreview({ event, templateId }: TicketPreviewProps) {
       );
   }
 }
+
+export const TicketPreview = React.memo(TicketPreviewImpl);

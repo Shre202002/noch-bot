@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  ArrowLeft, Loader2, Save, Rocket, Trash2, 
+import {
+  ArrowLeft, Loader2, Save, Rocket, Trash2,
   Settings, FormInput, CreditCard,
   CalendarIcon, CheckCircle2, AlertCircle, Layout,
   Mail, Scissors, Check, ShieldCheck, RefreshCcw,
@@ -29,7 +29,8 @@ import { TICKET_TEMPLATES } from "@/lib/ticketTemplates";
 import { GoLivePanel, StepFooter, StepTabsBar, nextStepTab, type StepDef } from "./step-nav";
 import { eventReadiness, isTicketDesignConfirmed } from "@/lib/eventReadiness";
 import { TicketColorPalette } from "@/models/Event";
-import { BasicColorPicker } from "@/components/ui/color-picker";
+import { TicketColorField } from "@/components/ui/color-picker";
+import { createDebouncer } from "@/lib/colorInput";
 import {
   Select,
   SelectContent,
@@ -114,7 +115,7 @@ export default function EventDetailPage() {
         setDescription(data.data.description);
         setCapacity(data.data.capacity);
       }
-      
+
       const statusRes = await fetch('/api/events/payment-gateway-status');
       const statusData = await statusRes.json();
       setIsGatewayConfigured(statusData.is_configured);
@@ -193,7 +194,7 @@ export default function EventDetailPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to save gateway");
-      
+
       toast({ title: "Gateway Connected", description: `Your ${gatewayProvider} account has been connected.` });
       setIsEditingGateway(false);
       fetchEvent();
@@ -334,11 +335,11 @@ export default function EventDetailPage() {
                 <h3 className="text-lg font-bold text-red-400">Danger Zone</h3>
                 <p className="text-sm text-zinc-400">Deleting an event is permanent. You can only delete events with no ticket sales.</p>
               </div>
-              
+
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     className="border-red-500/30 text-red-500 hover:bg-red-500/10 hover:text-red-400 rounded-full font-bold cursor-pointer"
                     disabled={deletingEvent || event.tickets_sold > 0}
                   >
@@ -356,7 +357,7 @@ export default function EventDetailPage() {
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel className="bg-transparent border-zinc-800 text-white hover:bg-zinc-900 cursor-pointer">Cancel</AlertDialogCancel>
-                    <AlertDialogAction 
+                    <AlertDialogAction
                       onClick={handleDeleteEvent}
                       className="bg-red-600 text-white hover:bg-red-700 font-bold border-none cursor-pointer"
                     >
@@ -400,13 +401,13 @@ export default function EventDetailPage() {
                     Your <span className="text-[#36f4a4] font-bold uppercase">{configuredProvider}</span> integration is connected and secured with AES-256 encryption.
                   </p>
                 </div>
-                
+
                 <div className="flex justify-center items-center gap-4 pt-4">
                   <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-white/70 text-xs font-bold uppercase tracking-wider">
                     <Check className="h-3 w-3 text-[#36f4a4]" />
                     Ready for Checkout
                   </div>
-                  
+
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-white hover:bg-white/5 rounded-full cursor-pointer">
@@ -442,7 +443,7 @@ export default function EventDetailPage() {
                     <p className="text-sm text-muted-foreground">Credentials are saved for your entire organization.</p>
                   </div>
                 </div>
-                
+
                 <div className="grid gap-6">
                   <div className="space-y-2">
                     <Label className="text-white">Provider</Label>
@@ -454,27 +455,27 @@ export default function EventDetailPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  
+
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
                       <Label className="text-white">{gatewayProvider === 'stripe' ? 'Secret Key' : 'Key ID'}</Label>
-                      <Input 
+                      <Input
                         type="password"
-                        placeholder={gatewayProvider === 'stripe' ? "sk_test_..." : "rzp_test_..."} 
-                        value={gatewayKeys.key_id} 
+                        placeholder={gatewayProvider === 'stripe' ? "sk_test_..." : "rzp_test_..."}
+                        value={gatewayKeys.key_id}
                         onChange={e => setGatewayKeys(p => ({ ...p, key_id: e.target.value }))}
-                        className="bg-black/40 border-white/10 text-white" 
+                        className="bg-black/40 border-white/10 text-white"
                       />
                     </div>
                     {gatewayProvider === 'razorpay' && (
                       <div className="space-y-2">
                         <Label className="text-white">Key Secret</Label>
-                        <Input 
+                        <Input
                           type="password"
-                          placeholder="••••••••" 
-                          value={gatewayKeys.key_secret} 
+                          placeholder="••••••••"
+                          value={gatewayKeys.key_secret}
                           onChange={e => setGatewayKeys(p => ({ ...p, key_secret: e.target.value }))}
-                          className="bg-black/40 border-white/10 text-white" 
+                          className="bg-black/40 border-white/10 text-white"
                         />
                       </div>
                     )}
@@ -482,12 +483,12 @@ export default function EventDetailPage() {
 
                   <div className="space-y-2">
                     <Label className="text-white">Webhook Secret (Recommended)</Label>
-                    <Input 
+                    <Input
                       type="password"
-                      placeholder="whsec_..." 
-                      value={gatewayKeys.webhook_secret} 
+                      placeholder="whsec_..."
+                      value={gatewayKeys.webhook_secret}
                       onChange={e => setGatewayKeys(p => ({ ...p, webhook_secret: e.target.value }))}
-                      className="bg-black/40 border-white/10 text-white" 
+                      className="bg-black/40 border-white/10 text-white"
                     />
                     <p className="text-[10px] text-muted-foreground italic">Use this to verify payment events securely.</p>
                   </div>
@@ -535,9 +536,18 @@ export default function EventDetailPage() {
   );
 }
 
+const COLOR_FIELDS = [
+  ["background_color", "Background"],
+  ["text_color", "Main text"],
+  ["accent_color", "Accent"],
+  ["border_color", "Border"],
+  ["muted_text_color", "Muted text"],
+  ["qr_background_color", "QR background"],
+] as const;
+
 function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () => void }) {
   const { toast } = useToast();
-  
+
   const initialTemplateId = useMemo(() => {
     const tid = event.ticket_template_id;
     return (tid && TICKET_TEMPLATE_DEFAULT_PALETTES[tid]) ? tid : "dark";
@@ -550,7 +560,7 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
     }
     return TICKET_TEMPLATE_DEFAULT_PALETTES[initialTemplateId] || TICKET_TEMPLATE_DEFAULT_PALETTES.dark;
   });
-  
+
   const [uploading, setUploading] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
   const [isSavingPalette, setIsSavingPalette] = useState(false);
@@ -559,10 +569,17 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
   const [savingEmblem, setSavingEmblem] = useState(false);
   const designConfirmed = isTicketDesignConfirmed(event);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // Live colour editing: the palette on screen is the truth while someone is editing. `pendingRef` is true from the
+  // first change until it has been saved, and the saved palette is not allowed to overwrite the screen meanwhile.
+  const pendingRef = useRef(false);
+  const paletteRef = useRef(palette);
+  const confirmedRef = useRef(false);
+  confirmedRef.current = designConfirmed;
 
   useEffect(() => {
+    if (pendingRef.current) return;
     if (event.ticket_color_palette && Object.keys(event.ticket_color_palette).length > 0) {
+      paletteRef.current = event.ticket_color_palette;
       setPalette(event.ticket_color_palette);
     }
   }, [event.ticket_color_palette]);
@@ -589,16 +606,22 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
   const handleTemplateChange = async (id: string) => {
     setTemplateId(id);
     const defaultPalette = TICKET_TEMPLATE_DEFAULT_PALETTES[id] || TICKET_TEMPLATE_DEFAULT_PALETTES.dark;
+    pendingRef.current = true;
+    paletteRef.current = defaultPalette;
     setPalette(defaultPalette);
-    
-    await fetch(`/api/events/${event._id}/ticket-design`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ 
-        template_id: id,
-        color_palette: defaultPalette
-      }),
-    });
+
+    try {
+      await fetch(`/api/events/${event._id}/ticket-design`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          template_id: id,
+          color_palette: defaultPalette
+        }),
+      });
+    } finally {
+      pendingRef.current = false;
+    }
     onUpdate();
   };
 
@@ -611,7 +634,10 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
         body: JSON.stringify({ color_palette: newPalette }),
       });
       if (!res.ok) throw new Error("Failed to save palette");
-      onUpdate();
+      // Only the saved palette matches the screen from here on. Refetching would just hand back what is already shown,
+      // except the first time, when it brings the "design saved" state.
+      if (paletteRef.current === newPalette) pendingRef.current = false;
+      if (!confirmedRef.current) onUpdate();
     } catch (err) {
       toast({ variant: "destructive", title: "Autosave failed" });
     } finally {
@@ -619,19 +645,46 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
     }
   }, [event._id, onUpdate, toast]);
 
-  const handleColorChange = (key: keyof TicketColorPalette, value: string) => {
-    const newPalette = { ...palette, [key]: value };
-    setPalette(newPalette);
-    
-    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-    saveTimeoutRef.current = setTimeout(() => {
-      savePalette(newPalette);
-    }, 500);
-  };
+  // One save, 400 ms after the last finished colour change (and straight away if the tab is left first).
+  const saveRef = useRef(savePalette);
+  saveRef.current = savePalette;
+  const saveSoon = useMemo(() => createDebouncer(() => { void saveRef.current(paletteRef.current); }, 400), []);
+  useEffect(() => () => saveSoon.flush(), [saveSoon]);
+
+  // Stable handlers per colour, so the memoised colour fields do not re-render for each other's changes.
+  const colorHandlers = useMemo(
+    () =>
+      Object.fromEntries(
+        COLOR_FIELDS.map(([key]) => [
+          key,
+          {
+            change: (hex: string) => {
+              pendingRef.current = true;
+              const next = { ...paletteRef.current, [key]: hex };
+              paletteRef.current = next;
+              setPalette(next);
+            },
+            commit: (hex: string) => {
+              pendingRef.current = true;
+              const next = { ...paletteRef.current, [key]: hex };
+              paletteRef.current = next;
+              setPalette(next);
+              saveSoon.call();
+            },
+          },
+        ])
+      ) as Record<(typeof COLOR_FIELDS)[number][0], { change: (hex: string) => void; commit: (hex: string) => void }>,
+    [saveSoon]
+  );
+  const previewEvent = useMemo(() => ({ ...event, ticket_color_palette: palette }), [event, palette]);
+  const colorSwatches = useMemo(() => Object.values(TICKET_TEMPLATE_DEFAULT_PALETTES[templateId] ?? TICKET_TEMPLATE_DEFAULT_PALETTES.dark), [templateId]);
 
   const handleResetPalette = async () => {
     const defaultPalette = TICKET_TEMPLATE_DEFAULT_PALETTES[templateId] || TICKET_TEMPLATE_DEFAULT_PALETTES.dark;
+    pendingRef.current = true;
+    paletteRef.current = defaultPalette;
     setPalette(defaultPalette);
+    saveSoon.cancel();
     await savePalette(defaultPalette);
     toast({ title: "Palette Reset", description: "Reverted to template defaults." });
   };
@@ -660,7 +713,7 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
       const authRes = await fetch('/api/imagekit/upload-auth');
       if (!authRes.ok) throw new Error("Failed to authenticate upload");
       const authData = await authRes.json();
-      
+
       const fileName = `event-logo-${event._id}-${Date.now()}`;
       const formData = new FormData();
       formData.append("file", file);
@@ -675,12 +728,12 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
         method: "POST",
         body: formData,
       });
-      
+
       if (!uploadRes.ok) {
         const errorData = await uploadRes.json();
         throw new Error(errorData.message || "ImageKit upload failed");
       }
-      
+
       const uploadData = await uploadRes.json();
       const logoUrl = uploadData.url;
       const bgRemovedUrl = buildBgRemovedImageKitUrl(logoUrl);
@@ -755,18 +808,6 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
     }
   };
 
-  const ColorInput = ({ label, value, paletteKey }: { label: string, value: string, paletteKey: keyof TicketColorPalette }) => (
-    <div className="space-y-2">
-      <div className="flex justify-between items-center">
-        <Label className="text-[11px] uppercase tracking-wider text-white/50">{label}</Label>
-      </div>
-      <BasicColorPicker
-        value={value}
-        onValueChange={(details) => handleColorChange(paletteKey, details.value.toString("hex"))}
-      />
-    </div>
-  );
-
   return (
     <div className="grid gap-8 lg:grid-cols-2">
       <div className="space-y-8">
@@ -806,10 +847,10 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
             <div className="flex items-center gap-4">
               <div className="h-20 w-20 rounded-xl border border-white/10 bg-black/40 flex items-center justify-center overflow-hidden">
                 {event.logo_url ? (
-                  <img 
-                    src={event.remove_background ? (event.bg_removed_logo_url || event.logo_url) : event.logo_url} 
-                    className="h-full w-full object-contain" 
-                    alt="Logo" 
+                  <img
+                    src={event.remove_background ? (event.bg_removed_logo_url || event.logo_url) : event.logo_url}
+                    className="h-full w-full object-contain"
+                    alt="Logo"
                   />
                 ) : (
                   <div className="flex flex-col items-center gap-1 opacity-20">
@@ -820,9 +861,9 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
               </div>
               <div className="flex flex-col gap-2">
                 <div className="flex items-center gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="outline"
+                    size="sm"
                     disabled={uploading}
                     onClick={() => fileInputRef.current?.click()}
                     className="rounded-full border-white/10 hover:bg-white/5 font-semibold text-white cursor-pointer"
@@ -836,15 +877,15 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
                     </Button>
                   )}
                 </div>
-                <input 
-                  ref={fileInputRef} 
-                  type="file" 
-                  className="hidden" 
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
                   accept="image/png,image/jpeg,image/webp"
                   onChange={async e => {
                     const file = e.target.files?.[0];
                     if (file) await handleLogoUpload(file);
-                  }} 
+                  }}
                 />
                 <p className="text-[10px] text-muted-foreground">Max 2MB. Optimized for preview.</p>
               </div>
@@ -859,8 +900,8 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
                     <p className="text-[10px] text-muted-foreground">Clean logo for templates</p>
                   </div>
                 </div>
-                <Switch 
-                  checked={!!event.remove_background} 
+                <Switch
+                  checked={!!event.remove_background}
                   onCheckedChange={toggleBackgroundRemoval}
                   disabled={savingSettings}
                   className="cursor-pointer"
@@ -911,9 +952,9 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
                   Saving...
                 </div>
               )}
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={handleResetPalette}
                 className="text-[11px] h-8 text-muted-foreground hover:text-white rounded-full cursor-pointer"
               >
@@ -924,12 +965,16 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
           </div>
 
           <div className="grid grid-cols-2 gap-x-6 gap-y-4 bg-accent/5 p-6 rounded-2xl border border-white/5">
-            <ColorInput label="Background" value={palette.background_color} paletteKey="background_color" />
-            <ColorInput label="Main Text" value={palette.text_color} paletteKey="text_color" />
-            <ColorInput label="Accent" value={palette.accent_color} paletteKey="accent_color" />
-            <ColorInput label="Border" value={palette.border_color} paletteKey="border_color" />
-            <ColorInput label="Muted Text" value={palette.muted_text_color} paletteKey="muted_text_color" />
-            <ColorInput label="QR Background" value={palette.qr_background_color} paletteKey="qr_background_color" />
+            {COLOR_FIELDS.map(([key, label]) => (
+              <TicketColorField
+                key={key}
+                label={label}
+                value={palette[key]}
+                swatches={colorSwatches}
+                onChange={colorHandlers[key].change}
+                onCommit={colorHandlers[key].commit}
+              />
+            ))}
           </div>
         </section>
 
@@ -976,10 +1021,10 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
               {TICKET_TEMPLATES.find((t) => t.id === templateId)?.name}
             </span>
           </div>
-          <div className="rounded-3xl border border-white/10 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.06),transparent_70%)] bg-black/30 p-4 lg:p-5">
+          <div className="rounded-3xl border border-white/10 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.06),transparent_70%)] bg-black/30 p-4 lg:p-5 [&_*]:transition-[background-color,border-color,color] [&_*]:duration-150">
             <div className="mx-auto flex justify-center">
               <TicketPreview
-                event={{...event, ticket_color_palette: palette}}
+                event={previewEvent}
                 templateId={templateId}
               />
             </div>

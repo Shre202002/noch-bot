@@ -1,9 +1,12 @@
 "use client";
 
 import React from "react";
-import { QRCodeSVG } from "qrcode.react";
+import { QRCodeSVG as RawQRCodeSVG } from "qrcode.react";
 import type { TicketColorPalette } from "@/models/Event";
 import type { FaceTemplateId } from "@/lib/ticketTemplates";
+
+// The QR code only depends on its value and colour, so it skips redraws while other colours are dragged.
+const QRCodeSVG = React.memo(RawQRCodeSVG);
 
 export type TicketFaceProps = {
   templateId: FaceTemplateId;
@@ -24,7 +27,7 @@ export type TicketFaceProps = {
  * The newer ticket designs, drawn from one set of props so the dashboard preview and the attendee's ticket page can
  * never look different. Colours come only from the palette, so every colour the organizer picks is honoured.
  */
-export function TicketFace(props: TicketFaceProps) {
+function TicketFaceImpl(props: TicketFaceProps) {
   switch (props.templateId) {
     case "neon":
       return <Neon {...props} />;
@@ -225,3 +228,5 @@ function Receipt({ palette: p, eventName, dateText, venue, attendeeName, code, t
     </div>
   );
 }
+
+export const TicketFace = React.memo(TicketFaceImpl);
