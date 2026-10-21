@@ -68,6 +68,8 @@
       return res.json().catch(function () { return {}; }).then(function (data) {
         if (!res.ok) {
           if (res.status === 429) throw new Error(VISITOR_ERRORS.limit);
+          // 503 carries a client-safe reason (e.g. ticketing not configured); other 5xx stay generic.
+          if (res.status === 503 && data.error) throw new Error(data.error);
           if (res.status >= 500) throw new Error(VISITOR_ERRORS.server);
           throw new Error(data.message || data.error || VISITOR_ERRORS.server);
         }
