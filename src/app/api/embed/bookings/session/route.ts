@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { BookingSession } from "@/models/BookingSession";
 import { ObjectId } from "mongodb";
+import { getUserIdFromCookie } from "@/lib/auth";
+import { isOwnerTestRequest, testGate } from "@/lib/testBooking";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,6 +18,7 @@ export async function OPTIONS() {
 function serializeBookingSession(session: any) {
   return {
     session_id: session._id.toString(),
+    is_test: !!session.is_test,
     event_id: session.event_id?.toString(),
     status: session.status,
     current_step: session.current_step,
@@ -37,27 +40,37 @@ export async function POST(req: NextRequest) {
 
     const db = await getDb();
 
+    // Test mode is honoured only for the signed-in organizer; the session records it, and later steps read it from there.
+    const isTest = isOwnerTestRequest(await getUserIdFromCookie().catch(() => null), userId, body.test);
+
     // 1. If eventId is provided, validate it exists and is published by this user
     let validEventId: ObjectId | undefined;
     if (eventId) {
       if (!ObjectId.isValid(eventId)) {
         return NextResponse.json({ error: "Invalid event ID format" }, { status: 400, headers: corsHeaders });
       }
-      
-      const event = await db.collection("events").findOne({
-        _id: new ObjectId(eventId),
-        org_id: userId,
-        status: "published"
-      });
-      
+
+      let event: Record<string, any> | null;
+      if (isTest) {
+        const gate = await testGate(db, userId, new ObjectId(eventId));
+        if (!gate.ok) return NextResponse.json({ error: gate.error, missing: gate.missing }, { status: gate.status, headers: corsHeaders });
+        event = gate.event;
+      } else {
+        event = await db.collection("events").findOne({
+          _id: new ObjectId(eventId),
+          org_id: userId,
+          status: "published"
+        });
+      }
+
       if (!event) {
         return NextResponse.json({ error: "Selected event is not available" }, { status: 400, headers: corsHeaders });
       }
-      
+
       if (new Date(event.end_at) < new Date()) {
         return NextResponse.json({ error: "Event has already ended" }, { status: 400, headers: corsHeaders });
       }
-      
+
       validEventId = event._id;
     }
 
@@ -65,6 +78,8 @@ export async function POST(req: NextRequest) {
     let session = await db.collection("booking_sessions").findOne({
       org_id: userId,
       visitor_id: visitorId,
+      // A test session and a real one are never the same session.
+      is_test: isTest ? true : { $ne: true },
       status: { $in: ["started", "collecting_details", "summary"] },
       expires_at: { $gt: new Date() }
     });
@@ -74,8 +89,8 @@ export async function POST(req: NextRequest) {
         // FIXED: Reset session state when updating to a new eventId to ensure clean data
         await db.collection("booking_sessions").updateOne(
           { _id: session._id },
-          { 
-            $set: { 
+          {
+            $set: {
               event_id: validEventId,
               status: "started",
               quantity: 1,
@@ -102,6 +117,7 @@ export async function POST(req: NextRequest) {
         answers: [],
         current_field_index: 0,
         quantity: 1,
+        ...(isTest ? { is_test: true } : {}),
         created_at: now,
         updated_at: now,
         expires_at: expiresAt

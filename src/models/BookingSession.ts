@@ -24,6 +24,8 @@ export interface BookingSession {
   quantity: number;
   booking_id?: ObjectId;
   checkout_url?: string;
+  /** Started by the organizer from the dashboard to try the booking: nothing real is taken, sent or charged. */
+  is_test?: boolean;
   created_at: Date;
   updated_at: Date;
   expires_at: Date;

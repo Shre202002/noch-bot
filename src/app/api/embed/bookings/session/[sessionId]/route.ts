@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/db";
+import { testGate } from "@/lib/testBooking";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,6 +16,7 @@ export async function OPTIONS() {
 function serializeBookingSession(session: any) {
   return {
     session_id: session._id.toString(),
+    is_test: !!session.is_test,
     event_id: session.event_id?.toString(),
     status: session.status,
     current_step: session.current_step,
@@ -44,7 +46,7 @@ export async function PATCH(
 
     const db = await getDb();
 
-    const session = await db.collection("booking_sessions").findOne({ 
+    const session = await db.collection("booking_sessions").findOne({
       _id: new ObjectId(sessionId),
       org_id: userId,
       visitor_id: visitorId,
@@ -59,12 +61,19 @@ export async function PATCH(
 
     if (action === "select_event") {
       if (!ObjectId.isValid(eventId)) return NextResponse.json({ error: "Invalid event ID" }, { status: 400, headers: corsHeaders });
-      
-      const event = await db.collection("events").findOne({ 
-        _id: new ObjectId(eventId),
-        org_id: userId,
-        status: "published"
-      });
+
+      // A test session may pick a complete draft; a real one only a published event.
+      let event: Record<string, any> | null;
+      if (session.is_test) {
+        const gate = await testGate(db, userId, new ObjectId(eventId));
+        event = gate.ok ? gate.event : null;
+      } else {
+        event = await db.collection("events").findOne({
+          _id: new ObjectId(eventId),
+          org_id: userId,
+          status: "published"
+        });
+      }
 
       if (!event) return NextResponse.json({ error: "Event not available" }, { status: 404, headers: corsHeaders });
       if (new Date(event.end_at) < new Date()) return NextResponse.json({ error: "Event has already ended" }, { status: 410, headers: corsHeaders });
@@ -82,7 +91,7 @@ export async function PATCH(
     if (action === "set_quantity") {
       const q = parseInt(quantity);
       if (isNaN(q) || q < 1) return NextResponse.json({ error: "Invalid quantity" }, { status: 400, headers: corsHeaders });
-      
+
       const fields = await db.collection("event_form_fields")
         .find({ event_id: session.event_id })
         .sort({ order_index: 1 })
@@ -104,12 +113,12 @@ export async function PATCH(
         .find({ event_id: session.event_id })
         .sort({ order_index: 1 })
         .toArray();
-      
+
       const currentField = fields[session.current_field_index];
       if (!currentField || currentField._id.toString() !== fieldId) {
         return NextResponse.json({ error: "Invalid field sequence" }, { status: 400, headers: corsHeaders });
       }
-      
+
       if (currentField.is_required && (!value || String(value).trim() === "")) {
         return NextResponse.json({ error: `${currentField.label} is required` }, { status: 400, headers: corsHeaders });
       }
@@ -148,7 +157,7 @@ export async function PATCH(
       else newAnswers.push(answerObj);
 
       updates.answers = newAnswers;
-      
+
       if (session.current_field_index < fields.length - 1) {
         updates.current_field_index = session.current_field_index + 1;
       } else {

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { availableSeats } from "@/lib/eventsForChat";
 import { getDb } from "@/lib/db";
+import { getUserIdFromCookie } from "@/lib/auth";
+import { isOwnerTestRequest, readyEventsForTest } from "@/lib/testBooking";
 
 export const dynamic = 'force-dynamic';
 
@@ -24,9 +26,11 @@ export async function GET(req: NextRequest) {
 
   try {
     const db = await getDb();
-    const events = await db.collection("events")
-      .find({ 
-        org_id: userId, 
+    // Test mode is for the signed-in organizer only: it lists their complete events, drafts included.
+    const test = isOwnerTestRequest(await getUserIdFromCookie().catch(() => null), userId, searchParams.get('test'));
+    const events = test ? await readyEventsForTest(db, userId) : await db.collection("events")
+      .find({
+        org_id: userId,
         status: "published",
         end_at: { $gt: new Date() }
       })
@@ -64,7 +68,7 @@ export async function GET(req: NextRequest) {
       ticket_template_id: e.ticket_template_id,
     }));
 
-    return NextResponse.json({ events: formattedEvents }, { headers: corsHeaders });
+    return NextResponse.json({ events: formattedEvents, test }, { headers: corsHeaders });
   } catch (error) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500, headers: corsHeaders });
   }

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/db";
+import { getUserIdFromCookie } from "@/lib/auth";
+import { isOwnerTestRequest, testGate } from "@/lib/testBooking";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -26,11 +28,20 @@ export async function GET(
 
   try {
     const db = await getDb();
-    const event = await db.collection("events").findOne({ 
-      _id: new ObjectId(id),
-      org_id: userId,
-      status: "published"
-    });
+    const test = isOwnerTestRequest(await getUserIdFromCookie().catch(() => null), userId, searchParams.get('test'));
+    let event: Record<string, any> | null;
+    if (test) {
+      // The organizer's own event, draft or live, once everything needed to publish is in place.
+      const gate = await testGate(db, userId as string, new ObjectId(id));
+      if (!gate.ok) return NextResponse.json({ error: gate.error, missing: gate.missing }, { status: gate.status, headers: corsHeaders });
+      event = gate.event;
+    } else {
+      event = await db.collection("events").findOne({
+        _id: new ObjectId(id),
+        org_id: userId,
+        status: "published"
+      });
+    }
 
     if (!event) {
       return NextResponse.json({ error: "Event not found" }, { status: 404, headers: corsHeaders });

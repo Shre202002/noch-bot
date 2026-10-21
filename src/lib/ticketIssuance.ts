@@ -22,6 +22,8 @@ export interface IssuableBooking {
   _id?: ObjectId;
   event_id: ObjectId;
   quantity: number;
+  /** Tickets of a test booking carry the flag, so they can be shown as test tickets and never admit anyone. */
+  is_test?: boolean;
 }
 
 /**
@@ -92,7 +94,8 @@ export async function issueTicketsForBooking(booking: IssuableBooking): Promise<
         scanned_by_staff_id: null,
         scan_device_info: null,
         client_scan_id: null,
-        issued_at: now
+        issued_at: now,
+        ...(booking.is_test ? { is_test: true } : {}),
       };
 
       try {

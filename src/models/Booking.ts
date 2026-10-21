@@ -87,6 +87,8 @@ export interface Booking {
   payment_status?: BookingPaymentStatus;
   booking_code?: string; // human-friendly reference (e.g. NBK-2026-A1B2C3)
   source?: 'chat_widget';
+  /** A test booking made by the organizer before going live: no seats, emails or money are involved. */
+  is_test?: boolean;
 
   // --- Event snapshot (embed flow) ---
   event_snapshot?: {

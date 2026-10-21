@@ -10,6 +10,7 @@ import { decryptCredentials } from "@/lib/credentialCrypto";
 import { placeHold, releaseExpiredHolds, releaseHold, reserveCapacity } from "@/lib/eventCapacity";
 import { issueTicketsForBooking } from "@/lib/ticketIssuance";
 import { notifyBookingConfirmed } from "@/lib/bookingNotifications";
+import { testGate } from "@/lib/testBooking";
 import { ticketPageUrl, ticketPdfUrl } from "@/lib/ticketLinks";
 import crypto from "crypto";
 
@@ -63,11 +64,20 @@ export async function POST(
       return NextResponse.json({ error: "Invalid or expired booking session" }, { status: 404, headers: corsHeaders });
     }
 
-    const event = await db.collection("events").findOne({ 
-      _id: session.event_id,
-      org_id: userId,
-      status: "published"
-    });
+    // A test session (started by the signed-in organizer) may book a complete draft; a real one only a published event.
+    const isTest = !!session.is_test;
+    let event: Record<string, any> | null;
+    if (isTest) {
+      const gate = await testGate(db, userId, session.event_id);
+      if (!gate.ok) return NextResponse.json({ error: gate.error, missing: gate.missing }, { status: gate.status === 404 ? 410 : gate.status, headers: corsHeaders });
+      event = gate.event;
+    } else {
+      event = await db.collection("events").findOne({
+        _id: session.event_id,
+        org_id: userId,
+        status: "published"
+      });
+    }
 
     if (!event) {
       return NextResponse.json({ error: "Event is no longer available" }, { status: 410, headers: corsHeaders });
@@ -85,24 +95,37 @@ export async function POST(
 
     // Capacity: give back seats from abandoned checkouts, then take seats atomically on the event counters
     // (sold for free events, held for paid ones), so two visitors can never both get the last seats.
-    await releaseExpiredHolds(event._id);
     const holdExpiresAt = new Date(Date.now() + PAYMENT_HOLD_MINUTES * 60000);
-    const taken = event.is_paid
-      ? await placeHold(event._id, session.quantity, PAYMENT_HOLD_MINUTES)
-      : await reserveCapacity(event._id, session.quantity);
+    /** Give the seats back if this booking cannot go ahead (nothing to give back for a test). */
+    let returnSeats: () => Promise<unknown> = async () => {};
 
-    if (!taken) {
-      const latest = await db.collection("events").findOne({ _id: event._id });
-      const available = latest ? latest.capacity - (latest.tickets_sold ?? 0) - (latest.tickets_held ?? 0) : 0;
-      return NextResponse.json({
-        error: "Not enough seats available",
-        available_seats: Math.max(0, available)
-      }, { status: 409, headers: corsHeaders });
+    if (isTest) {
+      // A test never takes real seats: it only checks that they would be available.
+      const available = event.capacity - (event.tickets_sold ?? 0) - (event.tickets_held ?? 0);
+      if (session.quantity > available) {
+        return NextResponse.json({
+          error: "Not enough seats available",
+          available_seats: Math.max(0, available)
+        }, { status: 409, headers: corsHeaders });
+      }
+    } else {
+      await releaseExpiredHolds(event._id);
+      const taken = event.is_paid
+        ? await placeHold(event._id, session.quantity, PAYMENT_HOLD_MINUTES)
+        : await reserveCapacity(event._id, session.quantity);
+
+      if (!taken) {
+        const latest = await db.collection("events").findOne({ _id: event._id });
+        const available = latest ? latest.capacity - (latest.tickets_sold ?? 0) - (latest.tickets_held ?? 0) : 0;
+        return NextResponse.json({
+          error: "Not enough seats available",
+          available_seats: Math.max(0, available)
+        }, { status: 409, headers: corsHeaders });
+      }
+      returnSeats = () => event.is_paid
+        ? releaseHold(event._id, session.quantity)
+        : db.collection("events").updateOne({ _id: event._id, tickets_sold: { $gte: session.quantity } }, { $inc: { tickets_sold: -session.quantity } });
     }
-    /** Give the seats back if this booking cannot go ahead. */
-    const returnSeats = () => event.is_paid
-      ? releaseHold(event._id, session.quantity)
-      : db.collection("events").updateOne({ _id: event._id, tickets_sold: { $gte: session.quantity } }, { $inc: { tickets_sold: -session.quantity } });
 
     const bookingCode = `NBK-${new Date().getFullYear()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
     const amountTotal = event.is_paid ? (event.price || 0) * session.quantity : 0;
@@ -133,11 +156,12 @@ export async function POST(
       // Real, scannable codes are issued into `tickets` once the booking is confirmed.
       ticket_codes: [],
       source: "chat_widget",
+      ...(isTest ? { is_test: true } : {}),
       created_at: new Date(),
       updated_at: new Date(),
       confirmed_at: event.is_paid ? undefined : new Date(),
-      expires_at: event.is_paid ? holdExpiresAt : undefined,
-      hold_placed: event.is_paid ? true : undefined
+      expires_at: event.is_paid && !isTest ? holdExpiresAt : undefined,
+      hold_placed: event.is_paid && !isTest ? true : undefined
     };
 
     let bookingId: ObjectId;
@@ -160,7 +184,7 @@ export async function POST(
 
     if (!event.is_paid) {
       // Issue the tickets the door scanner checks, and store their codes on the booking.
-      const tickets = await issueTicketsForBooking({ _id: bookingId, event_id: event._id, quantity: session.quantity });
+      const tickets = await issueTicketsForBooking({ _id: bookingId, event_id: event._id, quantity: session.quantity, is_test: isTest });
       await db.collection("bookings").updateOne(
         { _id: bookingId },
         { $set: { ticket_codes: tickets.map((t) => t.ticket_code) } }
@@ -169,9 +193,10 @@ export async function POST(
         { _id: session._id },
         { $set: { status: "confirmed", current_step: "complete", booking_id: bookingId, updated_at: new Date() } }
       );
-      await notifyBookingConfirmed(bookingId);
+      if (!isTest) await notifyBookingConfirmed(bookingId);
       return NextResponse.json({
         status: "confirmed",
+        is_test: isTest,
         booking_id: bookingId.toString(),
         booking_code: bookingCode,
         download_url: `/api/embed/bookings/${bookingId}/ticket?userId=${userId}&visitorId=${visitorId}`,
@@ -181,10 +206,31 @@ export async function POST(
       }, { headers: corsHeaders });
     }
 
+    if (isTest) {
+      // Simulated payment: a clearly marked page stands in for the gateway, so no money moves and no provider is called.
+      const base = process.env.NEXTAUTH_URL || new URL(req.url).origin;
+      const testPayUrl = `${base}/booking/test-pay/${bookingId}?userId=${encodeURIComponent(userId)}&visitorId=${encodeURIComponent(visitorId)}`;
+      await db.collection("bookings").updateOne(
+        { _id: bookingId },
+        { $set: { payment: { provider: "test", checkout_url: testPayUrl } } }
+      );
+      await db.collection("booking_sessions").updateOne(
+        { _id: session._id },
+        { $set: { status: "checkout_pending", current_step: "payment", booking_id: bookingId, checkout_url: testPayUrl, updated_at: new Date() } }
+      );
+      return NextResponse.json({
+        status: "checkout_pending",
+        is_test: true,
+        booking_id: bookingId.toString(),
+        booking_code: bookingCode,
+        checkoutUrl: testPayUrl
+      }, { headers: corsHeaders });
+    }
+
     // Paid Event - Initiate Checkout
-    const gateway = await db.collection("payment_gateway_configs").findOne({ 
-      org_id: userId, 
-      is_active: true 
+    const gateway = await db.collection("payment_gateway_configs").findOne({
+      org_id: userId,
+      is_active: true
     });
 
     if (!gateway || !adapters[gateway.provider]) {
@@ -212,11 +258,11 @@ export async function POST(
 
       // SECURITY: Generate a one-time access token for the payment bridge
       const paymentAccessToken = crypto.randomBytes(32).toString('hex');
-      
+
       const paymentObj = {
         provider: gateway.provider,
         checkout_url: checkout.checkoutUrl,
-        provider_order_id: checkout.providerOrderId, 
+        provider_order_id: checkout.providerOrderId,
         provider_reference: checkout.providerReference,
         access_token: paymentAccessToken
       };
@@ -236,14 +282,14 @@ export async function POST(
 
       await db.collection("booking_sessions").updateOne(
         { _id: session._id },
-        { 
-          $set: { 
-            status: "checkout_pending", 
-            current_step: "payment", 
-            booking_id: bookingId, 
+        {
+          $set: {
+            status: "checkout_pending",
+            current_step: "payment",
+            booking_id: bookingId,
             checkout_url: finalCheckoutUrl,
-            updated_at: new Date() 
-          } 
+            updated_at: new Date()
+          }
         }
       );
 

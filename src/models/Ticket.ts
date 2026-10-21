@@ -15,4 +15,6 @@ export interface Ticket {
   scan_device_info: Record<string, any> | null;
   client_scan_id: string | null; // Unique ID from client to track which specific attempt won
   issued_at: Date;
+  /** Issued for a test booking: shown as a test ticket and refused at the door. */
+  is_test?: boolean;
 }
