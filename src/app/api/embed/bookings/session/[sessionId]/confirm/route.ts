@@ -202,7 +202,7 @@ export async function POST(
         download_url: `/api/embed/bookings/${bookingId}/ticket?userId=${userId}&visitorId=${visitorId}`,
         ticket_page_url: ticketPageUrl(bookingId.toString(), userId, visitorId),
         ticket_pdf_url: ticketPdfUrl(bookingId.toString(), userId, visitorId),
-        emailed_to: session.answers.find((a: any) => a.validation_rule === 'email_format')?.value ?? null
+        emailed_to: isTest ? null : (session.answers.find((a: any) => a.validation_rule === 'email_format')?.value ?? null)
       }, { headers: corsHeaders });
     }
 

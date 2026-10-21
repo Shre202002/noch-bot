@@ -19,6 +19,8 @@ import { BasicColorPicker } from '@/components/ui/color-picker';
 import { toast } from '@/hooks/use-toast';
 import { ChatText } from '@/components/ChatText';
 
+import { BookingPreview } from './booking-test'
+
 type Tab = 'Crawl' | 'Vectorize' | 'Theme' | 'Preview' | 'Embed Code'
 const STEP_ORDER: Tab[] = ['Crawl', 'Vectorize', 'Theme', 'Preview', 'Embed Code']
 type Message = { role: 'user' | 'assistant'; content: string }
@@ -83,6 +85,7 @@ export default function ConfigurePage() {
       body: JSON.stringify({ step }),
     }).catch(() => { /* the tick still shows for this visit */ })
   }
+  const [previewMode, setPreviewMode] = useState<'chat' | 'booking'>('chat')
   const [previewMessages, setPreviewMessages] = useState<Message[]>([])
   const [previewInput, setPreviewInput] = useState('')
   const [previewLoading, setPreviewLoading] = useState(false)
@@ -642,8 +645,17 @@ export default function ConfigurePage() {
               <h2 style={{ fontSize: 20, color: '#fff', fontWeight: 400, marginBottom: 6 }}>Step 4 — Preview Your Chatbot</h2>
               <p style={{ fontSize: 14, color: 'var(--nb-text-secondary)' }}>Interact with your agent live using the custom colors you selected.</p>
             </div>
-            {!crawlDone && <div style={{ background: '#1f2228', border: '1px solid #eab308', borderRadius: 8, padding: 16, color: '#eab308', fontSize: 14 }}>⚠ Complete Step 1 (Crawl) first.</div>}
-            <div style={{ maxWidth: 560, background: '#0a0a0a', border: '1px solid #2a2d35', borderRadius: 12, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div role="tablist" aria-label="What to preview" style={{ display: 'inline-flex', alignSelf: 'flex-start', gap: 4, padding: 4, borderRadius: 9999, border: '1px solid #2a2d35', background: '#13151a' }}>
+              {([['chat', 'Chat'], ['booking', 'Event booking']] as const).map(([value, label]) => (
+                <button key={value} role="tab" aria-selected={previewMode === value} onClick={() => setPreviewMode(value)}
+                  style={{ cursor: 'pointer', border: 'none', borderRadius: 9999, padding: '8px 18px', fontSize: 13, fontWeight: 500, background: previewMode === value ? 'rgba(54,244,164,0.15)' : 'transparent', color: previewMode === value ? '#fff' : 'var(--nb-text-secondary)', boxShadow: previewMode === value ? 'inset 0 0 0 1px rgba(54,244,164,0.6)' : 'none' }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            {previewMode === 'booking' && <BookingPreview />}
+            {previewMode === 'chat' && !crawlDone && <div style={{ background: '#1f2228', border: '1px solid #eab308', borderRadius: 8, padding: 16, color: '#eab308', fontSize: 14 }}>⚠ Complete Step 1 (Crawl) first.</div>}
+            <div style={{ maxWidth: 560, background: '#0a0a0a', border: '1px solid #2a2d35', borderRadius: 12, overflow: 'hidden', display: previewMode === 'chat' ? 'flex' : 'none', flexDirection: 'column' }}>
               <div style={{ background: themeConfig.headerColor, padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{ width: 32, height: 32, borderRadius: 10, background: 'rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>🤖</div>
                 <div>

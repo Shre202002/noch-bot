@@ -19,6 +19,7 @@ type EventRow = {
   counts: { confirmed: number; awaiting_payment: number; needs_attention: number; closed: number; in_progress: number };
   confirmed_tickets: number;
   checked_in: number;
+  tests: number;
 };
 
 export default function EventBookingsPage() {

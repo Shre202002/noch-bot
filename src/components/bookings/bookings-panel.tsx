@@ -1,14 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, Search, UserCheck, Undo2, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, Search, UserCheck, Undo2, AlertCircle, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 
-type Group = "all" | "confirmed" | "awaiting_payment" | "needs_attention" | "closed" | "in_progress";
+type Group = "all" | "confirmed" | "awaiting_payment" | "needs_attention" | "closed" | "in_progress" | "test";
 
 type Ticket = { ticket_code: string; status: string; scanned_at: string | null };
 
@@ -23,6 +23,7 @@ type Row = {
   status_label: string;
   group: Group | null;
   payment_status?: string;
+  is_test: boolean;
   created_at: string;
   confirmed_at: string | null;
   source: "widget" | "chatbot" | null;
@@ -41,7 +42,9 @@ type Response = {
   total: number;
   page: number;
   pageSize: number;
-  counts: Record<Exclude<Group, "all">, number>;
+  counts: Record<Exclude<Group, "all" | "test">, number>;
+  /** Test bookings made by the organizer; never part of `counts`. */
+  test_count: number;
   truncated: boolean;
 };
 
@@ -52,6 +55,7 @@ const FILTERS: Array<{ value: Group; label: string }> = [
   { value: "needs_attention", label: "Needs attention" },
   { value: "closed", label: "Closed" },
   { value: "in_progress", label: "In progress" },
+  { value: "test", label: "Test" },
 ];
 
 const ACTION_LABELS = { mark_refunded: "Mark as refunded", cancel: "Cancel booking" } as const;
@@ -76,6 +80,7 @@ export function BookingsPanel({ eventId }: { eventId: string }) {
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
   const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [clearing, setClearing] = useState(false);
   const [openIds, setOpenIds] = useState<string[]>([]);
   const toggleOpen = (id: string) => setOpenIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   const requestId = useRef(0);
@@ -106,6 +111,22 @@ export function BookingsPanel({ eventId }: { eventId: string }) {
   }, [eventId, group, page, query]);
 
   useEffect(() => { load(); }, [load]);
+
+  const clearTests = async () => {
+    if (!window.confirm("Remove all test bookings and test tickets for this event? Real bookings are not touched.")) return;
+    setClearing(true);
+    try {
+      const res = await fetch(`/api/events/${eventId}/bookings`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Could not clear the test bookings.");
+      toast({ title: "Test bookings cleared" });
+      if (group === "test") setGroup("all");
+      await load();
+    } catch (e) {
+      toast({ title: e instanceof Error ? e.message : "Could not clear the test bookings.", variant: "destructive" });
+    } finally {
+      setClearing(false);
+    }
+  };
 
   const act = async (bookingId: string, body: Record<string, string>, key: string, success: string) => {
     setBusyKey(key);
@@ -146,7 +167,8 @@ export function BookingsPanel({ eventId }: { eventId: string }) {
 
       <div role="group" aria-label="Filter bookings" className="flex flex-wrap gap-2">
         {FILTERS.map((f) => {
-          const count = f.value === "all" ? undefined : data?.counts[f.value];
+          if (f.value === "test" && !(data?.test_count && data.test_count > 0) && group !== "test") return null;
+          const count = f.value === "all" ? undefined : f.value === "test" ? data?.test_count : data?.counts[f.value];
           const active = group === f.value;
           return (
             <button
@@ -164,6 +186,19 @@ export function BookingsPanel({ eventId }: { eventId: string }) {
           );
         })}
       </div>
+
+      {data && data.test_count > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-3">
+          <p className="text-sm text-red-100">
+            <span className="font-bold">{data.test_count} test {data.test_count === 1 ? "booking" : "bookings"}</span> made from your dashboard.
+            They are tagged TESTED TICKET and are not counted in your numbers.
+          </p>
+          <Button variant="outline" size="sm" onClick={clearTests} disabled={clearing} className="rounded-full border-red-400/40 text-red-200 cursor-pointer">
+            {clearing ? <Loader2 aria-hidden="true" className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Trash2 aria-hidden="true" className="mr-1.5 h-3.5 w-3.5" />}
+            Clear test bookings
+          </Button>
+        </div>
+      )}
 
       {error && (
         <p role="alert" className="flex items-center gap-2 text-sm text-red-400">
@@ -196,7 +231,14 @@ export function BookingsPanel({ eventId }: { eventId: string }) {
                           {new Date(r.created_at).toLocaleString()}
                         </p>
                       </div>
-                      <Badge variant="outline" className={badgeTone(r.group)}>{r.status_label}</Badge>
+                      <div className="flex flex-wrap items-center justify-end gap-2">
+                        {r.is_test && (
+                          <Badge className="border-red-500/60 bg-red-500/15 font-black uppercase tracking-wide text-red-200" variant="outline">
+                            Tested ticket
+                          </Badge>
+                        )}
+                        <Badge variant="outline" className={badgeTone(r.group)}>{r.status_label}</Badge>
+                      </div>
                     </div>
 
                     <button
@@ -272,7 +314,7 @@ export function BookingsPanel({ eventId }: { eventId: string }) {
                                     onClick={() => act(r.id, { action: "undo_check_in", ticket_code: t.ticket_code }, key, "Check-in undone.")}>
                                     <Undo2 aria-hidden="true" className="mr-1 h-3.5 w-3.5" /> Undo
                                   </Button>
-                                ) : t.status === "active" && r.status === "confirmed" ? (
+                                ) : t.status === "active" && r.status === "confirmed" && !r.is_test ? (
                                   <Button size="sm" disabled={busyKey === key}
                                     aria-label={`Check in ticket ${t.ticket_code}`}
                                     onClick={() => act(r.id, { action: "check_in", ticket_code: t.ticket_code }, key, "Checked in.")}>
@@ -285,6 +327,10 @@ export function BookingsPanel({ eventId }: { eventId: string }) {
                           );
                         })}
                       </ul>
+                    )}
+
+                    {r.is_test && (
+                      <p className="text-xs text-red-200/80">Test ticket: it cannot be checked in or scanned.</p>
                     )}
 
                     {r.actions.length > 0 && (

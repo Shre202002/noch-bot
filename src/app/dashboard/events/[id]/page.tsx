@@ -27,6 +27,7 @@ import { TemplatePicker } from "./template-picker";
 import { EmblemPicker } from "./emblem-picker";
 import { TICKET_TEMPLATES } from "@/lib/ticketTemplates";
 import { GoLivePanel, StepFooter, StepTabsBar, nextStepTab, type StepDef } from "./step-nav";
+import { TestBookingPanel } from "./test-booking-panel";
 import { eventReadiness, isTicketDesignConfirmed } from "@/lib/eventReadiness";
 import { TicketColorPalette } from "@/models/Event";
 import { TicketColorField } from "@/components/ui/color-picker";
@@ -90,6 +91,7 @@ export default function EventDetailPage() {
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [isGatewayConfigured, setIsGatewayConfigured] = useState(false);
+  const [testCount, setTestCount] = useState(0);
   const [configuredProvider, setConfiguredProvider] = useState<string | null>(null);
   const [isEditingGateway, setIsEditingGateway] = useState(false);
   const [deletingEvent, setDeletingEvent] = useState(false);
@@ -120,6 +122,10 @@ export default function EventDetailPage() {
       const statusData = await statusRes.json();
       setIsGatewayConfigured(statusData.is_configured);
       setConfiguredProvider(statusData.provider);
+
+      // How many test bookings exist (shown on the Test booking step).
+      const testRes = await fetch(`/api/events/${params.id}/test-status`);
+      if (testRes.ok) setTestCount((await testRes.json()).test_count ?? 0);
     } catch (err) {
       toast({ variant: "destructive", title: "Failed to load event" });
     } finally {
@@ -144,9 +150,11 @@ export default function EventDetailPage() {
     const shortLabel: Record<string, string> = { details: "Details", fields: "Attendee form", design: "Ticket design", payments: "Payments" };
     return [
       ...readiness.steps.map((r) => ({ tab: r.tab, label: shortLabel[r.id] ?? r.label, done: r.done })),
+      // Recommended before going live; counts as done once a test booking exists, and never blocks publishing.
+      { tab: "test", label: "Test booking", done: testCount > 0, optional: true },
       { tab: "live", label: "Go live", done: published },
     ];
-  }, [event, readiness, published]);
+  }, [event, readiness, published, testCount]);
 
   const detailsDirty =
     !!event && (name !== event.name || description !== event.description || capacity !== event.capacity);
@@ -258,8 +266,8 @@ export default function EventDetailPage() {
             </div>
           </div>
           <EventProgress
-            done={steps.filter((x) => x.done && x.tab !== "live").length}
-            total={steps.length - 1}
+            done={steps.filter((x) => x.done && x.tab !== "live" && !x.optional).length}
+            total={steps.filter((x) => x.tab !== "live" && !x.optional).length}
             nextLabel={steps.find((x) => x.tab === nextStepTab(steps))?.label ?? null}
             published={published}
           />
@@ -509,6 +517,17 @@ export default function EventDetailPage() {
           )}
         </TabsContent>
 
+        <TabsContent value="test">
+          <TestBookingPanel
+            eventId={String(event._id)}
+            missing={readiness?.missing ?? []}
+            testCount={testCount}
+            paid={!!event.is_paid}
+            onFix={goTo}
+            onChanged={fetchEvent}
+          />
+        </TabsContent>
+
         <TabsContent value="live">
           <GoLivePanel
             eventId={String(event._id)}
@@ -526,6 +545,8 @@ export default function EventDetailPage() {
             publishing={publishing}
             onFix={goTo}
             onPublish={handlePublish}
+            testCount={testCount}
+            onTest={() => goTo("test")}
           />
         </TabsContent>
 

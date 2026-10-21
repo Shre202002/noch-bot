@@ -2,7 +2,7 @@
 
 import { Fragment } from "react";
 import Link from "next/link";
-import { AlertCircle, ArrowLeft, ArrowRight, Check, ChevronRight, Loader2, PartyPopper, Rocket, Ticket } from "lucide-react";
+import { AlertCircle, ArrowLeft, ArrowRight, Check, ChevronRight, FlaskConical, Loader2, PartyPopper, Rocket, Ticket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -14,6 +14,8 @@ export type StepDef = {
   tab: string;
   label: string;
   done: boolean;
+  /** Recommended but never required: it does not count toward setup progress and never blocks going live. */
+  optional?: boolean;
 };
 
 const GREEN_BUTTON = "bg-[#36f4a4] text-black hover:bg-[#36f4a4]/90 shadow-[0_0_0_3px_rgba(54,244,164,0.18)]";
@@ -63,6 +65,9 @@ export function StepTabsBar({ steps, activeTab }: { steps: StepDef[]; activeTab:
               {active && <span className="sr-only"> (current step)</span>}
               {isNext && (
                 <span className="rounded-full border border-[#36f4a4]/70 bg-[#36f4a4]/25 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white">Next</span>
+              )}
+              {step.optional && !step.done && !isNext && (
+                <span className="rounded-full border border-white/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/70">Optional</span>
               )}
             </TabsTrigger>
             {index < steps.length - 1 && <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-white/30" />}
@@ -125,6 +130,8 @@ export function GoLivePanel({
   publishing,
   onFix,
   onPublish,
+  testCount,
+  onTest,
 }: {
   eventId: string;
   summary: Array<{ label: string; value: string }>;
@@ -134,6 +141,9 @@ export function GoLivePanel({
   publishing: boolean;
   onFix: (tab: string) => void;
   onPublish: () => void;
+  /** Test bookings made so far; the test itself is recommended, never required. */
+  testCount: number;
+  onTest: () => void;
 }) {
   const missing = checklist.filter((s) => !s.done);
 
@@ -198,6 +208,25 @@ export function GoLivePanel({
               </li>
             ))}
           </ul>
+        </CardContent>
+      </Card>
+
+      <Card className={cn("border-white/10 bg-card/30", testCount === 0 && complete && "border-[#36f4a4]/40")}>
+        <CardContent className="flex flex-wrap items-center gap-3 p-5">
+          <span aria-hidden="true" className={cn("grid size-6 shrink-0 place-content-center rounded-full", testCount > 0 ? "bg-[#36f4a4] text-black" : "border border-white/30 text-white/60")}>
+            {testCount > 0 ? <Check className="h-3.5 w-3.5" /> : <FlaskConical className="h-3.5 w-3.5" />}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold text-white">
+              Test booking <span className="font-normal text-white/50">(recommended, not required)</span>
+            </p>
+            <p className="text-xs text-white/60">
+              {testCount > 0 ? `You tried it ${testCount} ${testCount === 1 ? "time" : "times"}.` : "Book as an attendee would, pay and download the ticket, before anyone real does."}
+            </p>
+          </div>
+          <Button size="sm" variant="outline" onClick={onTest} disabled={!complete} className="rounded-full border-white/20 text-white cursor-pointer">
+            {testCount > 0 ? "Test again" : "Try it"}
+          </Button>
         </CardContent>
       </Card>
 

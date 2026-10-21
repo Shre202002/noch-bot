@@ -19,6 +19,7 @@ type EventRow = {
   counts: { confirmed: number; awaiting_payment: number; needs_attention: number; closed: number; in_progress: number };
   confirmed_tickets: number;
   checked_in: number;
+  tests: number;
 };
 
 export default function BookingsOverviewPage() {
@@ -118,7 +119,10 @@ export default function BookingsOverviewPage() {
                           {e.counts.needs_attention > 0 && (
                             <span className="rounded-full border border-amber-500/50 px-2.5 py-1 text-amber-300">{e.counts.needs_attention} need attention</span>
                           )}
-                          {total === 0 && <span className="text-white/40">No bookings yet</span>}
+                          {e.tests > 0 && (
+                            <span className="rounded-full border border-red-500/50 px-2.5 py-1 text-red-200">{e.tests} test</span>
+                          )}
+                          {total === 0 && e.tests === 0 && <span className="text-white/40">No bookings yet</span>}
                         </div>
                         <span className="inline-flex items-center gap-1 text-sm font-semibold text-[#36f4a4]">
                           View bookings <ChevronRight aria-hidden="true" className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />

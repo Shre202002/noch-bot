@@ -6,8 +6,13 @@
   var origin = script && script.src ? new URL(script.src).origin : window.location.origin;
   var userId = script ? script.getAttribute('data-user-id') : null;
   var widgetId = script ? script.getAttribute('data-widget-id') : null;
-  var storageKey = 'nochbot_visitor_id';
-  var chatKey = 'nochbot_chat_session_id';
+  // Test mode (set by the dashboard for the signed-in organizer): nothing real is taken, sent or charged. The
+  // server only honours it for the organizer's own session, so a copied tag on a public site does nothing.
+  var testMode = !!script && script.getAttribute('data-test') === 'true';
+  var testEventId = script ? script.getAttribute('data-event-id') : null;
+  var autoOpen = !!script && script.getAttribute('data-open') === 'true';
+  var storageKey = testMode ? 'nochbot_test_visitor_id' : 'nochbot_visitor_id';
+  var chatKey = testMode ? 'nochbot_test_chat_session_id' : 'nochbot_chat_session_id';
   var visitorId = localStorage.getItem(storageKey) || cryptoRandomId('visitor');
   var chatSessionId = localStorage.getItem(chatKey) || cryptoRandomId('chat');
 
@@ -363,7 +368,7 @@
 
   var PAYMENT_POLL_MS = 4000;
   var PAYMENT_WATCH_MS = 16 * 60 * 1000;
-  var pendingKey = 'nochbot_pending_booking';
+  var pendingKey = testMode ? 'nochbot_test_pending_booking' : 'nochbot_pending_booking';
   var QUESTION_RE = /\?\s*$|^(what|when|where|how|is|are|can|could|does|do|who|why|which|will|should|tell me)\b/i;
   var CANCEL_RE = /^(cancel|stop|stop booking|exit|quit|never ?mind)[.!]?$/i;
   var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -372,7 +377,7 @@
 
   function loadEvents() {
     if (state.events) return Promise.resolve(state.events);
-    return request('/api/embed/events?userId=' + encodeURIComponent(userId), { method: 'GET' })
+    return request('/api/embed/events?userId=' + encodeURIComponent(userId) + (testMode ? '&test=1' : ''), { method: 'GET' })
       .then(function (data) {
         state.events = data.events || [];
         return state.events;
@@ -434,12 +439,12 @@
     state.embedEvent = event;
     if (!automatic) addMessage('user', event.name);
     setLoading(true);
-    request('/api/embed/events/' + encodeURIComponent(event.id) + '?userId=' + encodeURIComponent(userId), { method: 'GET' })
+    request('/api/embed/events/' + encodeURIComponent(event.id) + '?userId=' + encodeURIComponent(userId) + (testMode ? '&test=1' : ''), { method: 'GET' })
       .then(function (eventData) {
         state.embedFields = eventData.fields || [];
         return request('/api/embed/bookings/session', {
           method: 'POST',
-          body: JSON.stringify({ userId: userId, visitorId: visitorId, chatSessionId: chatSessionId, eventId: event.id })
+          body: JSON.stringify({ userId: userId, visitorId: visitorId, chatSessionId: chatSessionId, eventId: event.id, test: testMode })
         });
       }).then(function (session) {
         state.embedSession = session;
@@ -685,7 +690,9 @@
 
   function startPayment(data) {
     savePending({ bookingId: data.booking_id, startedAt: Date.now(), checkoutUrl: data.checkoutUrl });
-    addMessage('assistant', 'Your seats are reserved for 15 minutes. Complete the payment to confirm your booking. I will show your tickets here as soon as it goes through.', {
+    addMessage('assistant', testMode
+      ? 'Test payment: no real seats are held and no money moves. Open the test payment page, press Pay (test), and your test ticket will show up here.'
+      : 'Your seats are reserved for 15 minutes. Complete the payment to confirm your booking. I will show your tickets here as soon as it goes through.', {
       links: [{ href: normalizeUrl(data.checkoutUrl), label: 'Pay now', primary: true }]
     });
     watchPayment(data.booking_id, Date.now());
@@ -756,6 +763,25 @@
     watchPayment(pending.bookingId, pending.startedAt);
   }
 
+  /** Test mode: explain what is happening, then start the booking for the chosen event straight away. */
+  function startTestSession() {
+    if (!userId) return addMessage('assistant', 'This test could not start because the script has no user id.');
+    addMessage('assistant', 'This is a test booking. Nothing real is taken: no seats, no emails and no money. Book as an attendee would; afterwards it shows in Bookings as a TESTED TICKET.');
+    state.bookingMode = 'embed';
+    loadEvents().then(function (events) {
+      var event = testEventId ? events.filter(function (e) { return e.id === testEventId; })[0] : events[0];
+      if (!event) {
+        state.bookingMode = null;
+        addMessage('assistant', 'This event is not ready to test yet. Finish every setup step first, then try again.');
+        return;
+      }
+      return chooseEmbedEvent(event, true);
+    }).catch(function (error) {
+      state.bookingMode = null;
+      addMessage('assistant', error.message || 'I could not start the test booking.');
+    });
+  }
+
   /** First message written for the crawled site, then a booking offer when the organizer has events open. */
   function greet() {
     var fallback = "Hi! I'm the assistant for this website. How can I help you today?";
@@ -820,6 +846,7 @@
       '<header id="nochbot-header"><span class="nochbot-avatar">' + BOT_ICON + '</span>' +
       '<div class="nochbot-title"><strong id="nochbot-name">Assistant</strong><span><i class="nochbot-online" aria-hidden="true"></i>Online</span></div>' +
       '<button id="nochbot-close" type="button" aria-label="Close chat">' + CLOSE_ICON + '</button></header>' +
+      (testMode ? '<div id="nochbot-test-banner" role="note">TEST MODE: no real seats, emails or money</div>' : '') +
       '<div id="nochbot-messages" aria-label="Conversation"></div>' +
       '<div id="nochbot-live" class="nochbot-sr" role="status" aria-live="polite"></div>' +
       '<form id="nochbot-form"><input id="nochbot-input" autocomplete="off" enterkeyhint="send" aria-label="Message the assistant" placeholder="Type your message..."/>' +
@@ -843,7 +870,12 @@
     });
     setPanelInert(true);
 
-    greet();
+    if (testMode) {
+      startTestSession();
+      if (autoOpen) setOpen(true);
+    } else {
+      greet();
+    }
   }
 
   /** Closed panel stays in the DOM for the exit animation but is unreachable for keyboard and screen readers. */
@@ -933,6 +965,7 @@
     var ease = 'cubic-bezier(.16,1,.3,1)';
     return '#nochbot-root{position:fixed;right:20px;bottom:20px;z-index:2147483647;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#111827;line-height:1.4}' +
       '#nochbot-root *{box-sizing:border-box}' +
+      '#nochbot-test-banner{background:#b91c1c;color:#fff;font-size:11px;font-weight:700;letter-spacing:.06em;text-align:center;padding:6px 10px}' +
       // Launcher
       '#nochbot-toggle{position:relative;width:60px;height:60px;border:0;border-radius:999px;background:' + theme.bubbleColor + ';color:' + bubbleInk + ';box-shadow:0 10px 30px rgba(0,0,0,.22),0 2px 6px rgba(0,0,0,.12);cursor:pointer;display:grid;place-items:center;transition:transform .2s ' + ease + ',box-shadow .2s ' + ease + '}' +
       '#nochbot-toggle:hover{transform:translateY(-2px) scale(1.04);box-shadow:0 14px 36px rgba(0,0,0,.26),0 3px 8px rgba(0,0,0,.14)}' +
