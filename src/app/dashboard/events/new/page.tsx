@@ -69,6 +69,9 @@ export default function NewEventPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  // Stays true after a successful create until the event page replaces this one.
+  const [redirecting, setRedirecting] = useState(false);
+  const busy = loading || redirecting;
 
   const form = useForm<EventFormValues>({
     resolver: zodResolver(eventSchema),
@@ -97,16 +100,19 @@ export default function NewEventPage() {
       if (!res.ok) throw new Error(data.error || "Failed to create event");
 
       toast({ title: "Success", description: "Event draft created" });
+      setRedirecting(true);
       router.push(`/dashboard/events/${data.id}`);
     } catch (err: any) {
       toast({ variant: "destructive", title: "Error", description: err.message });
+      setRedirecting(false);
     } finally {
+      // Not reset on success: the button keeps spinning until navigation completes.
       setLoading(false);
     }
   };
 
   return (
-    <div className="mx-auto max-w-4xl space-y-8 pb-20">
+    <div className="mx-auto max-w-4xl space-y-8 pb-20" aria-busy={busy}>
       <div className="flex items-center gap-4">
         <Button asChild variant="ghost" size="icon" className="rounded-full cursor-pointer">
           <Link href="/dashboard/events">
@@ -116,7 +122,7 @@ export default function NewEventPage() {
         <h1 className="text-3xl font-black tracking-tight text-white">New Event</h1>
       </div>
 
-      <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-8">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-8" inert={busy ? true : undefined}>
         <Card className="border-border bg-card/50 backdrop-blur-sm">
           <CardContent className="p-6 space-y-6">
             <div className="grid gap-2">
@@ -256,12 +262,27 @@ export default function NewEventPage() {
           <Button asChild variant="outline" className="rounded-full border-white/10 text-white/70 hover:bg-white/5 cursor-pointer">
             <Link href="/dashboard/events">Cancel</Link>
           </Button>
-          <Button type="submit" disabled={loading} className="rounded-full bg-white text-black hover:bg-zinc-200 min-w-[140px] font-bold cursor-pointer">
-            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-            Create Draft
+          <Button type="submit" disabled={busy} className="rounded-full bg-white text-black hover:bg-zinc-200 min-w-[140px] font-bold cursor-pointer">
+            {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+            {redirecting ? "Opening event…" : loading ? "Creating…" : "Create Draft"}
           </Button>
         </div>
       </form>
+
+      {busy && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+        >
+          <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-card px-6 py-4 shadow-xl">
+            <Loader2 aria-hidden="true" className="h-5 w-5 animate-spin text-white" />
+            <span className="text-sm font-medium text-white">
+              {redirecting ? "Draft created. Opening your event…" : "Creating your draft…"}
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

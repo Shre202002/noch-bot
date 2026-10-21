@@ -140,16 +140,16 @@ const Sidebar = ({ user }: { user?: any }) => {
 
   return (
     <nav
-      className={`sticky top-0 h-screen shrink-0 border-r border-border transition-all duration-300 ease-in-out hidden md:flex flex-col ${open ? 'w-64' : 'w-20'
-        } bg-card p-4 shadow-sm z-50`}
+      className={`sticky top-0 h-screen shrink-0 border-r border-border transition-all duration-300 ease-in-out hidden md:flex flex-col ${open ? 'md:w-56 lg:w-64' : 'w-20'
+        } bg-card p-3 lg:p-4 shadow-sm z-50 [@media(max-height:760px)]:p-2`}
     >
       <TitleSection open={open} user={user} />
 
-      <div className="flex-1 min-h-0 overflow-y-auto -mx-1 px-1">
+      <div className="flex-1 min-h-0 overflow-y-auto -mx-1 px-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         <NavGroups pathname={pathname} open={open} />
       </div>
 
-      <div className="border-t border-border pt-3 space-y-2 mt-3">
+      <div className="border-t border-border pt-2 space-y-1 mt-2">
         {BOTTOM_ITEMS.map((item) => (
           <SidebarOption
             key={item.href}
@@ -158,17 +158,18 @@ const Sidebar = ({ user }: { user?: any }) => {
             href={item.href}
             selected={pathname === item.href}
             open={open}
+            compact
           />
         ))}
         <button
           onClick={handleLogout}
           aria-label={open ? undefined : "Logout"}
-          className={`flex h-11 w-full items-center rounded-xl transition-all duration-200 text-muted-foreground hover:bg-destructive/10 hover:text-destructive group cursor-pointer`}
+          className={`flex h-9 w-full items-center rounded-lg transition-all duration-200 text-muted-foreground hover:bg-destructive/10 hover:text-destructive group cursor-pointer`}
         >
-          <div className="grid h-full w-12 place-content-center">
-            <LogOut className="h-5 w-5" />
+          <div className="grid h-full w-10 place-content-center">
+            <LogOut className="h-4 w-4" />
           </div>
-          {open && <span className="text-sm font-medium">Logout</span>}
+          {open && <span className="text-[13px] font-medium">Logout</span>}
         </button>
       </div>
 
@@ -186,7 +187,7 @@ export const NavGroups = ({ pathname, open }: { pathname: string | null; open: b
     setCollapsed((prev) => (prev.includes(label) ? prev.filter((l) => l !== label) : [...prev, label]));
 
   return (
-    <div className="space-y-1 py-1">
+    <div className="space-y-1 py-1 [@media(max-height:760px)]:space-y-0">
       {NAV_GROUPS.map((group) => {
         const hasActive = group.items.some((item) => isActive(pathname, item.href));
         // The group holding the current route can never be collapsed, so the active item stays visible.
@@ -200,7 +201,7 @@ export const NavGroups = ({ pathname, open }: { pathname: string | null; open: b
                 type="button"
                 onClick={() => toggle(group.label)}
                 aria-expanded={open && expanded}
-                className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground/70 hover:text-foreground hover:bg-accent/50 transition-colors cursor-pointer"
+                className="flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground/70 hover:text-foreground hover:bg-accent/50 transition-colors cursor-pointer"
               >
                 <span className={hasActive ? "text-primary/80" : undefined}>{group.label}</span>
                 <ChevronRight
@@ -233,24 +234,24 @@ export const NavGroups = ({ pathname, open }: { pathname: string | null; open: b
   );
 };
 
-const SidebarOption = ({ Icon, title, href, selected, open, notifs }: any) => {
+const SidebarOption = ({ Icon, title, href, selected, open, notifs, compact }: any) => {
   return (
     <Link
       href={href}
       aria-current={selected ? "page" : undefined}
       aria-label={open ? undefined : title}
       title={open ? undefined : title}
-      className={`relative flex h-11 w-full items-center rounded-xl transition-all duration-200 ${selected
+      className={`relative flex w-full items-center transition-all duration-200 ${compact ? 'h-9 rounded-lg' : 'h-10 rounded-xl [@media(max-height:860px)]:h-9'} ${selected
         ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
         : "text-muted-foreground hover:bg-accent hover:text-foreground"
         }`}
     >
-      <div className="grid h-full w-12 place-content-center">
-        <Icon className="h-5 w-5" />
+      <div className={`grid h-full place-content-center ${compact ? 'w-10' : 'w-12'}`}>
+        <Icon className={compact ? "h-4 w-4" : "h-5 w-5"} />
       </div>
 
       {open && (
-        <span className="text-sm font-medium whitespace-nowrap">
+        <span className={`font-medium whitespace-nowrap ${compact ? 'text-[13px]' : 'text-sm'}`}>
           {title}
         </span>
       )}
@@ -266,8 +267,8 @@ const SidebarOption = ({ Icon, title, href, selected, open, notifs }: any) => {
 
 const TitleSection = ({ open, user }: { open: boolean, user?: any }) => {
   return (
-    <div className="mb-4">
-      <div className="flex items-center gap-3 p-2">
+    <div className="mb-2 [@media(max-height:760px)]:mb-1">
+      <div className="flex items-center gap-3 p-1.5">
         <div className="grid size-10 shrink-0 place-content-center rounded-xl border border-white/10 bg-black shadow-sm overflow-hidden relative">
           <div className="absolute inset-0 bg-[radial-gradient(circle,rgba(255,255,255,0.08)_0%,transparent_70%)]" />
           <LogoIcon className="h-6 w-auto relative z-10" />
@@ -292,10 +293,10 @@ const ToggleClose = ({ open, setOpen }: any) => {
     <button
       onClick={() => setOpen(!open)}
       aria-label={open ? "Collapse sidebar" : "Expand sidebar"}
-      className="mt-4 border-t border-border hover:bg-accent transition-colors rounded-xl overflow-hidden cursor-pointer w-full"
+      className="mt-2 border-t border-border hover:bg-accent transition-colors rounded-lg overflow-hidden cursor-pointer w-full"
     >
-      <div className="flex items-center p-3">
-        <div className="grid size-10 place-content-center">
+      <div className="flex items-center p-1.5">
+        <div className="grid size-9 place-content-center">
           <ChevronsRight
             className={`h-4 w-4 transition-transform duration-300 text-muted-foreground ${open ? "rotate-180" : ""
               }`}
@@ -339,10 +340,10 @@ const MobileNav = ({ user }: { user?: any }) => {
       >
         <SheetTitle className="sr-only">Dashboard navigation</SheetTitle>
         <TitleSection open user={user} />
-        <nav aria-label="Dashboard" className="flex-1 min-h-0 overflow-y-auto">
+        <nav aria-label="Dashboard" className="flex-1 min-h-0 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           <NavGroups pathname={pathname} open />
         </nav>
-        <div className="border-t border-border pt-3 space-y-1">
+        <div className="border-t border-border pt-2 space-y-1">
           {BOTTOM_ITEMS.map((item) => (
             <SidebarOption
               key={item.href}
@@ -351,17 +352,18 @@ const MobileNav = ({ user }: { user?: any }) => {
               href={item.href}
               selected={pathname === item.href}
               open
+              compact
             />
           ))}
           <button
             type="button"
             onClick={handleLogout}
-            className="flex h-11 w-full items-center rounded-xl transition-colors text-muted-foreground hover:bg-destructive/10 hover:text-destructive cursor-pointer"
+            className="flex h-9 w-full items-center rounded-lg transition-colors text-muted-foreground hover:bg-destructive/10 hover:text-destructive cursor-pointer"
           >
-            <div className="grid h-full w-12 place-content-center">
-              <LogOut className="h-5 w-5" />
+            <div className="grid h-full w-10 place-content-center">
+              <LogOut className="h-4 w-4" />
             </div>
-            <span className="text-sm font-medium">Logout</span>
+            <span className="text-[13px] font-medium">Logout</span>
           </button>
         </div>
       </SheetContent>

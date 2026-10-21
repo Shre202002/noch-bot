@@ -4,8 +4,8 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
-  ArrowLeft, Loader2, Save, Rocket, Plus, Trash2, 
-  Settings, FormInput, CreditCard, GripVertical, Pencil,
+  ArrowLeft, Loader2, Save, Rocket, Trash2, 
+  Settings, FormInput, CreditCard,
   CalendarIcon, CheckCircle2, AlertCircle, Layout,
   Mail, Scissors, Check, ShieldCheck, RefreshCcw,
   Palette, RotateCcw, Upload, UserCheck
@@ -22,6 +22,8 @@ import { useToast } from "@/hooks/use-toast";
 import { TicketPreview, TICKET_TEMPLATE_DEFAULT_PALETTES } from "@/components/TicketPreview";
 import { Switch } from "@/components/ui/switch";
 import { BookingsPanel } from "./bookings-panel";
+import { FormBuilder, type FormField } from "./form-builder";
+import { EventProgress, type ProgressStep } from "./event-progress";
 import { TicketColorPalette } from "@/models/Event";
 import { BasicColorPicker } from "@/components/ui/color-picker";
 import {
@@ -31,15 +33,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -51,33 +44,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-} from "@dnd-kit/core";
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-
-interface FormField {
-  _id: string;
-  field_key: string;
-  label: string;
-  field_type: string;
-  is_required: boolean;
-  validation_rule: string;
-  custom_regex: string | null;
-}
 
 interface EventData {
   _id: string;
@@ -112,11 +78,10 @@ export default function EventDetailPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [event, setEvent] = useState<EventData | null>(null);
+  const [tab, setTab] = useState("details");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
-  const [addingField, setAddingField] = useState(false);
-  const [deletingFieldId, setDeletingFieldId] = useState<string | null>(null);
   const [isGatewayConfigured, setIsGatewayConfigured] = useState(false);
   const [configuredProvider, setConfiguredProvider] = useState<string | null>(null);
   const [isEditingGateway, setIsEditingGateway] = useState(false);
@@ -128,8 +93,6 @@ export default function EventDetailPage() {
   const [capacity, setCapacity] = useState(0);
 
   // Field editing state
-  const [editingField, setEditingField] = useState<FormField | null>(null);
-  const [editDialogOpen, setEditIdDialogOpen] = useState(false);
 
   // Gateway form state
   const [gatewayProvider, setGatewayProvider] = useState("stripe");
@@ -176,6 +139,16 @@ export default function EventDetailPage() {
       steps
     };
   }, [event, name, description, capacity, isGatewayConfigured]);
+
+  const progressSteps = useMemo<ProgressStep[]>(() => {
+    if (!event) return [];
+    const tabFor: Record<string, string> = { details: "details", fields: "fields", design: "ticket", gateway: "gateway" };
+    const labelFor: Record<string, string> = { details: "Event details", fields: "Attendee form", design: "Ticket design", gateway: "Payments" };
+    return [
+      ...readiness.steps.map((s) => ({ id: s.id, label: labelFor[s.id] ?? s.label, done: s.done, tab: tabFor[s.id] })),
+      { id: "publish", label: "Go live", done: event.status === "published" },
+    ];
+  }, [event, readiness]);
 
   const handleSaveDetails = async () => {
     setSaving(true);
@@ -254,115 +227,25 @@ export default function EventDetailPage() {
     }
   };
 
-  const addField = async () => {
-    if (addingField) return;
-    setAddingField(true);
-    const key = `field_${Date.now()}`;
-    try {
-      const res = await fetch(`/api/events/${params.id}/form-fields`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          field_key: key,
-          label: "New Question",
-          field_type: "text",
-          is_required: true,
-          validation_rule: "none",
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to add field");
-      
-      const refreshRes = await fetch(`/api/events/${params.id}`);
-      const refreshData = await refreshRes.json();
-      if (refreshData.data) {
-        setEvent(refreshData.data);
-        const newField = refreshData.data.form_fields.find((f: any) => f._id === data.id);
-        if (newField) {
-          setEditingField(newField);
-          setEditIdDialogOpen(true);
-        }
-      }
-
-      toast({ title: "Field Added", description: "You can now customize the question." });
-    } catch (err: any) {
-      toast({ variant: "destructive", title: "Error", description: err.message });
-    } finally {
-      setAddingField(false);
-    }
-  };
-
-  const updateField = async (updatedField: FormField) => {
-    try {
-      const res = await fetch(`/api/events/${params.id}/form-fields/${updatedField._id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updatedField),
-      });
-      if (!res.ok) throw new Error("Failed to update field");
-      toast({ title: "Updated", description: "Field saved successfully" });
-      setEditIdDialogOpen(false);
-      fetchEvent();
-    } catch (err: any) {
-      toast({ variant: "destructive", title: "Error", description: err.message });
-    }
-  };
-
-  const deleteField = async (fieldId: string) => {
-    if (deletingFieldId) return;
-    setDeletingFieldId(fieldId);
-    try {
-      const res = await fetch(`/api/events/${params.id}/form-fields/${fieldId}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) throw new Error("Failed to delete field");
-      toast({ title: "Deleted", description: "Field removed" });
-      fetchEvent();
-    } catch (err: any) {
-      toast({ variant: "destructive", title: "Error", description: err.message });
-    } finally {
-      setDeletingFieldId(null);
-    }
-  };
-
-  const sensors = useSensors(useSensor(PointerSensor), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
-
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (over && active.id !== over.id) {
-      setEvent((prev) => {
-        if (!prev) return null;
-        const oldIndex = prev.form_fields.findIndex((f) => f._id === active.id);
-        const newIndex = prev.form_fields.findIndex((f) => f._id === over.id);
-        const newFields = arrayMove(prev.form_fields, oldIndex, newIndex);
-        
-        fetch(`/api/events/${params.id}/form-fields/reorder`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(newFields.map((f, i) => ({ field_id: f._id, order_index: i })))
-        }).catch(() => toast({ variant: "destructive", title: "Sync failed" }));
-
-        return { ...prev, form_fields: newFields };
-      });
-    }
-  };
-
   if (loading || !event) return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 pb-20">
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-        <div className="flex items-center gap-4">
-          <Button asChild variant="ghost" size="icon" className="rounded-full cursor-pointer">
-            <Link href="/dashboard/events"><ArrowLeft className="h-5 w-5" /></Link>
-          </Button>
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-black tracking-tight text-white">{event.name}</h1>
-              <Badge variant={event.status === "published" ? "default" : "secondary"}>{event.status.toUpperCase()}</Badge>
+        <div className="flex min-w-0 flex-1 flex-col gap-6">
+          <div className="flex items-center gap-4">
+            <Button asChild variant="ghost" size="icon" className="rounded-full cursor-pointer">
+              <Link href="/dashboard/events"><ArrowLeft className="h-5 w-5" /></Link>
+            </Button>
+            <div>
+              <div className="flex items-center gap-3">
+                <h1 className="text-3xl font-black tracking-tight text-white">{event.name}</h1>
+                <Badge variant={event.status === "published" ? "default" : "secondary"}>{event.status.toUpperCase()}</Badge>
+              </div>
+              <p className="text-sm text-muted-foreground mt-1">Manage your event experience and ticket issuance.</p>
             </div>
-            <p className="text-sm text-muted-foreground mt-1">Manage your event experience and ticket issuance.</p>
           </div>
+          <EventProgress steps={progressSteps} activeTab={tab} onSelect={setTab} />
         </div>
 
         <div className="flex flex-col gap-4 min-w-[280px]">
@@ -392,7 +275,7 @@ export default function EventDetailPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="details" className="space-y-6">
+      <Tabs value={tab} onValueChange={setTab} className="space-y-6">
         <TabsList className="bg-accent/20 border border-white/5 p-1 h-auto rounded-full">
           <TabsTrigger value="details" className="rounded-full px-6 py-2 cursor-pointer"><Settings className="mr-2 h-4 w-4" /> Details</TabsTrigger>
           <TabsTrigger value="fields" className="rounded-full px-6 py-2 cursor-pointer"><FormInput className="mr-2 h-4 w-4" /> Attendee Form</TabsTrigger>
@@ -416,7 +299,7 @@ export default function EventDetailPage() {
                 <Label className="text-white/70">Capacity</Label>
                 <Input type="number" value={capacity} onChange={(e) => setCapacity(Number(e.target.value))} className="bg-black/40 border-white/10 text-white" />
               </div>
-              <Button onClick={handleSaveDetails} disabled={saving} className="rounded-full px-8 h-10 font-bold cursor-pointer bg-white text-black hover:bg-zinc-200">
+              <Button onClick={handleSaveDetails} disabled={saving} className="rounded-full px-8 h-10 font-bold cursor-pointer bg-[#36f4a4] text-black hover:bg-[#36f4a4]/90 shadow-[0_0_0_3px_rgba(54,244,164,0.18)]">
                 {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                 Save Changes
               </Button>
@@ -467,41 +350,13 @@ export default function EventDetailPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="fields" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-bold text-white text-lg">Form Builder</h3>
-              <p className="text-sm text-muted-foreground">Define what information the bot collects from attendees.</p>
-            </div>
-            <Button 
-              onClick={addField} 
-              disabled={addingField}
-              size="sm" 
-              variant="outline" 
-              className="rounded-full border-white/10 hover:bg-white/5 font-semibold cursor-pointer text-white"
-            >
-              {addingField ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Plus className="mr-2 h-3 w-3" />}
-              Add Question
-            </Button>
-          </div>
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <div className="space-y-3">
-              <SortableContext items={event.form_fields.map(f => f._id)} strategy={verticalListSortingStrategy}>
-                {event.form_fields.map((field) => (
-                  <SortableFieldItem 
-                    key={field._id} 
-                    field={field} 
-                    isDeleting={deletingFieldId === field._id}
-                    onDelete={() => deleteField(field._id)} 
-                    onEdit={() => {
-                      setEditingField(field);
-                      setEditIdDialogOpen(true);
-                    }}
-                  />
-                ))}
-              </SortableContext>
-            </div>
-          </DndContext>
+        <TabsContent value="fields">
+          <FormBuilder
+            eventId={String(params.id)}
+            fields={event.form_fields}
+            onFieldsChange={(form_fields) => setEvent((prev) => (prev ? { ...prev, form_fields } : prev))}
+            onChanged={fetchEvent}
+          />
         </TabsContent>
 
         <TabsContent value="ticket">
@@ -625,7 +480,7 @@ export default function EventDetailPage() {
                         Cancel
                       </Button>
                     )}
-                    <Button onClick={handleSaveGateway} disabled={saving} className="flex-1 rounded-full bg-white text-black hover:bg-zinc-200 font-bold h-11 cursor-pointer">
+                    <Button onClick={handleSaveGateway} disabled={saving} className="flex-1 rounded-full font-bold h-11 cursor-pointer bg-[#36f4a4] text-black hover:bg-[#36f4a4]/90 shadow-[0_0_0_3px_rgba(54,244,164,0.18)]">
                       {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Verify & Connect Gateway"}
                     </Button>
                   </div>
@@ -636,144 +491,7 @@ export default function EventDetailPage() {
         </TabsContent>
       </Tabs>
 
-      <Dialog open={editDialogOpen} onOpenChange={setEditIdDialogOpen}>
-        <DialogContent className="bg-black border-white/10 text-white">
-          <DialogHeader>
-            <DialogTitle>Edit Form Question</DialogTitle>
-            <DialogDescription>Modify how the bot asks this question to attendees.</DialogDescription>
-          </DialogHeader>
-          {editingField && (
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label>Question Label</Label>
-                <Input 
-                  value={editingField.label} 
-                  onChange={e => setEditingField({...editingField, label: e.target.value})} 
-                  className="bg-black/40 border-white/10 text-white"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Input Type</Label>
-                <Select 
-                  value={editingField.field_type} 
-                  onValueChange={v => {
-                    const updates: Partial<FormField> = { field_type: v };
-                    // Auto-switch validation for phone
-                    if (v === 'phone' && (editingField.validation_rule === 'none' || editingField.validation_rule === 'name_format')) {
-                      updates.validation_rule = 'phone_format';
-                    }
-                    setEditingField({...editingField, ...updates});
-                  }}
-                >
-                  <SelectTrigger className="bg-black/40 border-white/10 text-white cursor-pointer">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-black border-white/10 text-white">
-                    <SelectItem value="text">Short Text</SelectItem>
-                    <SelectItem value="email">Email Address</SelectItem>
-                    <SelectItem value="phone">Phone Number</SelectItem>
-                    <SelectItem value="number">Number</SelectItem>
-                    <SelectItem value="date">Date</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Validation Rule</Label>
-                <Select 
-                  value={editingField.validation_rule} 
-                  onValueChange={v => setEditingField({...editingField, validation_rule: v})}
-                >
-                  <SelectTrigger className="bg-black/40 border-white/10 text-white cursor-pointer">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-black border-white/10 text-white">
-                    <SelectItem value="none">No Validation</SelectItem>
-                    <SelectItem value="email_format">Email Format</SelectItem>
-                    <SelectItem value="phone_format">Phone Format</SelectItem>
-                    <SelectItem value="name_format">Name Format (Min 2 chars)</SelectItem>
-                    <SelectItem value="custom_regex">Custom Regex</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {editingField.validation_rule === "custom_regex" && (
-                <div className="space-y-2">
-                  <Label>Regex Pattern</Label>
-                  <Input 
-                    value={editingField.custom_regex || ""} 
-                    onChange={e => setEditingField({...editingField, custom_regex: e.target.value})} 
-                    placeholder="^[0-9]+$"
-                    className="bg-black/40 border-white/10 text-white"
-                  />
-                </div>
-              )}
-              <div className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/5">
-                <Label className="cursor-pointer" htmlFor="req-toggle">Required field</Label>
-                <Switch 
-                  id="req-toggle"
-                  checked={editingField.is_required} 
-                  onCheckedChange={(v: boolean) => setEditingField({...editingField, is_required: v})}
-                  className="cursor-pointer"
-                />
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setEditIdDialogOpen(false)} className="text-white hover:bg-white/5 cursor-pointer">Cancel</Button>
-            <Button 
-              onClick={() => editingField && updateField(editingField)}
-              className="bg-white text-black hover:bg-zinc-200 font-bold cursor-pointer"
-            >
-              Save Field
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
-  );
-}
-
-function SortableFieldItem({ 
-  field, 
-  onDelete, 
-  onEdit, 
-  isDeleting 
-}: { 
-  field: FormField, 
-  onDelete: () => void, 
-  onEdit: () => void,
-  isDeleting: boolean
-}) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: field._id });
-  const style = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 10 : 1 };
-
-  return (
-    <Card ref={setNodeRef} style={style} className={`border-white/5 bg-card/30 group ${isDragging ? 'opacity-50' : ''}`}>
-      <CardContent className="p-4 flex items-center gap-4">
-        <div {...attributes} {...listeners} className="cursor-grab text-muted-foreground hover:text-foreground"><GripVertical className="h-4 w-4" /></div>
-        <div className="grid flex-1 gap-1">
-          <p className="text-sm font-bold text-white">{field.label}</p>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-[9px] h-4 border-white/10 text-white/50">{field.field_type.toUpperCase()}</Badge>
-            <Badge variant="outline" className="text-[9px] h-4 border-white/10 text-primary/70">{field.validation_rule.toUpperCase()}</Badge>
-            {field.is_required && <span className="text-[9px] font-black text-red-500/50 uppercase">Required</span>}
-          </div>
-        </div>
-        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-          <Button variant="ghost" size="icon" onClick={onEdit} className="text-white hover:bg-white/5 rounded-full cursor-pointer h-8 w-8">
-            <Pencil className="h-4 w-4" />
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={onDelete} 
-            disabled={isDeleting}
-            className="text-red-500 hover:bg-red-500/10 rounded-full cursor-pointer h-8 w-8"
-          >
-            {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
   );
 }
 
