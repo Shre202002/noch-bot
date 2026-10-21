@@ -3,7 +3,7 @@ import type { Db } from 'mongodb';
 import { getDb } from '@/lib/db';
 import { WebhookResult } from './adapter';
 import { issueTicketsForBooking } from '@/lib/ticketIssuance';
-import { confirmHold, releaseHold, reserveCapacity } from '@/lib/eventCapacity';
+import { bookingHoldsSeats as holdsSeats, confirmHold, releaseHold, reserveCapacity } from '@/lib/eventCapacity';
 import { notifyBookingConfirmed, notifyOrganizerRefundNeeded } from '@/lib/bookingNotifications';
 import { Booking } from '@/models/Booking';
 
@@ -30,12 +30,6 @@ function ensureWebhookIndex(db: Db) {
     });
   return webhookIndexReady;
 }
-
-/**
- * Whether this pending booking holds seats on the event's counters: chat-bot bookings always do; widget bookings
- * do when created by the current flow (`hold_placed`). Older widget bookings were counted by a booking query instead.
- */
-const holdsSeats = (booking: Record<string, any>) => booking.status === 'awaiting_payment' || booking.hold_placed === true;
 
 /**
  * Handles a verified payment webhook for any provider and either booking flow: idempotency, the booking's status

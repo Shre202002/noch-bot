@@ -2,7 +2,11 @@
 import { ObjectId } from "mongodb";
 import { getUserIdFromCookie } from "@/lib/auth";
 import { getDb } from "@/lib/db";
+import { allowedActions, BOOKING_GROUPS, listEventBookings, type BookingGroup } from "@/lib/organizerBookings";
 
+// GET /api/events/[id]/bookings?q=&group=&page=
+// The organizer's bookings for one event: searchable by attendee, reference or ticket code, filterable by what
+// needs doing, with counts per group.
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -17,33 +21,31 @@ export async function GET(
 
   try {
     const db = await getDb();
-    const event = await db.collection("events").findOne({ _id: new ObjectId(id), org_id: userId });
+    const eventId = new ObjectId(id);
+    const event = await db.collection("events").findOne({ _id: eventId, org_id: userId });
     if (!event) return NextResponse.json({ error: "Event not found" }, { status: 404 });
 
-    const bookings = await db.collection("bookings")
-      .find({ event_id: new ObjectId(id) })
-      .sort({ created_at: -1 })
-      .toArray();
+    const url = new URL(req.url);
+    const groupParam = url.searchParams.get("group") ?? "all";
+    const group = groupParam === "all" || groupParam in BOOKING_GROUPS ? (groupParam as BookingGroup | "all") : "all";
+    const page = Number.parseInt(url.searchParams.get("page") ?? "1", 10);
 
-    const result = bookings.map(b => {
-      const answers = (b.attendee?.answers ?? []) as Array<{ label: string; value: any }>;
-
-      return {
-        id: b._id.toString(),
-        booking_code: b.booking_code,
-        attendee_name: answers.find((a) => a.label.toLowerCase().includes('name'))?.value,
-        attendee_email: answers.find((a) => a.label.toLowerCase().includes('email'))?.value,
-      quantity: b.quantity,
-      amount_total: b.amount_total,
-      status: b.status,
-      payment_status: b.payment_status,
-        created_at: b.created_at,
-      };
+    const list = await listEventBookings(db, eventId, {
+      q: (url.searchParams.get("q") ?? "").slice(0, 100),
+      group,
+      page: Number.isFinite(page) ? page : 1,
     });
 
-    return NextResponse.json({ bookings: result });
+    return NextResponse.json({
+      bookings: list.rows.map((row) => ({ ...row, actions: allowedActions(row.status) })),
+      total: list.total,
+      page: list.page,
+      pageSize: list.pageSize,
+      counts: list.counts,
+      truncated: list.truncated,
+    });
   } catch (error) {
+    console.error("[bookings_list]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
-

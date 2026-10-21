@@ -8,7 +8,7 @@ import {
   Settings, FormInput, CreditCard, GripVertical, Pencil,
   CalendarIcon, CheckCircle2, AlertCircle, Layout,
   Mail, Scissors, Check, ShieldCheck, RefreshCcw,
-  Palette, RotateCcw, Upload
+  Palette, RotateCcw, Upload, UserCheck
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { TicketPreview, TICKET_TEMPLATE_DEFAULT_PALETTES } from "@/components/TicketPreview";
 import { Switch } from "@/components/ui/switch";
+import { BookingsPanel } from "./bookings-panel";
 import { TicketColorPalette } from "@/models/Event";
 import { BasicColorPicker } from "@/components/ui/color-picker";
 import {
@@ -397,6 +398,7 @@ export default function EventDetailPage() {
           <TabsTrigger value="fields" className="rounded-full px-6 py-2 cursor-pointer"><FormInput className="mr-2 h-4 w-4" /> Attendee Form</TabsTrigger>
           <TabsTrigger value="ticket" className="rounded-full px-6 py-2 cursor-pointer"><Layout className="mr-2 h-4 w-4" /> Ticket Design</TabsTrigger>
           <TabsTrigger value="gateway" className="rounded-full px-6 py-2 cursor-pointer"><CreditCard className="mr-2 h-4 w-4" /> Payments</TabsTrigger>
+          <TabsTrigger value="bookings" className="rounded-full px-6 py-2 cursor-pointer"><UserCheck className="mr-2 h-4 w-4" /> Bookings</TabsTrigger>
         </TabsList>
 
         <TabsContent value="details" className="space-y-8">
@@ -504,6 +506,10 @@ export default function EventDetailPage() {
 
         <TabsContent value="ticket">
           <TicketDesignView event={event} onUpdate={fetchEvent} />
+        </TabsContent>
+
+        <TabsContent value="bookings">
+          <BookingsPanel eventId={String(params.id)} />
         </TabsContent>
 
         <TabsContent value="gateway">

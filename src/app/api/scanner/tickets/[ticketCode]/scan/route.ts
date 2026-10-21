@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { authenticateScannerRequest } from "@/lib/scannerAuth";
 import { getDb } from "@/lib/db";
@@ -45,6 +45,18 @@ export async function POST(
 
     if (ticket.qr_payload_hash !== expectedHash) {
       return NextResponse.json({ error: "Invalid or tampered ticket" }, { status: 400 });
+    }
+
+    // 3b. Only tickets of confirmed bookings admit anyone (e.g. not one refunded after a late payment).
+    const owningBooking = await db.collection("bookings").findOne(
+      { _id: ticket.booking_id },
+      { projection: { status: 1 } }
+    );
+    if (owningBooking && owningBooking.status !== "confirmed") {
+      return NextResponse.json(
+        { error: "Cannot scan ticket", reason: "booking_not_confirmed" },
+        { status: 409 }
+      );
     }
 
     // 4. Atomic Claim

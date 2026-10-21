@@ -1,12 +1,12 @@
 ---
 gsd_state_version: "1.0"
-current_phase: 1
-current_phase_name: Scrapling Website Crawl
+current_phase: 3
+current_phase_name: Event Booking Integrity
 status: verifying
-stopped_at: Phase 1 implemented; awaiting Atlas/E2E acceptance and crawler deployment
-last_updated: "2026-10-08T12:35:00.000Z"
-last_activity: 2026-10-08
-last_activity_desc: Scrapling crawler service, provider integration, generation-safe publishing and dashboard results implemented and tested locally.
+stopped_at: Phases 1-3 implemented; awaiting live acceptance (Atlas index, crawler deployment, browser run of PDF and booking flows)
+last_updated: "2026-10-21T00:00:00.000Z"
+last_activity: 2026-10-21
+last_activity_desc: Phase 2 (PDF status lifecycle, retry/replace, page citations) and Phase 3 (organizer bookings search, check-in, reconciliation) implemented and unit tested.
 state_head: ba962d26fdff12914415892a69da6d109b8dd97e
 progress:
   total_phases: 3
@@ -32,7 +32,7 @@ Plan: 01-01 implemented (see phases/01-scrapling-website-crawl/01-01-SUMMARY.md)
 Status: Awaiting acceptance (Atlas index rebuild, real E2E crawl + chat, crawler deployment)
 Last activity: 2026-10-08 - Phase 1 implemented; 40 Python + 148 TS tests pass, typecheck clean, live service smoke test passed.
 
-Progress: [░░░░░░░░░░] 0%
+Progress: implementation complete for all three phases; acceptance testing pending
 
 ## Performance Metrics
 
@@ -65,7 +65,8 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-None yet.
+- Phase 2/3 live acceptance: upload a PDF and a deliberately unreadable one (status, retry, replace, citations); book a paid and a free event, then exercise search, check-in/undo, cancel and mark-refunded in the dashboard Bookings tab.
+- Decide whether in-progress (abandoned chat) bookings should be hidden by default in the Bookings tab.
 
 ### Blockers/Concerns
 

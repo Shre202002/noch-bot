@@ -25,6 +25,8 @@ export type ConversationState =
  * - Bot (conversational) flow:  in_progress -> processing_confirmation -> awaiting_payment -> confirmed
  * - Embed (classic) flow:       pending_payment -> confirmed
  * - Shared terminal states:     confirmed | cancelled | expired | failed
+ * - Payment recovery:           processing_late_payment (transient) -> confirmed | needs_refund -> refunded
+ *   (a payment that arrived after the seats were released; `needs_refund` waits for the organizer)
  */
 export type BookingStatus =
   | 'draft'
@@ -35,7 +37,10 @@ export type BookingStatus =
   | 'confirmed'
   | 'cancelled'
   | 'expired'
-  | 'failed';
+  | 'failed'
+  | 'processing_late_payment'
+  | 'needs_refund'
+  | 'refunded';
 
 export type BookingPaymentStatus =
   | 'not_required'

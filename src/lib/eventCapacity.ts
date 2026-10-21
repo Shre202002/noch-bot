@@ -2,6 +2,13 @@ import { ObjectId } from 'mongodb';
 import { getDb } from './db';
 
 /**
+ * Whether this pending booking holds seats on the event's counters: chat-bot bookings always do; widget bookings
+ * do when created by the current flow (`hold_placed`). Older widget bookings were counted by a booking query instead.
+ */
+export const bookingHoldsSeats = (booking: Record<string, any>) =>
+  booking.status === 'awaiting_payment' || booking.hold_placed === true;
+
+/**
  * Atomically reserves `quantity` seats against an event's capacity.
  * For FREE events - directly increases tickets_sold.
  */

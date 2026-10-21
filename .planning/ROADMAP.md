@@ -69,6 +69,6 @@ Phases execute in numeric order: 1 -> 2 -> 3. PDF and booking remain separate pr
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Scrapling Website Crawl | 0/TBD | Not started | - |
-| 2. PDF Knowledge Chat | 0/TBD | Not started | - |
-| 3. Event Booking Integrity | 0/TBD | Not started | - |
+| 1. Scrapling Website Crawl | 1/1 | Implemented; live acceptance pending | - |
+| 2. PDF Knowledge Chat | 1/1 | Implemented; live acceptance pending | - |
+| 3. Event Booking Integrity | 1/1 | Implemented; live acceptance pending | - |
