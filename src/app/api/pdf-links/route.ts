@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getUserIdFromCookie } from '@/lib/auth';
 import { getDb } from '@/lib/db';
 import { NOT_DELETED } from '@/lib/pdfRetention';
+import { deriveStatus, isRetrievable } from '@/lib/pdfStatus';
 import { randomBytes } from 'crypto';
 
 const corsHeaders = {
@@ -68,6 +69,12 @@ export async function POST(req: NextRequest) {
     // Only live documents can be shared.
     const file = await db.collection('pdf_files').findOne({ userId, fileId, ...NOT_DELETED });
     if (!file) return NextResponse.json({ error: 'Document not found.' }, { status: 404, headers: corsHeaders });
+    if (!isRetrievable(deriveStatus(file as never).status)) {
+      return NextResponse.json(
+        { error: 'This document is not ready to share yet.' },
+        { status: 409, headers: corsHeaders }
+      );
+    }
 
     const slug = randomBytes(8).toString('hex'); // 16-char unique slug
 

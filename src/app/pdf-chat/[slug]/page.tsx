@@ -7,6 +7,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ArrowUp, Square, FileText, Sun, Moon, LogOut } from 'lucide-react';
 import { LinkSignIn, type GateMode } from './link-sign-in';
+import { formatCitations } from '@/lib/pdfCitations';
 
 const REQUEST_TIMEOUT_MS = 60_000;
 
@@ -305,7 +306,9 @@ function PdfChat() {
       }
       const responseText = !res.ok || data.error
         ? visitorErrorFor(res.ok ? 500 : res.status)
-        : data.answer || "Sorry, I couldn't find an answer to that in this document.";
+        : data.answer
+          ? data.answer + (formatCitations(Array.isArray(data.citations) ? data.citations : []) ? `\n\n${formatCitations(data.citations)}` : '')
+          : "Sorry, I couldn't find an answer to that in this document.";
 
       setLoading(false);
       runTypewriter(responseText, controller, (full) => {

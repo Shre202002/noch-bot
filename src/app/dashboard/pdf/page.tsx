@@ -7,6 +7,7 @@ import ReactMarkdown from 'react-markdown';
 import { LinkAccessDialog } from './link-access-dialog';
 import { AddDataDialog, type LibraryFile } from './add-data-dialog';
 import remarkGfm from 'remark-gfm';
+import { formatCitations } from '@/lib/pdfCitations';
 
 type Message = { role: 'user' | 'assistant'; content: string };
 
@@ -27,6 +28,9 @@ type PdfFile = {
   /** Files added to this document so far, and how many the plan allows. */
   additionsUsed?: number;
   additionsLimit?: number;
+  /** parsing: being processed · indexed: answerable, rows still being embedded · ready · failed (see `error`). */
+  status?: 'parsing' | 'indexed' | 'ready' | 'failed';
+  error?: string;
 };
 
 const ACCEPTED_EXTENSIONS = ['.pdf', '.csv', '.xlsx'];
@@ -236,6 +240,8 @@ export default function PdfPage() {
       if (!res.ok || data.error) {
         setUploadError(data.error || `Upload failed with status ${res.status}`);
         setUploadProgress('');
+        // A failed ingestion leaves a retryable entry in the list.
+        if (data.status === 'failed') await fetchPdfs();
         return;
       }
 
@@ -257,6 +263,45 @@ export default function PdfPage() {
       setUploadProgress('');
     } finally {
       setUploading(false);
+    }
+  };
+
+  // ── Retry / replace ─────────────────────────────────────────────────────────
+  // Retry re-uploads for a failed document; replace swaps a live PDF's contents (same share links).
+  const actionInputRef = useRef<HTMLInputElement>(null);
+  const [fileAction, setFileAction] = useState<{ fileId: string; mode: 'retry' | 'replace' } | null>(null);
+  const [actionBusyId, setActionBusyId] = useState<string | null>(null);
+
+  const chooseFileFor = (fileId: string, mode: 'retry' | 'replace') => {
+    setFileAction({ fileId, mode });
+    actionInputRef.current?.click();
+  };
+
+  const submitFileAction = async (file: File) => {
+    if (!fileAction) return;
+    const { fileId, mode } = fileAction;
+    setActionBusyId(fileId);
+    setListNotice(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append(mode === 'retry' ? 'retryFileId' : 'replaceFileId', fileId);
+      const res = await fetch('/api/ingest/pdf', { method: 'POST', body: formData });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.error) {
+        setListNotice({ tone: 'error', text: data.error || 'Upload failed. Please try again.' });
+      } else {
+        setListNotice({ tone: 'info', text: mode === 'retry' ? 'Upload processed.' : 'Document replaced.' });
+        if (data.fileId) setSelectedPdfId(data.fileId);
+        setPdfChatMessages([]);
+      }
+      await fetchPdfs();
+    } catch {
+      setListNotice({ tone: 'error', text: 'Upload failed. Please try again.' });
+    } finally {
+      setActionBusyId(null);
+      setFileAction(null);
+      if (actionInputRef.current) actionInputRef.current.value = '';
     }
   };
 
@@ -347,8 +392,10 @@ export default function PdfPage() {
       setPdfChatLoading(false);
       setPdfChatIsTyping(true);
 
+      const sourcesLine = formatCitations(Array.isArray(data.citations) ? data.citations : []);
       const fullResponse: string = data.answer
-        ?? data.text
+        ? data.answer + (sourcesLine ? `\n\n${sourcesLine}` : '')
+        : data.text
         ?? (data.error ? `⚠️ ${data.error}` : `⚠️ No response (status ${res.status}).`);
       let i = 0;
 
@@ -664,6 +711,26 @@ export default function PdfPage() {
 
                   {(() => {
                     const sheetDoc = isTabular(pdf);
+                    const busyAction = actionBusyId === pdf.fileId;
+                    if (pdf.status === 'failed' || pdf.status === 'parsing') {
+                      const failed = pdf.status === 'failed';
+                      return (
+                        <div onClick={e => e.stopPropagation()}
+                          style={{ marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                          <span role="status" aria-live="polite" style={{ fontSize: 11, color: failed ? '#ef4444' : 'var(--nb-text-secondary)' }}>
+                            {failed ? `Failed: ${pdf.error || 'Processing did not finish.'}` : busyAction ? 'Processing…' : 'Processing this file…'}
+                          </span>
+                          {failed && (
+                            <button type="button" className="nb-focus" disabled={busyAction}
+                              aria-label={`Retry ${pdf.label || pdf.fileName} with a new upload`}
+                              onClick={() => chooseFileFor(pdf.fileId, 'retry')}
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 32, padding: '0 10px', borderRadius: 9999, background: 'transparent', border: '1px solid #36f4a4', color: '#36f4a4', fontSize: 11, cursor: busyAction ? 'wait' : 'pointer' }}>
+                              <RotateCcw aria-hidden="true" className="h-3 w-3" /> {busyAction ? 'Uploading…' : 'Retry upload'}
+                            </button>
+                          )}
+                        </div>
+                      );
+                    }
                     const used = pdf.additionsUsed ?? 0;
                     const max = pdf.additionsLimit ?? 1;
                     const atLimit = used >= max;
@@ -676,7 +743,7 @@ export default function PdfPage() {
                         style={{ marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
                         <span role="status" aria-live="polite" style={{ fontSize: 11, color: error ? '#eab308' : 'var(--nb-text-secondary)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                           {!sheetDoc ? (
-                            atLimit ? 'Limit reached · upgrade for more' : null
+                            busyAction ? 'Replacing…' : atLimit ? 'Ready · additional file limit reached' : 'Ready'
                           ) : error ? (
                             <>
                               {error}
@@ -696,6 +763,14 @@ export default function PdfPage() {
                             </button>
                           )}
                         </span>
+                        {!sheetDoc && (
+                          <button type="button" className="nb-focus" disabled={busyAction}
+                            aria-label={`Replace ${pdf.label || pdf.fileName} with a new PDF`}
+                            onClick={() => chooseFileFor(pdf.fileId, 'replace')}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 32, padding: '0 10px', borderRadius: 9999, background: 'transparent', border: '1px solid #2a2d35', color: 'var(--nb-text-secondary)', fontSize: 11, cursor: busyAction ? 'wait' : 'pointer' }}>
+                            <RotateCcw aria-hidden="true" className="h-3 w-3" /> Replace PDF
+                          </button>
+                        )}
                         <button type="button" className="nb-focus" disabled={atLimit}
                           title={atLimit ? `Your plan allows ${max} additional file${max === 1 ? '' : 's'} per document` : undefined}
                           aria-label={`Add more data, ${used} of ${max} additional files used`}
@@ -712,7 +787,7 @@ export default function PdfPage() {
                   })()}
 
                   {/* Share row */}
-                  <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #2a2d35' }} onClick={e => e.stopPropagation()}>
+                  <div hidden={pdf.status === 'failed' || pdf.status === 'parsing'} style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #2a2d35' }} onClick={e => e.stopPropagation()}>
                     {shareLinks[pdf.fileId] ? (
                       <>
                       <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -774,6 +849,9 @@ export default function PdfPage() {
               ))
             )}
           </div>
+
+          <input ref={actionInputRef} type="file" accept=".pdf,application/pdf" hidden aria-hidden="true" tabIndex={-1}
+            onChange={e => { const f = e.target.files?.[0]; if (f) submitFileAction(f); }} />
 
           {/* Recently deleted: restorable until the server purges them */}
           {deletedPdfs.length > 0 && (

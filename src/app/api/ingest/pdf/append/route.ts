@@ -11,6 +11,7 @@ import {
 } from '@/lib/documentAdditions';
 import { pdfToPoints } from '@/lib/pdfIngest';
 import { NOT_DELETED } from '@/lib/pdfRetention';
+import { deriveStatus } from '@/lib/pdfStatus';
 import { findAccountById } from '@/lib/storage';
 import { appendRows, backfillRowKeys, ensureLibraryIndexes, refreshColumnStats, type AppendSummary } from '@/lib/tabularLibrary';
 import { describeSheet, detectDocumentKind, parseTabular, TabularParseError, type TabularSheet } from '@/lib/tabularParser';
@@ -62,6 +63,10 @@ export async function POST(req: NextRequest) {
     const db = await getDb();
     const doc = await db.collection('pdf_files').findOne({ userId, fileId, ...NOT_DELETED });
     if (!doc) return fail('Document not found.', 404);
+    const { status } = deriveStatus(doc as never);
+    if (status === 'failed' || status === 'parsing') {
+      return fail('This document is not ready. Retry or wait for it to finish before adding data.', 409);
+    }
 
     // Cheap checks first: plan limit, size, kind. Nothing is parsed or embedded for a file that will be refused.
     const plan = (await findAccountById(userId))?.plan || 'free';

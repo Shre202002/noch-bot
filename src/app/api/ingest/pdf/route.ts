@@ -24,6 +24,13 @@ import {
   PDF_RETENTION_DAYS,
   softDeletePdf,
 } from '@/lib/pdfRetention';
+import {
+  COUNTS_TOWARD_LIMIT,
+  deriveStatus,
+  markFailed,
+  purgeFailedFile,
+  safeFailureMessage,
+} from '@/lib/pdfStatus';
 import type { Db } from 'mongodb';
 
 export const runtime = 'nodejs';
@@ -78,8 +85,11 @@ export async function GET() {
     const plan = account?.plan || 'free';
     const limit = PDF_LIMITS[plan] ?? 1;
 
+    const statuses = files.map((f) => deriveStatus(f as never));
     return json({
-      files: files.map((f) => ({
+      files: files.map((f, i) => ({
+        status:      statuses[i].status,
+        error:       statuses[i].error,
         fileId:      f.fileId,
         label:       f.label,
         fileName:    f.filename,
@@ -112,7 +122,7 @@ export async function GET() {
       retentionDays: PDF_RETENTION_DAYS,
       plan,
       limit,
-      canUpload: files.length < limit,
+      canUpload: statuses.filter((s) => s.status !== 'failed').length < limit,
     });
   } catch (err: unknown) {
     console.error('[pdf-ingest:get]', err);
@@ -126,17 +136,31 @@ export async function POST(req: NextRequest) {
     const userId = await getUserIdFromCookie();
     if (!userId) return json({ error: 'Not authenticated.' }, { status: 401 });
 
+    const formData   = await req.formData();
+    const file       = formData.get('file');
+    const labelValue = formData.get('label');
+    // replaceFileId: swap the contents of a live PDF in place (links and fileId stay).
+    // retryFileId:   re-upload for a failed document; the failed record is removed first.
+    const replaceFileId = typeof formData.get('replaceFileId') === 'string' ? (formData.get('replaceFileId') as string) : '';
+    const retryFileId   = typeof formData.get('retryFileId') === 'string' ? (formData.get('retryFileId') as string) : '';
+
     // ── Plan limit check ──────────────────────────────────────
     const account = await findAccountById(userId);
     const plan    = account?.plan || 'free';
     const limit   = PDF_LIMITS[plan] ?? 1;
 
     const db = await getDb();
+    if (retryFileId) {
+      // Frees the failed document's slot (and anything it left behind) before the new upload counts.
+      const purged = await purgeFailedFile(db, userId, retryFileId);
+      if (!purged) return json({ error: 'Only a failed upload can be retried.' }, { status: 409 });
+    }
+    // Failed uploads never occupy a slot; a replacement does not add a document.
     const existingCount = await db
       .collection('pdf_files')
-      .countDocuments({ userId, ...NOT_DELETED });
+      .countDocuments({ userId, ...NOT_DELETED, ...COUNTS_TOWARD_LIMIT });
 
-    if (existingCount >= limit) {
+    if (!replaceFileId && existingCount >= limit) {
       return json(
         {
           error:       plan === 'free'
@@ -151,10 +175,6 @@ export async function POST(req: NextRequest) {
       );
     }
     // ─────────────────────────────────────────────────────────
-
-    const formData  = await req.formData();
-    const file      = formData.get('file');
-    const labelValue = formData.get('label');
 
     if (!(file instanceof File)) {
       return json({ error: 'No file uploaded. Send a PDF, CSV or XLSX file as form field "file".' }, { status: 400 });
@@ -173,12 +193,19 @@ export async function POST(req: NextRequest) {
       return json({ error: 'Only PDF, CSV and Excel (.xlsx) files are supported.' }, { status: 415 });
     }
 
+    if (replaceFileId) {
+      if (kind !== 'pdf') return json({ error: 'A PDF can only be replaced with another PDF.' }, { status: 415 });
+      return replacePdf({ db, userId, fileId: replaceFileId, buffer, filename: file.name || 'uploaded.pdf', label });
+    }
+
     if (kind !== 'pdf') {
       const result = await ingestTabular({
         db, userId, kind, buffer, label,
         filename: file.name || `uploaded.${kind}`,
       });
-      if ('error' in result) return json({ error: result.error }, { status: result.status });
+      if ('error' in result) {
+        return json({ error: result.error, fileId: result.fileId, status: 'failed' }, { status: result.status });
+      }
       return json({
         success: true,
         ...result,
@@ -191,21 +218,45 @@ export async function POST(req: NextRequest) {
     const filename   = file.name || 'uploaded.pdf';
     const fileId     = `${userId}-${Date.now()}`;
     const uploadedAt = new Date().toISOString();
-    const ingested   = await pdfToPoints({ buffer, userId, fileId, filename, label: label || filename, uploadedAt });
-    if ('error' in ingested) return json({ error: ingested.error }, { status: 422 });
-    const { points, pageCount, markdown, characters } = ingested;
 
-    await insertPdfChunks(points);
-    console.log(`[pdf-ingest] Upserted ${points.length} vectors`);
-
+    // The record exists from the start, so a failure leaves a visible, retryable entry instead of nothing.
     await db.collection('pdf_files').insertOne({
       userId, fileId, filename,
-      label:      label || filename,
-      chunkCount: points.length,
-      pageCount,
-      markdown:   markdown.slice(0, 5000),
+      label:   label || filename,
+      docType: 'pdf',
+      status:  'parsing',
       uploadedAt,
     });
+
+    let ingested: Awaited<ReturnType<typeof pdfToPoints>>;
+    try {
+      ingested = await pdfToPoints({ buffer, userId, fileId, filename, label: label || filename, uploadedAt });
+      if ('error' in ingested) {
+        await markFailed(db, userId, fileId, ingested.error);
+        return json({ error: ingested.error, fileId, status: 'failed' }, { status: 422 });
+      }
+      await insertPdfChunks(ingested.points);
+    } catch (err) {
+      console.error('[pdf-ingest:post] ingestion failed', err);
+      await deletePdfChunks(userId, fileId).catch(() => {});
+      const message = safeFailureMessage(err);
+      await markFailed(db, userId, fileId, message);
+      return json({ error: message, fileId, status: 'failed' }, { status: 500 });
+    }
+    const { points, pageCount, markdown, characters } = ingested;
+    console.log(`[pdf-ingest] Upserted ${points.length} vectors`);
+
+    await db.collection('pdf_files').updateOne(
+      { userId, fileId },
+      {
+        $set: {
+          chunkCount: points.length,
+          pageCount,
+          markdown:   markdown.slice(0, 5000),
+          status:     'ready',
+        },
+      }
+    );
 
     return json({
       success:    true,
@@ -245,6 +296,81 @@ export async function DELETE(req: NextRequest) {
   }
 }
 
+/**
+ * Swaps a live PDF's contents in place, keeping its fileId so share links and analytics keep pointing at it.
+ * The new file is parsed and embedded before anything is touched: an unreadable replacement leaves the current
+ * document exactly as it was. Only this document's passages are replaced; other documents and website
+ * knowledge live in other records and collections.
+ */
+async function replacePdf(params: {
+  db: Db;
+  userId: string;
+  fileId: string;
+  buffer: Buffer;
+  filename: string;
+  label: string;
+}) {
+  const { db, userId, fileId, buffer, filename, label } = params;
+
+  const doc = await db.collection('pdf_files').findOne({ userId, fileId, ...NOT_DELETED });
+  if (!doc) return json({ error: 'Document not found.' }, { status: 404 });
+  if (doc.docType === 'csv' || doc.docType === 'xlsx') {
+    return json({ error: 'Spreadsheets cannot be replaced. Add data to them, or remove and upload again.' }, { status: 415 });
+  }
+  if (deriveStatus(doc as never).status === 'parsing') {
+    return json({ error: 'This document is still being processed.' }, { status: 409 });
+  }
+
+  const uploadedAt = new Date().toISOString();
+  const nextLabel  = label || doc.label || filename;
+  let ingested: Awaited<ReturnType<typeof pdfToPoints>>;
+  try {
+    ingested = await pdfToPoints({ buffer, userId, fileId, filename, label: nextLabel, uploadedAt });
+  } catch (err) {
+    console.error('[pdf-ingest:replace] parse failed', err);
+    return json({ error: safeFailureMessage(err), fileId }, { status: 500 });
+  }
+  if ('error' in ingested) return json({ error: ingested.error, fileId }, { status: 422 });
+
+  try {
+    await deletePdfChunks(userId, fileId);
+    await insertPdfChunks(ingested.points);
+  } catch (err) {
+    // The old passages are already gone, so say so rather than leave a document that looks fine and answers nothing.
+    console.error('[pdf-ingest:replace] swap failed', err);
+    await deletePdfChunks(userId, fileId).catch(() => {});
+    const message = 'The replacement could not be saved. Please upload the file again.';
+    await markFailed(db, userId, fileId, message);
+    return json({ error: message, fileId, status: 'failed' }, { status: 500 });
+  }
+
+  await db.collection('pdf_files').updateOne(
+    { userId, fileId },
+    {
+      $set: {
+        filename,
+        label:      nextLabel,
+        chunkCount: ingested.points.length,
+        pageCount:  ingested.pageCount,
+        markdown:   ingested.markdown.slice(0, 5000),
+        additions:  [],
+        status:     'ready',
+        updatedAt:  uploadedAt,
+      },
+      $unset: { error: '', failedAt: '' },
+    }
+  );
+
+  return json({
+    success: true,
+    replaced: true,
+    fileId, filename,
+    pageCount:  ingested.pageCount,
+    chunkCount: ingested.points.length,
+    characters: ingested.characters,
+  });
+}
+
 // ── CSV / XLSX ingestion ──────────────────────────────────────────────────────
 
 const ROW_INSERT_BATCH = 5_000;
@@ -258,20 +384,33 @@ async function ingestTabular(params: {
   label: string;
 }): Promise<
   | { fileId: string; filename: string; docType: TabularKind; rowCount: number; chunkCount: number; sheetCount: number }
-  | { error: string; status: number }
+  | { error: string; status: number; fileId: string }
 > {
   const { db, userId, kind, buffer, filename, label } = params;
+
+  const fileId     = `${userId}-${Date.now()}`;
+  const uploadedAt = new Date().toISOString();
+  // Visible (and retryable) from the start, like PDFs.
+  await db.collection('pdf_files').insertOne({
+    userId, fileId, filename,
+    label: label || filename,
+    docType: kind,
+    status: 'parsing',
+    uploadedAt,
+  });
 
   let sheets: TabularSheet[];
   try {
     sheets = await parseTabular(buffer, kind);
   } catch (err) {
-    if (err instanceof TabularParseError) return { error: err.message, status: err.status };
+    if (err instanceof TabularParseError) {
+      await markFailed(db, userId, fileId, err.message);
+      return { error: err.message, status: err.status, fileId };
+    }
+    await markFailed(db, userId, fileId, safeFailureMessage(err));
     throw err;
   }
 
-  const fileId     = `${userId}-${Date.now()}`;
-  const uploadedAt = new Date().toISOString();
   const rowCount   = sheets.reduce((n, s) => n + s.rows.length, 0);
   const rowsCollection = db.collection(TABULAR_ROWS_COLLECTION);
 
@@ -321,23 +460,29 @@ async function ingestTabular(params: {
     })));
 
     const storedSheets: StoredSheet[] = sheets.map((s) => ({ name: s.name, rowCount: s.rows.length, columns: s.columns }));
-    await db.collection('pdf_files').insertOne({
-      userId, fileId, filename,
-      label:      label || filename,
-      docType:    kind,
-      chunkCount: chunks.length,
-      rowCount,
-      sheets:     storedSheets,
-      markdown:   storedSheets.map((s) => describeSheet(s, s.rowCount)).join('\n\n').slice(0, 5000),
-      rowVectors: 'indexing',
-      uploadedAt,
-    });
+    // Answerable now (filters and totals work on the stored rows); becomes `ready` once every row is embedded.
+    await db.collection('pdf_files').updateOne(
+      { userId, fileId },
+      {
+        $set: {
+          chunkCount: chunks.length,
+          rowCount,
+          sheets:     storedSheets,
+          markdown:   storedSheets.map((s) => describeSheet(s, s.rowCount)).join('\n\n').slice(0, 5000),
+          rowVectors: 'indexing',
+          status:     'indexed',
+        },
+      }
+    );
 
     return { fileId, filename, docType: kind, rowCount, chunkCount: chunks.length, sheetCount: sheets.length };
   } catch (err) {
-    // Leave nothing half-ingested behind.
+    // Leave nothing half-ingested behind, but keep a failed record the organizer can retry.
+    console.error('[tabular-ingest] failed', err);
     await rowsCollection.deleteMany({ userId, fileId }).catch(() => {});
     await deletePdfChunks(userId, fileId).catch(() => {});
-    throw err;
+    const message = safeFailureMessage(err);
+    await markFailed(db, userId, fileId, message);
+    return { error: message, status: 500, fileId };
   }
 }

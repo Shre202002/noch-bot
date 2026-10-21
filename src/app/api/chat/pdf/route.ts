@@ -4,6 +4,8 @@ import { getUserIdFromCookie } from '@/lib/auth';
 import { embedText } from '@/lib/embeddings';
 import { searchPdfChunks } from '@/lib/vectorStore';
 import { NOT_DELETED } from '@/lib/pdfRetention';
+import { deriveStatus, isRetrievable } from '@/lib/pdfStatus';
+import { buildCitations } from '@/lib/pdfCitations';
 import { LINK_AUTH_MESSAGES, linkCookieName, verifyLinkSession } from '@/lib/linkUserAuth';
 import { getOrCreateSession, saveMessage } from '@/lib/chatSessions';
 import { GroqUnavailableError, GROQ_UNAVAILABLE_REPLY } from '@/lib/groq';
@@ -95,6 +97,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Document not found.' }, { status: 404, headers: corsHeaders });
     }
 
+    if (fileDoc && !isRetrievable(deriveStatus(fileDoc as never).status)) {
+      return NextResponse.json(
+        { error: 'This document is not ready yet. Please try again shortly.' },
+        { status: 409, headers: corsHeaders }
+      );
+    }
+
     const now = new Date().toISOString();
 
     // ── Save session + user message (shared link only) ────────
@@ -184,6 +193,7 @@ export async function POST(req: NextRequest) {
     ]);
 
     const sources = [...new Set(searchResult.map(r => r.filename || 'Unknown file'))];
+    const citations = buildCitations(searchResult as Array<Record<string, unknown>>);
 
     // ── Groq ──────────────────────────────────────────────────
     let answer: string;
@@ -301,7 +311,9 @@ ${groundedRules(PDF_NO_ANSWER)}`,
       answer = GROQ_UNAVAILABLE_REPLY;
     }
 
-    return reply(answer, { sources, chunksUsed: searchResult.length });
+    // A refusal cites nothing: the retrieved passages did not support an answer.
+    const answered = answer.trim() !== PDF_NO_ANSWER;
+    return reply(answer, { sources, citations: answered ? citations : [], chunksUsed: searchResult.length });
 
   } catch (err: any) {
     console.error('[pdf-chat] Error:', err?.message);
