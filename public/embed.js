@@ -413,6 +413,9 @@
   }
 
   function startEmbedBooking() {
+    // One start at a time: a second request (chat reply plus a tap, say) must not post the first question twice.
+    if (state.startingBooking) return;
+    state.startingBooking = true;
     state.bookingMode = 'embed';
     setLoading(true);
     loadEvents()
@@ -435,11 +438,14 @@
         state.bookingMode = null;
         addMessage('assistant', error.message || 'I could not load events right now.');
       }).finally(function () {
+        state.startingBooking = false;
         setLoading(false);
       });
   }
 
   function chooseEmbedEvent(event, automatic) {
+    if (state.choosingEvent) return;
+    state.choosingEvent = true;
     state.bookingMode = 'embed';
     state.embedEvent = event;
     if (!automatic) addMessage('user', event.name);
@@ -458,6 +464,7 @@
         state.bookingMode = null;
         addMessage('assistant', error.message || 'I could not start that booking.');
       }).finally(function () {
+        state.choosingEvent = false;
         setLoading(false);
       });
   }

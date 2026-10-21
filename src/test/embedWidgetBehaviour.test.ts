@@ -299,4 +299,17 @@ describe("the message beside the chat icon, as a visitor sees it", () => {
     expect(choices).toContain("4 tickets");
     expect(choices).not.toContain("1");
   });
+
+  it("starts a booking only once when it is requested twice in a row", async () => {
+    const env = makeEnv({
+      events: [{ id: "e1", name: "Launch Party", available_seats: 5, date: "2026-12-01T10:00:00Z" }],
+      teaser: "Launch Party is live. Book your tickets now!",
+      teaserEventId: "e1",
+    });
+    await settle(2000);
+    env.click("nochbot-teaser-text");
+    env.click("nochbot-teaser-text");
+    await settle(2000);
+    expect(env.fetched.filter((u) => u.includes("/api/embed/events/e1")).length).toBe(1);
+  });
 });
