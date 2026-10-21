@@ -792,11 +792,12 @@
     var greeting = request('/api/widget/greeting?userId=' + encodeURIComponent(userId), { method: 'GET' })
       .catch(function () { return { greeting: fallback }; });
     var events = loadEvents().catch(function () { return []; });
+    // The bubble beside the icon only needs the events, so it does not wait for the greeting to be written.
+    events.then(function () { showTeaser(state.teaser || "I'm here to help you."); });
     Promise.all([greeting, events]).then(function (results) {
       var info = results[0] || {};
       var text = info.greeting || fallback;
       setAssistantName(info.siteName);
-      showTeaser(state.teaser || "I'm here to help you.");
       var open = (results[1] || []).filter(function (e) { return e.available_seats > 0; });
       if (!open.length) return addMessage('assistant', text);
       // One message, not two: the welcome and the live event read as a single thought, with the booking button below.
@@ -929,7 +930,7 @@
       toggle.setAttribute('aria-label', open ? 'Close chat' : 'Open chat');
     }
     if (open) {
-      hideTeaser(true);
+      hideTeaser(false);
       var list = document.getElementById('nochbot-messages');
       if (list) list.scrollTop = list.scrollHeight;
       setTimeout(function () {
@@ -943,8 +944,11 @@
 
   /** "Hi! I can help…" beside the launcher, once per browser session, until the chat is opened or dismissed. */
   function showTeaser(text) {
+    state.teaserText = text || null;
+    // Remembered per message, and only when the visitor closes the bubble with its X. Opening the chat does not count, and a
+    // different message (say, a new event going live) is shown again.
     var dismissed = false;
-    try { dismissed = sessionStorage.getItem(teaserKey) === '1'; } catch (e) { /* storage unavailable */ }
+    try { dismissed = sessionStorage.getItem(teaserKey + ':' + text) === '1'; } catch (e) { /* storage unavailable */ }
     if (dismissed || state.open || !text) return;
     var teaser = document.getElementById('nochbot-teaser');
     var label = document.getElementById('nochbot-teaser-text');
@@ -954,7 +958,7 @@
       if (state.open) return;
       teaser.hidden = false;
       requestAnimationFrame(function () { teaser.classList.add('is-visible'); });
-    }, 1500);
+    }, 700);
   }
 
   function hideTeaser(remember) {
@@ -964,7 +968,7 @@
       setTimeout(function () { teaser.hidden = true; }, 200);
     }
     if (remember) {
-      try { sessionStorage.setItem(teaserKey, '1'); } catch (e) { /* storage unavailable */ }
+      try { sessionStorage.setItem(teaserKey + ':' + (state.teaserText || ''), '1'); } catch (e) { /* storage unavailable */ }
     }
   }
 
