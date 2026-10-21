@@ -380,6 +380,9 @@
     return request('/api/embed/events?userId=' + encodeURIComponent(userId) + (testMode ? '&test=1' : ''), { method: 'GET' })
       .then(function (data) {
         state.events = data.events || [];
+        // What the bubble beside the icon says: a live event to book, or an offer to help (decided by the server).
+        state.teaser = data.teaser || null;
+        state.teaserEventId = data.teaser_event_id || null;
         return state.events;
       });
   }
@@ -794,7 +797,7 @@
       var text = info.greeting || fallback;
       setAssistantName(info.siteName);
       addMessage('assistant', text);
-      showTeaser((text.match(/^[^.!?]*[.!?]/) || [text])[0]);
+      showTeaser(state.teaser || "I'm here to help you.");
       var open = (results[1] || []).filter(function (e) { return e.available_seats > 0; });
       if (open.length) {
         var names = open.slice(0, 2).map(function (e) { return e.name; }).join(' and ');
@@ -832,18 +835,28 @@
     return lum > 0.4 ? '#0b0f14' : '#ffffff';
   }
 
+  /** The chat icon the organizer chose (an image served by us), or null for the built-in robot. */
+  function launcherImageUrl() {
+    return theme.launcherIconUrl ? normalizeUrl(theme.launcherIconUrl) : null;
+  }
+
+  function iconMarkup(url) {
+    return url ? '<img class="nochbot-launcher-img" src="' + url.replace(/"/g, '%22') + '" alt="" draggable="false"/>' : BOT_ICON;
+  }
+
   function buildWidget() {
+    var iconUrl = launcherImageUrl();
     var root = document.createElement('div');
     root.id = 'nochbot-root';
     root.innerHTML = '<style>' + css() + '</style>' +
       '<div id="nochbot-teaser" role="status" hidden><p id="nochbot-teaser-text"></p>' +
       '<button id="nochbot-teaser-close" type="button" aria-label="Dismiss">' + CLOSE_ICON + '</button></div>' +
-      '<button id="nochbot-toggle" type="button" aria-label="Open chat" aria-expanded="false" aria-controls="nochbot-panel">' +
-      '<span class="nochbot-icon nochbot-icon-open">' + BOT_ICON + '</span>' +
+      '<button id="nochbot-toggle"' + (iconUrl ? ' class="has-icon"' : '') + ' type="button" aria-label="Open chat" aria-expanded="false" aria-controls="nochbot-panel">' +
+      '<span class="nochbot-icon nochbot-icon-open">' + iconMarkup(iconUrl) + '</span>' +
       '<span class="nochbot-icon nochbot-icon-close">' + CLOSE_ICON + '</span>' +
       '</button>' +
       '<section id="nochbot-panel" role="dialog" aria-label="Chat assistant" aria-hidden="true">' +
-      '<header id="nochbot-header"><span class="nochbot-avatar">' + BOT_ICON + '</span>' +
+      '<header id="nochbot-header"><span class="nochbot-avatar' + (iconUrl ? ' has-icon' : '') + '">' + iconMarkup(iconUrl) + '</span>' +
       '<div class="nochbot-title"><strong id="nochbot-name">Assistant</strong><span><i class="nochbot-online" aria-hidden="true"></i>Online</span></div>' +
       '<button id="nochbot-close" type="button" aria-label="Close chat">' + CLOSE_ICON + '</button></header>' +
       (testMode ? '<div id="nochbot-test-banner" role="note">TEST MODE: no real seats, emails or money</div>' : '') +
@@ -854,13 +867,31 @@
       '</section>';
     document.body.appendChild(root);
 
+    Array.prototype.forEach.call(root.querySelectorAll('.nochbot-launcher-img'), function (img) {
+      img.addEventListener('error', function () {
+        var holder = img.parentNode;
+        if (!holder) return;
+        holder.innerHTML = BOT_ICON;
+        if (holder.classList.contains('nochbot-avatar')) holder.classList.remove('has-icon');
+        var toggle = document.getElementById('nochbot-toggle');
+        if (toggle) toggle.classList.remove('has-icon');
+      });
+    });
+
     document.getElementById('nochbot-toggle').addEventListener('click', function () { setOpen(!state.open); });
     document.getElementById('nochbot-close').addEventListener('click', function () { setOpen(false); });
     document.getElementById('nochbot-teaser-close').addEventListener('click', function (event) {
       event.stopPropagation();
       hideTeaser(true);
     });
-    document.getElementById('nochbot-teaser-text').addEventListener('click', function () { setOpen(true); });
+    document.getElementById('nochbot-teaser-text').addEventListener('click', function () {
+      var bookNow = !!state.teaserEventId && !state.bookingMode;
+      setOpen(true);
+      if (bookNow) {
+        addMessage('user', 'Book tickets');
+        startEmbedBooking();
+      }
+    });
     root.addEventListener('keydown', function (event) {
       if (event.key === 'Escape' && state.open) setOpen(false);
     });
@@ -965,6 +996,12 @@
     var ease = 'cubic-bezier(.16,1,.3,1)';
     return '#nochbot-root{position:fixed;right:20px;bottom:20px;z-index:2147483647;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#111827;line-height:1.4}' +
       '#nochbot-root *{box-sizing:border-box}' +
+      // A chosen icon is full-colour artwork with its own background, so it replaces the coloured disc; the X shown while open keeps one.
+      '#nochbot-toggle.has-icon{background:transparent;box-shadow:none;overflow:visible;filter:drop-shadow(0 8px 18px rgba(0,0,0,.28))}' +
+      '#nochbot-toggle.has-icon:hover{box-shadow:none}' +
+      '.nochbot-launcher-img{width:100%;height:100%;object-fit:contain;display:block;user-select:none}' +
+      '#nochbot-toggle.has-icon .nochbot-icon-close{background:' + theme.bubbleColor + ';color:' + bubbleInk + ';border-radius:999px}' +
+      '.nochbot-avatar.has-icon{background:transparent;padding:0;overflow:hidden}.nochbot-avatar.has-icon img{border-radius:12px}' +
       '#nochbot-test-banner{background:#b91c1c;color:#fff;font-size:11px;font-weight:700;letter-spacing:.06em;text-align:center;padding:6px 10px}' +
       // Launcher
       '#nochbot-toggle{position:relative;width:60px;height:60px;border:0;border-radius:999px;background:' + theme.bubbleColor + ';color:' + bubbleInk + ';box-shadow:0 10px 30px rgba(0,0,0,.22),0 2px 6px rgba(0,0,0,.12);cursor:pointer;display:grid;place-items:center;transition:transform .2s ' + ease + ',box-shadow .2s ' + ease + '}' +

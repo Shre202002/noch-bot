@@ -20,6 +20,7 @@ import { toast } from '@/hooks/use-toast';
 import { ChatText } from '@/components/ChatText';
 
 import { BookingPreview } from './booking-test'
+import { LauncherIconPicker, LauncherPreview } from './launcher-icon-picker'
 
 type Tab = 'Crawl' | 'Vectorize' | 'Theme' | 'Preview' | 'Embed Code'
 const STEP_ORDER: Tab[] = ['Crawl', 'Vectorize', 'Theme', 'Preview', 'Embed Code']
@@ -71,6 +72,7 @@ export default function ConfigurePage() {
   const [themeConfig, setThemeConfig] = useState({
     bubbleColor: '#36f4a4', headerColor: '#36f4a4',
     userMsgColor: '#36f4a4', sendBtnColor: '#36f4a4', accentColor: '#36f4a4',
+    launcherIcon: 'default' as string,
   })
   // Step ticks from saved progress (GET /api/knowledge → setup), so they survive a reload.
   const [themeDone, setThemeDone] = useState(false)
@@ -189,11 +191,12 @@ export default function ConfigurePage() {
       if (data.palette?.length > 0) {
         setPalette(data.palette)
         const primary = data.palette[0]
-        setThemeConfig({
+        setThemeConfig(prev => ({
+          ...prev,
           bubbleColor: primary, headerColor: primary,
           userMsgColor: primary, sendBtnColor: primary,
           accentColor: data.palette[1] || primary,
-        })
+        }))
       }
     } catch (err) {
       console.error('Theme extraction failed:', err)
@@ -614,6 +617,17 @@ export default function ConfigurePage() {
                     </div>
                   </div>
                 ))}
+                <div style={{ background: '#0a0a0a', border: '1px solid #2a2d35', borderRadius: 10, padding: 16 }}>
+                  <div style={{ marginBottom: 12 }}>
+                    <div style={{ fontSize: 13, color: '#fff' }}>Chat icon</div>
+                    <div style={{ fontSize: 11, color: 'var(--nb-text-secondary)' }}>The button visitors click on your website</div>
+                  </div>
+                  <LauncherIconPicker
+                    value={themeConfig.launcherIcon}
+                    bubbleColor={themeConfig.bubbleColor}
+                    onChange={(id) => setThemeConfig(prev => ({ ...prev, launcherIcon: id }))}
+                  />
+                </div>
               </div>
               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                 <button onClick={() => setActiveTab('Preview')} style={{ background: '#36f4a4', color: '#000', border: 'none', borderRadius: 9999, padding: '12px 28px', fontWeight: 500, fontSize: 14, cursor: 'pointer' }}>Next: Preview →</button>
@@ -621,6 +635,7 @@ export default function ConfigurePage() {
             </div>
             <div style={{ flex: '0 1 260px', minWidth: 0, maxWidth: '100%' }}>
               <div style={{ fontSize: 12, color: 'var(--nb-text-secondary)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Live Preview</div>
+              <LauncherPreview icon={themeConfig.launcherIcon} bubbleColor={themeConfig.bubbleColor} />
               <div style={{ background: '#f7f8fc', borderRadius: 16, overflow: 'hidden', border: '1px solid #2a2d35' }}>
                 <div style={{ background: themeConfig.headerColor, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div style={{ width: 32, height: 32, borderRadius: 10, background: 'rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>🤖</div>

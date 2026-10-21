@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserIdFromCookie } from "@/lib/auth";
 import { readKnowledge, writeKnowledge } from "@/lib/storage";
+import { isKnownLauncherIcon, launcherIconPath } from "@/lib/launcherIcons";
 
 export const dynamic = "force-dynamic";
 
@@ -38,10 +39,17 @@ export async function GET(req: NextRequest) {
     };
   }
 
-  console.log(`🎨 Theme GET for ${userId}:`, theme);
+  // The widget gets the image path from our own list, never from what was saved: any `launcherIconUrl` found in the
+  // stored theme is dropped, and the one sent is worked out from the icon id.
+  let result: Record<string, unknown> | null = null;
+  if (theme) {
+    const { launcherIconUrl: _stored, ...rest } = theme as Record<string, unknown>;
+    const launcherIconUrl = launcherIconPath(rest.launcherIcon);
+    result = { ...rest, ...(launcherIconUrl ? { launcherIconUrl } : {}) };
+  }
 
   return NextResponse.json(
-    { theme },
+    { theme: result },
     { headers: corsHeaders }
   );
 }
@@ -56,10 +64,14 @@ export async function POST(req: NextRequest) {
 
   const { theme } = await req.json();
 
+  if (theme?.launcherIcon !== undefined && !isKnownLauncherIcon(theme.launcherIcon)) {
+    return NextResponse.json({ error: "Unknown chat icon" }, { status: 400, headers: corsHeaders });
+  }
+  // The image path is derived on the way out, so it is never stored (or trusted) from a request.
+  if (theme && typeof theme === "object") delete theme.launcherIconUrl;
+
   // Partial update — sirf theme field update karo
   await writeKnowledge(userId, { theme });
-
-  console.log(`🎨 Theme saved for ${userId}:`, theme);
 
   return NextResponse.json(
     { success: true },

@@ -11,6 +11,8 @@ export type Theme = {
   userMsgColor: string;
   sendBtnColor: string;
   accentColor: string;
+  /** Id of the chat icon (see lib/launcherIcons.ts); missing means the built-in robot. */
+  launcherIcon?: string;
 };
 
 export type KnowledgeData = {

@@ -3,6 +3,7 @@ import { availableSeats } from "@/lib/eventsForChat";
 import { getDb } from "@/lib/db";
 import { getUserIdFromCookie } from "@/lib/auth";
 import { isOwnerTestRequest, readyEventsForTest } from "@/lib/testBooking";
+import { buildTeaser, DEFAULT_TEASER } from "@/lib/widgetTeaser";
 
 export const dynamic = 'force-dynamic';
 
@@ -68,7 +69,12 @@ export async function GET(req: NextRequest) {
       ticket_template_id: e.ticket_template_id,
     }));
 
-    return NextResponse.json({ events: formattedEvents, test }, { headers: corsHeaders });
+    // The message beside the chat icon. A test run lists drafts too, which are not live, so it never announces them.
+    const { teaser, eventId } = test
+      ? { teaser: DEFAULT_TEASER, eventId: null }
+      : buildTeaser(formattedEvents.map((e) => ({ id: e.id, name: e.name, date: e.date, available_seats: e.available_seats })));
+
+    return NextResponse.json({ events: formattedEvents, test, teaser, teaser_event_id: eventId }, { headers: corsHeaders });
   } catch (error) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500, headers: corsHeaders });
   }
