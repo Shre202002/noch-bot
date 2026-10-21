@@ -27,6 +27,7 @@ function makeEnv(opts: {
   const fetched: string[] = [];
   const session = opts.session ?? new Map<string, string>();
 
+  const created: El[] = [];
   const makeEl = (tag = "div", attrs = ""): El => {
     const listeners: Record<string, Handler[]> = {};
     const classes = new Set<string>();
@@ -80,6 +81,7 @@ function makeEnv(opts: {
         }
       },
     });
+    created.push(target);
     return new Proxy(target, {
       get(t, prop) {
         if (prop in t) return t[prop as string];
@@ -165,7 +167,9 @@ function makeEnv(opts: {
   const teaser = () => registry.get("nochbot-teaser")!;
   const teaserText = () => registry.get("nochbot-teaser-text")!.textContent as string;
   const visible = () => !teaser().hidden && teaser().classes.has("is-visible");
-  return { registry, fetched, click, teaser, teaserText, visible, session };
+  /** The text of every quick-reply button currently offered in the chat, newest render last. */
+  const buttons = () => created.filter((el) => String(el.className).split(" ").includes("nochbot-action")).map((el) => String(el.textContent));
+  return { registry, fetched, click, teaser, teaserText, visible, session, buttons };
 }
 
 const settle = (ms: number) => vi.advanceTimersByTimeAsync(ms);
@@ -277,5 +281,22 @@ describe("the message beside the chat icon, as a visitor sees it", () => {
     await settle(500);
     expect(env.registry.get("nochbot-root")?.classes.has("is-open")).toBe(true);
     expect(env.fetched.some((u) => /\/api\/embed\/events\/[a-z0-9]/i.test(u))).toBe(false);
+  });
+
+  it("offers the number of tickets as labelled buttons, not bare numbers", async () => {
+    const env = makeEnv({
+      events: [{ id: "e1", name: "Launch Party", available_seats: 5, date: "2026-12-01T10:00:00Z" }],
+      teaser: "Launch Party is live. Book your tickets now!",
+      teaserEventId: "e1",
+    });
+    await settle(2000);
+    env.click("nochbot-teaser-text");
+    // The widget types its replies out; the buttons appear once the question is fully shown.
+    await settle(8000);
+    const choices = env.buttons();
+    expect(choices).toContain("1 ticket");
+    expect(choices).toContain("2 tickets");
+    expect(choices).toContain("4 tickets");
+    expect(choices).not.toContain("1");
   });
 });

@@ -27,10 +27,21 @@ describe("public/embed.js", () => {
   it("colours the booking, pay and download buttons, their hover and the input focus from the chat bubble colour", () => {
     expect(source).toContain("var actionColor = theme.bubbleColor || theme.sendBtnColor;");
     expect(source).toContain(".nochbot-pay-link,.nochbot-action.is-primary{background:' + actionColor");
-    expect(source).toContain(".nochbot-action:hover{border-color:' + actionColor");
     expect(source).toContain("#nochbot-input:focus{border-color:' + actionColor");
     // No separate accent colour is used for styling any more.
     expect(source).not.toContain("theme.accentColor");
+  });
+
+  it("styles quick replies as buttons: a coloured outline, bold text, and a fill on hover", () => {
+    expect(source).toContain(".nochbot-action{border:1.5px solid ' + actionColor + ';background:#fff");
+    expect(source).toContain("font-weight:600;min-width:44px");
+    expect(source).toContain(".nochbot-action:hover{background:' + actionColor + ';color:' + actionInk");
+    // They no longer share the faint grey outline that message bubbles use.
+    expect(source).not.toContain(".nochbot-action,.nochbot-pay-link{border:1px solid rgba(17,24,39,.12)");
+  });
+
+  it("labels the ticket quantity choices with what they are", () => {
+    expect(source).toContain("n === 1 ? '1 ticket' : n + ' tickets'");
   });
 
   it("uses the chosen chat icon only from the image path the server worked out", () => {

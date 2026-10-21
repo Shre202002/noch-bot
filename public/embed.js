@@ -478,7 +478,8 @@
     for (var i = 1; i <= Math.min(max, 4); i++) options.push(i);
     addMessage('assistant', lines.join('\n'), {
       actions: options.map(function (n) {
-        return { label: String(n), onClick: function () { addMessage('user', String(n)); setEmbedQuantity(String(n)); } };
+        var label = n === 1 ? '1 ticket' : n + ' tickets';
+        return { label: label, onClick: function () { addMessage('user', label); setEmbedQuantity(String(n)); } };
       })
     });
   }
@@ -1053,9 +1054,14 @@
       '.nochbot-caret{display:inline-block;width:2px;height:1em;margin-left:2px;vertical-align:-2px;background:currentColor;animation:nochbot-blink .8s steps(1) infinite}@keyframes nochbot-blink{50%{opacity:0}}' +
       '.nochbot-message.is-user{background:' + theme.userMsgColor + ';color:' + userInk + ';border-bottom-right-radius:5px}.nochbot-message.is-bot{background:#fff;color:#111827;border:1px solid rgba(17,24,39,.08);border-bottom-left-radius:5px;box-shadow:0 1px 2px rgba(0,0,0,.04)}' +
       '.nochbot-note{display:block;font-size:12px;color:#6b7280;margin-top:4px}' +
-      '.nochbot-actions{display:flex;flex-wrap:wrap;gap:8px;max-width:82%}.nochbot-action,.nochbot-pay-link{border:1px solid rgba(17,24,39,.12);background:#fff;color:#111827;border-radius:999px;padding:8px 12px;font-size:13px;text-decoration:none;cursor:pointer;transition:background .15s ease,border-color .15s ease}' +
-      '.nochbot-action:hover{border-color:' + actionColor + '}' +
-      '.nochbot-pay-link,.nochbot-action.is-primary{background:' + actionColor + ';color:' + actionInk + ';border:0;font-weight:700}' +
+      '.nochbot-actions{display:flex;flex-wrap:wrap;gap:8px;max-width:82%}' +
+      '.nochbot-action,.nochbot-pay-link{border-radius:999px;padding:8px 14px;font-size:13px;text-decoration:none;cursor:pointer;transition:background .15s ease,border-color .15s ease,color .15s ease,transform .1s ease}' +
+      // A choice to tap: a coloured outline, bolder text and a small shadow, so it cannot be mistaken for a message bubble.
+      '.nochbot-action{border:1.5px solid ' + actionColor + ';background:#fff;color:#111827;font-weight:600;min-width:44px;text-align:center;box-shadow:0 1px 2px rgba(17,24,39,.12)}' +
+      '.nochbot-action:hover{background:' + actionColor + ';color:' + actionInk + ';border-color:' + actionColor + '}' +
+      '.nochbot-action:active{transform:scale(.96)}' +
+      '.nochbot-pay-link,.nochbot-action.is-primary{background:' + actionColor + ';color:' + actionInk + ';border:0;font-weight:700;box-shadow:0 2px 6px rgba(17,24,39,.18)}' +
+      '.nochbot-action.is-primary:hover,.nochbot-pay-link:hover{filter:brightness(.95)}' +
       // Composer
       '#nochbot-form{display:flex;align-items:center;gap:8px;padding:12px;border-top:1px solid rgba(17,24,39,.08);background:#fff}' +
       '#nochbot-input{flex:1;min-width:0;min-height:44px;border:1px solid rgba(17,24,39,.14);border-radius:999px;padding:10px 16px;font-size:16px;outline:none;background:#fff;color:#111827;transition:border-color .15s ease,box-shadow .15s ease}' +
