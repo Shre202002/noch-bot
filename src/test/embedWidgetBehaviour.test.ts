@@ -48,8 +48,9 @@ function makeEnv(opts: {
         toggle: (c: string, on?: boolean) => (on === undefined ? (classes.has(c) ? classes.delete(c) : classes.add(c)) : on ? classes.add(c) : classes.delete(c)),
         contains: (c: string) => classes.has(c),
       },
-      setAttribute: () => {},
-      getAttribute: () => null,
+      attrs: {} as Record<string, string>,
+      setAttribute: (name: string, value: string) => void (target.attrs[name] = String(value)),
+      getAttribute: (name: string) => target.attrs[name] ?? null,
       removeAttribute: () => {},
       addEventListener: (type: string, fn: Handler) => {
         (listeners[type] ??= []).push(fn);
@@ -127,6 +128,7 @@ function makeEnv(opts: {
     fetched.push(String(url));
     if (url.includes("/api/widget/greeting")) return opts.greetingNever ? new Promise(() => {}) : json({ greeting: "Welcome to Baghban Greens. How can I help?", siteName: "Baghban Greens" });
     if (url.includes("/api/theme")) return json({ theme: { bubbleColor: "#F0C545", headerColor: "#F0C545", userMsgColor: "#F0C545", sendBtnColor: "#F0C545", accentColor: "#F0C545" } });
+    if (url.includes("/api/chat")) return json({ text: "A long answer. ".repeat(20) });
     if (/\/api\/embed\/events\?/.test(url)) {
       return json({ events: opts.events ?? [], test: false, teaser: opts.teaser ?? DEFAULT, teaser_event_id: opts.teaserEventId ?? null });
     }
@@ -163,13 +165,20 @@ function makeEnv(opts: {
   vm.createContext(context);
   vm.runInContext(source, context, { filename: "embed.js" });
 
+  /** Types a message into the box and submits the form, as a visitor pressing Send or Enter. */
+  const send = (text: string) => {
+    registry.get("nochbot-input")!.value = text;
+    registry.get("nochbot-form")?.listeners.submit?.forEach((fn: Handler) => fn({ preventDefault() {} }));
+  };
+  const mode = () => registry.get("nochbot-send")!.attrs["data-mode"] as string;
+  const chatCalls = () => fetched.filter((u) => u.includes("/api/chat")).length;
   const click = (id: string) => registry.get(id)?.listeners.click?.forEach((fn: Handler) => fn({ stopPropagation() {}, preventDefault() {} }));
   const teaser = () => registry.get("nochbot-teaser")!;
   const teaserText = () => registry.get("nochbot-teaser-text")!.textContent as string;
   const visible = () => !teaser().hidden && teaser().classes.has("is-visible");
   /** The text of every quick-reply button currently offered in the chat, newest render last. */
   const buttons = () => created.filter((el) => String(el.className).split(" ").includes("nochbot-action")).map((el) => String(el.textContent));
-  return { registry, fetched, click, teaser, teaserText, visible, session, buttons };
+  return { registry, fetched, send, mode, chatCalls, click, teaser, teaserText, visible, session, buttons };
 }
 
 const settle = (ms: number) => vi.advanceTimersByTimeAsync(ms);
@@ -311,5 +320,49 @@ describe("the message beside the chat icon, as a visitor sees it", () => {
     env.click("nochbot-teaser-text");
     await settle(2000);
     expect(env.fetched.filter((u) => u.includes("/api/embed/events/e1")).length).toBe(1);
+  });
+
+  describe("sending while a reply types out", () => {
+    it("turns Send into Stop while the reply types, and back when it finishes", async () => {
+      const env = makeEnv({});
+      await settle(6000); // the greeting has finished typing
+      expect(env.mode()).toBe("send");
+      env.send("hello");
+      await settle(500);
+      expect(env.chatCalls()).toBe(1);
+      expect(env.mode()).toBe("stop");
+      await settle(6000);
+      expect(env.mode()).toBe("send");
+    });
+
+    it("does not send a new message while the reply types: the press only stops it", async () => {
+      const env = makeEnv({});
+      await settle(6000);
+      env.send("hello");
+      await settle(500);
+      env.send("a second question");
+      await settle(100);
+      expect(env.chatCalls()).toBe(1);
+      expect(env.mode()).toBe("send");
+      // Now free to send.
+      env.send("a second question");
+      await settle(100);
+      expect(env.chatCalls()).toBe(2);
+    });
+
+    it("shows a reply that carries buttons in full when stopped", async () => {
+      const env = makeEnv({
+        events: [{ id: "e1", name: "Launch Party", available_seats: 5, date: "2026-12-01T10:00:00Z" }],
+        teaser: "Launch Party is live. Book your tickets now!",
+        teaserEventId: "e1",
+      });
+      await settle(6000);
+      env.click("nochbot-teaser-text");
+      await settle(400);
+      expect(env.mode()).toBe("stop");
+      env.send("");
+      await settle(100);
+      expect(env.buttons()).toContain("1 ticket");
+    });
   });
 });

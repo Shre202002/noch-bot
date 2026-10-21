@@ -90,7 +90,10 @@
     renderMessages();
     if (role === 'assistant') {
       announce(text);
-      if (message.typed === 0) typeOut(message);
+      if (message.typed === 0) {
+        typeOut(message);
+        syncComposer();
+      }
     }
   }
 
@@ -101,12 +104,14 @@
   // Reveals a reply in about 2-3 seconds whatever its length; buttons and links appear once it is complete.
   function typeOut(message) {
     var step = Math.max(1, Math.ceil(message.text.length / 150));
-    var timer = setInterval(function () {
+    message.timer = setInterval(function () {
       message.typed = Math.min(message.text.length, message.typed + step);
       if (message.typed >= message.text.length) {
-        clearInterval(timer);
+        clearInterval(message.timer);
+        delete message.timer;
         delete message.typed;
         renderMessages();
+        syncComposer();
         return;
       }
       var list = document.getElementById('nochbot-messages');
@@ -179,19 +184,55 @@
     setTimeout(function () { live.textContent = text; }, 50);
   }
 
-  function setLoading(value) {
-    state.loading = value;
-    renderMessages();
+  function typingMessage() {
+    for (var i = 0; i < state.messages.length; i++) if (state.messages[i].typed !== undefined) return state.messages[i];
+    return null;
+  }
+
+  /** Nothing new can be sent while a reply is being fetched or typed out. */
+  function isBusy() {
+    return state.loading || !!typingMessage();
+  }
+
+  // While a reply types, Send turns into Stop; it stays disabled while the reply is still being fetched.
+  function syncComposer() {
     var send = document.getElementById('nochbot-send');
     var input = document.getElementById('nochbot-input');
     var list = document.getElementById('nochbot-messages');
-    if (send) send.disabled = value;
+    var stopping = !state.loading && !!typingMessage();
+    if (send) {
+      send.disabled = state.loading;
+      if (send.getAttribute('data-mode') !== (stopping ? 'stop' : 'send')) {
+        send.setAttribute('data-mode', stopping ? 'stop' : 'send');
+        send.setAttribute('aria-label', stopping ? 'Stop' : 'Send message');
+        send.innerHTML = stopping ? STOP_ICON : SEND_ICON;
+      }
+    }
     // readOnly rather than disabled, so keyboard focus stays in the field while the reply loads.
     if (input) {
-      input.readOnly = value;
-      input.setAttribute('aria-busy', value ? 'true' : 'false');
+      input.readOnly = state.loading;
+      input.setAttribute('aria-busy', isBusy() ? 'true' : 'false');
     }
-    if (list) list.setAttribute('aria-busy', value ? 'true' : 'false');
+    if (list) list.setAttribute('aria-busy', isBusy() ? 'true' : 'false');
+  }
+
+  /** Cut the reply off where it is. A reply with buttons (a booking step) is shown in full so the visitor is never left without them. */
+  function stopTyping() {
+    var message = typingMessage();
+    if (!message) return;
+    clearInterval(message.timer);
+    delete message.timer;
+    var kept = message.text.slice(0, message.typed).trim();
+    if (!(message.actions && message.actions.length) && kept) message.text = kept;
+    delete message.typed;
+    renderMessages();
+    syncComposer();
+  }
+
+  function setLoading(value) {
+    state.loading = value;
+    renderMessages();
+    syncComposer();
   }
 
   function renderMessages() {
@@ -275,6 +316,8 @@
   function sendMessage() {
     var input = document.getElementById('nochbot-input');
     if (!input || state.loading) return;
+    // The button reads Stop while a reply types, so a press (or Enter) ends the reply instead of sending.
+    if (typingMessage()) return stopTyping();
     var text = input.value.trim();
     if (!text) return;
     input.value = '';
@@ -831,6 +874,7 @@
   // Lucide "x"
   var CLOSE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>';
   // Lucide "send-horizontal"
+  var STOP_ICON = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
   var SEND_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.714 3.048a.498.498 0 0 0-.683.627l2.843 7.627a2 2 0 0 1 0 1.396l-2.842 7.627a.498.498 0 0 0 .682.627l18-8.5a.5.5 0 0 0 0-.904z"/><path d="M6 12h16"/></svg>';
   var teaserKey = 'nochbot_teaser_dismissed';
 

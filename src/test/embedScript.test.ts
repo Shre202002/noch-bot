@@ -40,6 +40,13 @@ describe("public/embed.js", () => {
     expect(source).not.toContain(".nochbot-action,.nochbot-pay-link{border:1px solid rgba(17,24,39,.12)");
   });
 
+  it("locks sending while a reply types, with a Stop button that cuts it off", () => {
+    expect(source).toContain("var STOP_ICON = ");
+    expect(source).toContain("function stopTyping()");
+    expect(source).toContain("if (typingMessage()) return stopTyping();");
+    expect(source).toContain("send.disabled = state.loading;");
+  });
+
   it("labels the ticket quantity choices with what they are", () => {
     expect(source).toContain("n === 1 ? '1 ticket' : n + ' tickets'");
   });
