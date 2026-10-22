@@ -20,6 +20,8 @@ import { ScanLine,
   CalendarPlus,
   Ticket,
   Menu,
+  CalendarCheck,
+  Undo2,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -57,7 +59,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "General",
     items: [
       { icon: Home, title: "Dashboard", href: "/dashboard" },
-      { icon: MessageSquare, title: "Chat History", href: "/dashboard/history", notifs: 4 },
+      { icon: MessageSquare, title: "Chat History", href: "/dashboard/history" },
     ],
   },
   {
@@ -110,25 +112,48 @@ const useLogout = () => {
   };
 };
 
+const THEME_KEY = "nochbot:dashboard-theme";
+
 export const NoctaDashboard = ({ children, user }: { children?: React.ReactNode, user?: any }) => {
   const [isDark, setIsDark] = useState(true);
 
+  // Restore the saved choice after mount (storage can be unavailable, e.g. blocked site data).
   useEffect(() => {
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    try {
+      if (localStorage.getItem(THEME_KEY) === "light") setIsDark(false);
+    } catch { /* default to dark */ }
+  }, []);
+
+  // The light tokens live on <html> so portalled dialogs and popovers get them too; they are removed on
+  // unmount, which keeps the landing and public pages dark.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.toggle("dashboard-light", !isDark);
+    root.classList.toggle("dark", isDark);
+    return () => {
+      root.classList.remove("dashboard-light");
+      root.classList.add("dark");
+    };
   }, [isDark]);
 
+  const toggleTheme = () => {
+    const next = !isDark;
+    setIsDark(next);
+    try {
+      localStorage.setItem(THEME_KEY, next ? "dark" : "light");
+    } catch { /* choice just won't persist */ }
+  };
+
+  const chatCount = useChatCount();
+
   return (
-    <div className={`flex min-h-screen w-full ${isDark ? 'dark' : ''}`}>
+    <div className="flex min-h-screen w-full">
       <div className="flex w-full bg-background text-foreground">
-        <Sidebar user={user} />
+        <Sidebar user={user} chatCount={chatCount} />
         {/* overflow-x-clip (not hidden/auto): clips sideways overflow without becoming a scroll container, so sticky
             elements inside pages (like the pinned ticket preview) stick against the window scroll. */}
         <main className="min-w-0 flex-1 flex flex-col min-h-screen overflow-x-clip">
-          <DashboardHeader isDark={isDark} setIsDark={setIsDark} user={user} />
+          <DashboardHeader isDark={isDark} toggleTheme={toggleTheme} user={user} chatCount={chatCount} />
           <div className="flex-1 overflow-x-clip p-4 md:p-6 lg:p-8">
             {children}
           </div>
@@ -138,7 +163,28 @@ export const NoctaDashboard = ({ children, user }: { children?: React.ReactNode,
   );
 };
 
-const Sidebar = ({ user }: { user?: any }) => {
+// Live number of conversations for the "Chat History" badge; refreshed on navigation.
+const useChatCount = () => {
+  const pathname = usePathname();
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/history/count", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!cancelled && typeof d?.total === "number") setCount(d.total);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname]);
+
+  return count;
+};
+
+const Sidebar = ({ user, chatCount }: { user?: any; chatCount: number }) => {
   const [open, setOpen] = useState(true);
   const pathname = usePathname();
   const handleLogout = useLogout();
@@ -151,7 +197,7 @@ const Sidebar = ({ user }: { user?: any }) => {
       <TitleSection open={open} user={user} />
 
       <div className="flex-1 min-h-0 overflow-y-auto -mx-1 px-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-        <NavGroups pathname={pathname} open={open} />
+        <NavGroups pathname={pathname} open={open} chatCount={chatCount} />
       </div>
 
       <div className="border-t border-border pt-2 space-y-1 mt-2">
@@ -185,7 +231,7 @@ const Sidebar = ({ user }: { user?: any }) => {
 
 // Shared by the desktop rail and the mobile drawer so both always show the same grouping.
 // Groups collapse individually; the group holding the current route is always expanded.
-export const NavGroups = ({ pathname, open }: { pathname: string | null; open: boolean }) => {
+export const NavGroups = ({ pathname, open, chatCount = 0 }: { pathname: string | null; open: boolean; chatCount?: number }) => {
   const [collapsed, setCollapsed] = useState<string[]>([]);
 
   const toggle = (label: string) =>
@@ -227,7 +273,7 @@ export const NavGroups = ({ pathname, open }: { pathname: string | null; open: b
                     href={item.href}
                     selected={isActive(pathname, item.href)}
                     open={open}
-                    notifs={item.notifs}
+                    notifs={item.href === "/dashboard/history" ? chatCount : item.notifs}
                   />
                 ))}
               </div>
@@ -261,9 +307,9 @@ const SidebarOption = ({ Icon, title, href, selected, open, notifs, compact }: a
         </span>
       )}
 
-      {notifs && open && (
-        <span className="absolute right-3 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-[10px] text-accent-foreground font-bold">
-          {notifs}
+      {notifs > 0 && open && (
+        <span className="absolute right-3 flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1 text-[10px] text-accent-foreground font-bold">
+          {notifs > 99 ? "99+" : notifs}
         </span>
       )}
     </Link>
@@ -318,7 +364,7 @@ const ToggleClose = ({ open, setOpen }: any) => {
 };
 
 // Below md the sidebar is hidden, so the same grouped destinations open from a left drawer.
-const MobileNav = ({ user }: { user?: any }) => {
+const MobileNav = ({ user, chatCount }: { user?: any; chatCount: number }) => {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const handleLogout = useLogout();
@@ -346,7 +392,7 @@ const MobileNav = ({ user }: { user?: any }) => {
         <SheetTitle className="sr-only">Dashboard navigation</SheetTitle>
         <TitleSection open user={user} />
         <nav aria-label="Dashboard" className="flex-1 min-h-0 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-          <NavGroups pathname={pathname} open />
+          <NavGroups pathname={pathname} open chatCount={chatCount} />
         </nav>
         <div className="border-t border-border pt-2 space-y-1">
           {BOTTOM_ITEMS.map((item) => (
@@ -376,13 +422,111 @@ const MobileNav = ({ user }: { user?: any }) => {
   );
 };
 
-const DashboardHeader = ({ isDark, setIsDark, user }: any) => {
+const NOTIFICATION_ICONS = { booking: CalendarCheck, refund: Undo2, chat: MessageSquare } as const;
+
+type FeedItem = { id: string; type: keyof typeof NOTIFICATION_ICONS; title: string; body: string; href: string; createdAt: string };
+
+const timeAgo = (iso: string) => {
+  const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.round(hours / 24)}d ago`;
+};
+
+const NotificationBell = () => {
+  const [items, setItems] = useState<FeedItem[]>([]);
+  const [unread, setUnread] = useState(0);
+  const [open, setOpen] = useState(false);
+
+  const load = React.useCallback(async () => {
+    try {
+      const r = await fetch("/api/notifications", { cache: "no-store" });
+      if (!r.ok) return;
+      const d = await r.json();
+      setItems(d.items ?? []);
+      setUnread(d.unread ?? 0);
+    } catch { /* keep the last feed */ }
+  }, []);
+
+  useEffect(() => {
+    load();
+    const t = setInterval(load, 60000);
+    return () => clearInterval(t);
+  }, [load]);
+
+  const markRead = async () => {
+    setUnread(0);
+    try {
+      await fetch("/api/notifications/read", { method: "POST" });
+    } catch { /* shows unread again on the next load */ }
+  };
+
+  return (
+    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (o) load(); }}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"}
+          className="relative grid size-11 md:size-10 place-content-center rounded-xl bg-accent/50 text-muted-foreground hover:text-foreground transition-colors border border-border cursor-pointer"
+        >
+          <Bell className="h-5 w-5" />
+          {unread > 0 && (
+            <span className="absolute -top-1 -right-1 grid h-4 min-w-4 place-content-center rounded-full bg-destructive px-1 text-[10px] font-bold leading-none text-destructive-foreground">
+              {unread > 9 ? "9+" : unread}
+            </span>
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[min(22rem,calc(100vw-1.5rem))] bg-card border-border p-0 shadow-2xl" align="end">
+        <div className="flex items-center justify-between border-b border-border px-4 py-3">
+          <span className="text-sm font-semibold">Notifications</span>
+          <button
+            type="button"
+            onClick={markRead}
+            disabled={unread === 0}
+            className="text-xs text-muted-foreground hover:text-foreground disabled:opacity-40 cursor-pointer disabled:cursor-default"
+          >
+            Mark all as read
+          </button>
+        </div>
+        <div className="max-h-96 overflow-y-auto">
+          {items.length === 0 ? (
+            <p className="px-4 py-8 text-center text-sm text-muted-foreground">Nothing new yet. Bookings and chats will show up here.</p>
+          ) : (
+            items.map((item) => {
+              const Icon = NOTIFICATION_ICONS[item.type] ?? Bell;
+              return (
+                <Link
+                  key={item.id}
+                  href={item.href}
+                  onClick={() => setOpen(false)}
+                  className="flex gap-3 border-b border-border/60 px-4 py-3 last:border-b-0 hover:bg-accent transition-colors"
+                >
+                  <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${item.type === "refund" ? "text-destructive" : "text-muted-foreground"}`} />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium leading-tight">{item.title}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">{item.body}</p>
+                  </div>
+                  <span className="shrink-0 text-[10px] text-muted-foreground">{timeAgo(item.createdAt)}</span>
+                </Link>
+              );
+            })
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+};
+
+const DashboardHeader = ({ isDark, toggleTheme, user, chatCount }: any) => {
   const handleLogout = useLogout();
 
   return (
     <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm flex items-center justify-between gap-2 px-3 md:px-6 sticky top-0 z-40">
       <div className="flex min-w-0 items-center gap-1">
-        <MobileNav user={user} />
+        <MobileNav user={user} chatCount={chatCount} />
         <Link href="/dashboard" aria-label="NochBot dashboard" className="md:hidden flex items-center">
           <Wordmark height={20} />
         </Link>
@@ -391,17 +535,10 @@ const DashboardHeader = ({ isDark, setIsDark, user }: any) => {
         </h2>
       </div>
       <div className="flex items-center gap-1.5 md:gap-3">
+        <NotificationBell />
         <button
           type="button"
-          aria-label="Notifications"
-          className="relative grid size-11 md:size-10 place-content-center rounded-xl bg-accent/50 text-muted-foreground hover:text-foreground transition-colors border border-border cursor-pointer"
-        >
-          <Bell className="h-5 w-5" />
-          <span className="absolute top-2 right-2 h-2 w-2 bg-primary rounded-full"></span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setIsDark(!isDark)}
+          onClick={toggleTheme}
           aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
           className="grid size-11 md:size-10 place-content-center rounded-xl bg-accent/50 text-muted-foreground hover:text-foreground transition-colors border border-border cursor-pointer"
         >

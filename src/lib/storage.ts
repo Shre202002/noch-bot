@@ -61,6 +61,7 @@ export type Account = {
   otpHash?: string;
   otpExpiry?: string;
   otpEmail?: string;
+  notificationsSeenAt?: string;
   subscription?: {
     provider: "razorpay" | "stripe";
     subscriptionId: string;
