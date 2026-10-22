@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { Hero } from '@/components/Hero';
 import { Features } from '@/components/Features';
 import { EmbedProcess } from '@/components/EmbedProcess';
+import { AppFlow } from '@/components/AppFlow';
 import { DashboardScrollSection } from '@/components/DashboardScrollSection';
 import { HowItWorks } from '@/components/HowItWorks';
 import { Pricing } from '@/components/Pricing';
@@ -39,6 +40,8 @@ function PageContent() {
           <Hero />
           <Features />
           <EmbedProcess />
+
+          <AppFlow />
           
           <DashboardScrollSection />
 
