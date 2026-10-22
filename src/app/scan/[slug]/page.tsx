@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
-import { AlertTriangle, AtSign, CalendarDays, Camera, CameraOff, CheckCircle2, Eye, EyeOff, Loader2, Lock, LogOut, MapPin, ScanLine, UserRound, XCircle } from "lucide-react";
+import { AlertTriangle, AtSign, CalendarDays, Camera, CameraOff, CheckCircle2, Eye, EyeOff, Flashlight, Loader2, Lock, LogOut, MapPin, ScanLine, UserRound, XCircle } from "lucide-react";
+import { createSameCodeLock, openCamera, startQrReading, type CameraHandle } from "@/lib/qrScanner";
+import { armSound, signalResult } from "@/lib/scanFeedback";
 
 type Counts = { total: number; scanned: number; remaining: number };
 type Me = { signedIn: boolean; loginId?: string; name?: string | null; event?: { name: string; startAt: string | null; venue: string | null } | null; counts?: Counts; code?: string; message?: string };
@@ -17,7 +19,9 @@ type Result = {
 };
 type Banner = { tone: "ok" | "warn" | "bad"; title: string; detail?: string; code?: string };
 
-const REPEAT_LOCK_MS = 2500;
+// How long a result stays on screen before the page is ready-looking again, and how often the door counts are re-checked.
+const RESULT_SHOWN_MS = 4000;
+const COUNTS_SYNC_MS = 15000;
 
 /** How each server outcome is shown to the person at the door. */
 function bannerFor(r: Result): Banner {
@@ -119,12 +123,16 @@ export default function ScannerPage() {
   const [manual, setManual] = useState("");
   const [cameraOn, setCameraOn] = useState(false);
   const [cameraNote, setCameraNote] = useState("");
+  const [torchSupported, setTorchSupported] = useState(false);
+  const [torchOn, setTorchOn] = useState(false);
   const [history, setHistory] = useState<Array<Banner & { at: number }>>([]);
 
   const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const lastSeen = useRef<{ code: string; at: number }>({ code: "", at: 0 });
+  const cameraRef = useRef<CameraHandle | null>(null);
+  const lock = useRef(createSameCodeLock());
   const busy = useRef(false);
+  const bannerTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const autoStarted = useRef(false);
 
   const refreshMe = useCallback(async () => {
     const res = await fetch(`${api}/auth/me`, { cache: "no-store" });
@@ -138,9 +146,10 @@ export default function ScannerPage() {
   useEffect(() => { void refreshMe().catch(() => setMe({ signedIn: false, message: "Could not reach the server. Check your connection." })); }, [refreshMe]);
 
   const stopCamera = useCallback(() => {
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
+    cameraRef.current?.stream.getTracks().forEach((t) => t.stop());
+    cameraRef.current = null;
     setCameraOn(false);
+    setTorchOn(false);
   }, []);
   useEffect(() => stopCamera, [stopCamera]);
 
@@ -211,8 +220,12 @@ export default function ScannerPage() {
       const b = bannerFor(data);
       setBanner(b);
       setHistory((h) => [{ ...b, at: Date.now() }, ...h].slice(0, 8));
-      if (data.counts) setCounts(data.counts);
-      try { navigator.vibrate?.(b.tone === "ok" ? 80 : [60, 60, 60]); } catch { /* not supported */ }
+      signalResult(b.tone === "ok");
+      // The count moves the instant someone is admitted; the server's numbers are re-checked every few seconds.
+      if (data.result === "admitted" && !data.retry) setCounts((c) => (c ? { total: c.total, scanned: c.scanned + 1, remaining: Math.max(0, c.remaining - 1) } : c));
+      else if (data.counts) setCounts(data.counts);
+      clearTimeout(bannerTimer.current);
+      bannerTimer.current = setTimeout(() => setBanner(null), RESULT_SHOWN_MS);
     } catch {
       setBanner({ tone: "bad", title: "Connection problem", detail: "Nothing was checked. Try again." });
     } finally {
@@ -221,67 +234,57 @@ export default function ScannerPage() {
     }
   }, [api, refreshMe, stopCamera]);
 
-  const startCamera = async () => {
+  const startCamera = useCallback(async () => {
     setCameraNote("");
     if (!navigator.mediaDevices?.getUserMedia) { setCameraNote("The camera needs a secure (https) page. Type the ticket code instead."); return; }
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
-      streamRef.current = stream;
+      const camera = await openCamera();
+      cameraRef.current = camera;
+      setTorchSupported(camera.torchSupported);
       setCameraOn(true);
     } catch {
       setCameraNote("Camera permission was blocked. Allow it in your browser, or type the ticket code instead.");
     }
-  };
+  }, []);
 
-  // Read QR codes from the camera: the browser's detector when there is one, jsQR otherwise.
+  // The camera starts by itself once signed in, so the first ticket can be scanned without touching anything.
+  useEffect(() => {
+    if (!me?.signedIn || autoStarted.current) return;
+    autoStarted.current = true;
+    void startCamera();
+  }, [me?.signedIn, startCamera]);
+
+  // Every code the camera sees: a new one is checked at once; the same one is ignored while it stays in view.
   useEffect(() => {
     if (!cameraOn) return;
     const video = videoRef.current;
-    const stream = streamRef.current;
-    if (!video || !stream) return;
-    video.srcObject = stream;
+    const camera = cameraRef.current;
+    if (!video || !camera) return;
+    video.srcObject = camera.stream;
     void video.play().catch(() => {});
-
-    let stopped = false;
-    const canvas = document.createElement("canvas");
-    const context = canvas.getContext("2d", { willReadFrequently: true });
-    type Detector = { detect: (v: HTMLVideoElement) => Promise<Array<{ rawValue: string }>> };
-    const Native = (window as unknown as { BarcodeDetector?: new (o: { formats: string[] }) => Detector }).BarcodeDetector;
-    const detector = Native ? new Native({ formats: ["qr_code"] }) : null;
-    let jsQR: typeof import("jsqr").default | null = null;
-
-    const tick = async () => {
-      if (stopped) return;
-      if (video.readyState >= 2 && !busy.current) {
-        let value = "";
-        try {
-          if (detector) {
-            value = (await detector.detect(video))[0]?.rawValue ?? "";
-          } else if (context) {
-            jsQR = jsQR ?? (await import("jsqr")).default;
-            const scale = Math.min(1, 640 / video.videoWidth);
-            canvas.width = Math.round(video.videoWidth * scale);
-            canvas.height = Math.round(video.videoHeight * scale);
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
-            value = jsQR(context.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height)?.data ?? "";
-          }
-        } catch { /* a frame that cannot be read is skipped */ }
-        const now = Date.now();
-        if (value && !(value === lastSeen.current.code && now - lastSeen.current.at < REPEAT_LOCK_MS)) {
-          lastSeen.current = { code: value, at: now };
-          void check(value);
-        }
-      }
-      setTimeout(tick, detector ? 150 : 250);
-    };
-    void tick();
-    return () => { stopped = true; };
+    return startQrReading(video, (text) => {
+      if (busy.current) { lock.current.touch(text); return; }
+      if (lock.current.accept(text)) void check(text);
+    });
   }, [cameraOn, check]);
+
+  // Door counts also change from other phones and the dashboard, so they are re-read every few seconds.
+  useEffect(() => {
+    if (!me?.signedIn) return;
+    const t = setInterval(() => { if (!document.hidden) void refreshMe().catch(() => {}); }, COUNTS_SYNC_MS);
+    return () => clearInterval(t);
+  }, [me?.signedIn, refreshMe]);
+
+  const toggleTorch = async () => {
+    const next = !torchOn;
+    await cameraRef.current?.setTorch(next);
+    setTorchOn(next);
+  };
 
   // ── screens ────────────────────────────────────────────────────────────────
 
   const shell = (children: React.ReactNode) => (
-    <div className="min-h-screen bg-[#0a0a0a] text-white">
+    <div onPointerDown={armSound} className="min-h-screen bg-[#0a0a0a] text-white">
       <main className="mx-auto flex min-h-screen w-full max-w-md flex-col gap-5 px-4 pb-28 pt-6">{children}</main>
     </div>
   );
@@ -430,7 +433,7 @@ export default function ScannerPage() {
           </div>
         ) : (
           <div className="flex min-h-[8.5rem] items-center justify-center rounded-2xl border border-dashed border-white/15 p-5 text-center text-white/50">
-            Point the camera at a ticket QR code, or type the code below.
+            Ready. Hold a ticket QR in the box, or type the code below.
           </div>
         )}
       </div>
@@ -439,7 +442,12 @@ export default function ScannerPage() {
         {cameraOn ? (
           <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-black">
             <video ref={videoRef} playsInline muted className="aspect-square w-full object-cover" />
-            <div aria-hidden="true" className="pointer-events-none absolute inset-8 rounded-2xl border-2 border-[#36f4a4]/70" />
+            <div aria-hidden="true" className="pointer-events-none absolute inset-[10%] rounded-2xl border-2 border-[#36f4a4]/70" />
+            {torchSupported && (
+              <button type="button" onClick={toggleTorch} aria-pressed={torchOn} className={`absolute bottom-3 left-3 flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm ${torchOn ? "bg-[#36f4a4] text-black" : "bg-black/70"}`}>
+                <Flashlight aria-hidden="true" className="h-4 w-4" /> Light
+              </button>
+            )}
             <button type="button" onClick={stopCamera} className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-lg bg-black/70 px-3 py-2 text-sm">
               <CameraOff aria-hidden="true" className="h-4 w-4" /> Stop camera
             </button>

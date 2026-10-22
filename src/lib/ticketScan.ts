@@ -40,8 +40,25 @@ export async function scanTicket(db: Db, request: ScanRequest): Promise<ScanOutc
   if (!secret) return { code: 'misconfigured' };
 
   const { ticketCode } = request;
-  const ticket = await db.collection('tickets').findOne({ ticket_code: ticketCode });
+  // The ticket and its booking come back in one database round trip.
+  const [ticket] = await db
+    .collection('tickets')
+    .aggregate([
+      { $match: { ticket_code: ticketCode } },
+      { $limit: 1 },
+      {
+        $lookup: {
+          from: 'bookings',
+          localField: 'booking_id',
+          foreignField: '_id',
+          as: 'booking',
+          pipeline: [{ $project: { status: 1, attendee: 1 } }],
+        },
+      },
+    ])
+    .toArray();
   if (!ticket) return { code: 'not_found' };
+  const booking = (ticket.booking as Array<Record<string, any>>)[0];
 
   // Test tickets (made to try the booking) never admit anyone.
   if (ticket.is_test) return { code: 'test_ticket' };
@@ -55,9 +72,6 @@ export async function scanTicket(db: Db, request: ScanRequest): Promise<ScanOutc
   if (ticket.qr_payload_hash !== expectedHash) return { code: 'tampered' };
 
   // Only tickets of confirmed bookings admit anyone (e.g. not one refunded after a late payment).
-  const booking = await db
-    .collection('bookings')
-    .findOne({ _id: ticket.booking_id }, { projection: { status: 1, attendee: 1 } });
   if (booking && booking.status !== 'confirmed') return { code: 'not_confirmed' };
   const attendeeName = attendeeNameFrom(booking?.attendee?.answers);
 

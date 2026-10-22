@@ -27,9 +27,15 @@ export async function requireScannerSession(
   req: NextRequest,
   slug: string
 ): Promise<{ db: Db; link: ScannerLink; user: BaseLinkUser } | NextResponse> {
-  const found = await requireScannerLink(slug);
-  if (found instanceof NextResponse) return found;
-  const session = await verifyScannerSession(found.db, slug, req.cookies.get(scannerCookieName(slug))?.value);
+  // The link and the account are looked up together: one wait for the database instead of two.
+  const db = await getDb();
+  await ensureScannerIndexes(db);
+  const [link, session] = await Promise.all([
+    findActiveScannerLink(db, slug),
+    verifyScannerSession(db, slug, req.cookies.get(scannerCookieName(slug))?.value),
+  ]);
+  if (!link) return NextResponse.json({ error: SCANNER_LINK_UNAVAILABLE }, { status: 404 });
+  const found = { db, link };
   if ('error' in session) {
     return NextResponse.json(
       { signedIn: false, code: session.error, error: SCANNER_AUTH_MESSAGES[session.error] },

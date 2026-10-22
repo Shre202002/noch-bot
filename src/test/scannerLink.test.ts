@@ -99,7 +99,7 @@ const me = async (slug: string, cookie?: string) => {
 const scan = async (slug: string, ticketCode: string, cookie?: string, extra: Record<string, unknown> = {}) => {
   const { POST } = await import("@/app/api/scan/[slug]/scan/route");
   const res = await POST(req(`/api/scan/${slug}/scan`, "POST", { ticketCode, ...extra }, cookie), params({ slug }));
-  return { status: res.status, body: await res.json() };
+  return { status: res.status, body: await res.json(), headers: res.headers };
 };
 const decide = async (eventId: ObjectId, userId: string, action: string) => {
   const { PATCH } = await import("@/app/api/events/[id]/scanner-users/[userId]/route");
@@ -287,7 +287,11 @@ describe("scanning", () => {
 
     const first = await scan(slug, codes[0], cookie);
     expect(first.status).toBe(200);
-    expect(first.body).toMatchObject({ result: "admitted", code: codes[0], attendee: "Asha Rao", counts: { total: 2, scanned: 1, remaining: 1 } });
+    expect(first.body).toMatchObject({ result: "admitted", code: codes[0], attendee: "Asha Rao" });
+    // The route answers without computing door counts (the scanner updates them itself) and reports its own timing.
+    expect(first.body.counts).toBeUndefined();
+    expect(first.headers.get("server-timing")).toMatch(/^scan;dur=\d+$/);
+    expect((await feed(eventId)).body.counts).toEqual({ total: 2, scanned: 1, remaining: 1 });
 
     const second = await scan(slug, codes[0], cookie);
     expect(second.body).toMatchObject({ result: "already_scanned", attendee: "Asha Rao", scannedBy: "Gate One" });
