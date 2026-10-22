@@ -34,13 +34,13 @@ export function BookingPreview() {
     };
   }, []);
 
-  const box = "max-w-[560px] rounded-xl border border-[#2a2d35] bg-[#0a0a0a] p-5 text-sm text-white";
+  const box = "max-w-[560px] rounded-xl border border-[var(--nb-line)] bg-[var(--nb-surface)] p-5 text-sm text-foreground";
 
   if (error) return <div role="alert" className={`${box} text-red-400`}>{error}</div>;
 
   if (!events) {
     return (
-      <div className={`${box} flex items-center gap-2 text-white/60`} role="status">
+      <div className={`${box} flex items-center gap-2 text-foreground/60`} role="status">
         <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> Loading your events…
       </div>
     );
@@ -50,12 +50,12 @@ export function BookingPreview() {
     return (
       <div className={`${box} space-y-2`}>
         <p className="flex items-center gap-2 font-semibold">
-          <FlaskConical aria-hidden="true" className="h-4 w-4 text-[#36f4a4]" /> No event is ready to test yet
+          <FlaskConical aria-hidden="true" className="h-4 w-4 text-signal" /> No event is ready to test yet
         </p>
-        <p className="text-white/60">
+        <p className="text-foreground/60">
           An event can be tested once its details, attendee form, ticket design (and payments, for a paid event) are done.
         </p>
-        <Link href="/dashboard/events" className="inline-block font-semibold text-[#36f4a4] underline-offset-4 hover:underline">
+        <Link href="/dashboard/events" className="inline-block font-semibold text-signal underline-offset-4 hover:underline">
           Go to your events
         </Link>
       </div>
@@ -65,7 +65,7 @@ export function BookingPreview() {
   return (
     <div className="max-w-[560px] space-y-4">
       <div className={`${box} space-y-3`}>
-        <p className="text-white/70">
+        <p className="text-foreground/70">
           Book a ticket here exactly as a visitor would. Nothing real is taken: no seats, no emails and no money. It appears in
           Bookings as a <span className="font-bold text-red-200">TESTED TICKET</span>.
         </p>
@@ -78,7 +78,7 @@ export function BookingPreview() {
               setSelected(e.target.value);
               setStarted(false);
             }}
-            className="min-w-0 flex-1 rounded-lg border border-[#2a2d35] bg-[#1f2228] px-3 py-2 text-sm text-white"
+            className="min-w-0 flex-1 rounded-lg border border-[var(--nb-line)] bg-[var(--nb-surface-2)] px-3 py-2 text-sm text-foreground"
           >
             {events.map((e) => (
               <option key={e.id} value={e.id}>
@@ -92,7 +92,7 @@ export function BookingPreview() {
               setStarted(true);
               setFrameKey((k) => k + 1);
             }}
-            className="cursor-pointer rounded-full bg-[#36f4a4] px-5 py-2 text-sm font-semibold text-black"
+            className="cursor-pointer rounded-full bg-signal px-5 py-2 text-sm font-semibold text-black"
           >
             {started ? "Start over" : "Start test booking"}
           </button>
@@ -100,7 +100,7 @@ export function BookingPreview() {
             href={`/test-booking/${selected}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-sm text-white/70 hover:text-white"
+            className="inline-flex items-center gap-1.5 text-sm text-foreground/70 hover:text-foreground"
           >
             <ExternalLink aria-hidden="true" className="h-4 w-4" /> New tab
           </a>
@@ -108,7 +108,7 @@ export function BookingPreview() {
       </div>
 
       {started && selected && (
-        <div className="overflow-hidden rounded-xl border border-[#2a2d35]">
+        <div className="overflow-hidden rounded-xl border border-[var(--nb-line)]">
           <iframe key={frameKey} title="Event booking preview" src={`/test-booking/${selected}`} className="h-[680px] w-full bg-[#f1f5f9]" />
         </div>
       )}

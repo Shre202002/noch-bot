@@ -44,7 +44,7 @@ export default function EventBookingsPage() {
   }, [eventId]);
 
   const back = (
-    <Button asChild variant="ghost" size="sm" className="-ml-3 rounded-full text-white/70 cursor-pointer">
+    <Button asChild variant="ghost" size="sm" className="-ml-3 rounded-full text-foreground/70 cursor-pointer">
       <Link href="/dashboard/bookings"><ArrowLeft aria-hidden="true" className="mr-2 h-4 w-4" /> All events</Link>
     </Button>
   );
@@ -92,14 +92,14 @@ export default function EventBookingsPage() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-3xl font-black tracking-tight text-white">{event.name}</h1>
+              <h1 className="text-3xl font-black tracking-tight text-foreground">{event.name}</h1>
               <Badge variant={event.status === "published" ? "default" : "secondary"}>{event.status.toUpperCase()}</Badge>
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
               {[event.start_at ? new Date(event.start_at).toLocaleString() : null, event.venue].filter(Boolean).join(" · ")}
             </p>
           </div>
-          <Button asChild variant="outline" className="rounded-full border-white/15 text-white cursor-pointer">
+          <Button asChild variant="outline" className="rounded-full border-foreground/15 text-foreground cursor-pointer">
             <Link href={`/dashboard/events/${event.id}`}><Settings aria-hidden="true" className="mr-2 h-4 w-4" /> Event settings</Link>
           </Button>
         </div>
@@ -107,9 +107,9 @@ export default function EventBookingsPage() {
 
       <dl className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {stats.map((s) => (
-          <div key={s.label} className={`rounded-2xl border p-4 ${s.alert ? "border-amber-500/40 bg-amber-500/5" : "border-white/10 bg-card/40"}`}>
-            <dt className="text-[11px] font-bold uppercase tracking-widest text-white/50">{s.label}</dt>
-            <dd className={`mt-1 text-2xl font-black ${s.alert ? "text-amber-300" : "text-white"}`}>{s.value}</dd>
+          <div key={s.label} className={`rounded-2xl border p-4 ${s.alert ? "border-amber-500/40 bg-amber-500/5" : "border-foreground/10 bg-card/40"}`}>
+            <dt className="text-[11px] font-bold uppercase tracking-widest text-foreground/50">{s.label}</dt>
+            <dd className={`mt-1 text-2xl font-black ${s.alert ? "text-amber-300" : "text-foreground"}`}>{s.value}</dd>
           </div>
         ))}
       </dl>

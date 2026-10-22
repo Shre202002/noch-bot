@@ -101,7 +101,7 @@ export function AddDataDialog({ file, onClose, onAdded }: Props) {
 
   return (
     <Dialog open={file !== null} onOpenChange={(open) => { if (!open && !busy) onClose(); }}>
-      <DialogContent className="max-w-md border-[#2a2d35] bg-[#1f2228] text-white">
+      <DialogContent className="max-w-md border-[var(--nb-line)] bg-[var(--nb-surface-2)] text-foreground">
         <DialogHeader>
           <DialogTitle>Add more data</DialogTitle>
           <DialogDescription style={{ color: 'var(--nb-text-secondary)' }}>
@@ -112,12 +112,12 @@ export function AddDataDialog({ file, onClose, onAdded }: Props) {
         {summary ? (
           <div role="status" style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13, lineHeight: 1.6 }}>
             {summary.kind === 'pdf' ? (
-              <p style={{ margin: 0, color: '#fff' }}>
+              <p style={{ margin: 0, color: 'var(--foreground)' }}>
                 Added {summary.filename}: {fmt(summary.pages)} page{summary.pages === 1 ? '' : 's'}, {fmt(summary.chunks)} passages. It is searchable now.
               </p>
             ) : (
               <>
-                <p style={{ margin: 0, color: '#fff' }}>
+                <p style={{ margin: 0, color: 'var(--foreground)' }}>
                   {fmt(summary.added)} added · {fmt(summary.updated)} updated · {fmt(summary.unchanged)} unchanged
                 </p>
                 {summary.newColumns.length > 0 && (
@@ -140,7 +140,7 @@ export function AddDataDialog({ file, onClose, onAdded }: Props) {
               {summary.additionsUsed} of {summary.additionsLimit} additional files used on your plan.
             </p>
             <button type="button" className="nb-focus" onClick={onClose}
-              style={{ alignSelf: 'flex-end', minHeight: 40, padding: '0 18px', borderRadius: 9999, border: 'none', background: '#36f4a4', color: '#000', fontWeight: 500, cursor: 'pointer' }}>
+              style={{ alignSelf: 'flex-end', minHeight: 40, padding: '0 18px', borderRadius: 9999, border: 'none', background: 'var(--signal)', color: '#000', fontWeight: 500, cursor: 'pointer' }}>
               Done
             </button>
           </div>
@@ -157,18 +157,18 @@ export function AddDataDialog({ file, onClose, onAdded }: Props) {
               <input type="file" className="nb-focus"
                 accept={isPdf ? '.pdf,application/pdf' : '.csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}
                 onChange={(e) => choose(e.target.files?.[0] ?? null)}
-                style={{ fontSize: 13, color: '#fff', padding: 8, borderRadius: 8, border: '1px solid #2a2d35', background: '#0a0a0a' }} />
+                style={{ fontSize: 13, color: 'var(--foreground)', padding: 8, borderRadius: 8, border: '1px solid var(--nb-line)', background: 'var(--nb-surface)' }} />
             </label>
 
             {!isPdf && (file?.idColumn ? (
               <p style={{ margin: 0, fontSize: 13, color: 'var(--nb-text-secondary)', lineHeight: 1.6 }}>
-                Rows are matched by <strong style={{ color: '#fff' }}>{file.idColumn}</strong>: known IDs are updated, new IDs are added.
+                Rows are matched by <strong style={{ color: 'var(--foreground)' }}>{file.idColumn}</strong>: known IDs are updated, new IDs are added.
               </p>
             ) : (
               <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13, color: 'var(--nb-text-secondary)' }}>
                 Product ID column
                 <select value={idColumn} onChange={(e) => setIdColumn(e.target.value)} className="nb-focus"
-                  style={{ minHeight: 40, fontSize: 14, color: '#fff', padding: '0 10px', borderRadius: 8, border: '1px solid #2a2d35', background: '#0a0a0a' }}>
+                  style={{ minHeight: 40, fontSize: 14, color: 'var(--foreground)', padding: '0 10px', borderRadius: 8, border: '1px solid var(--nb-line)', background: 'var(--nb-surface)' }}>
                   <option value="">None — always add rows as new</option>
                   {idCandidates.map((c) => <option key={c.key} value={c.key}>{c.name}</option>)}
                 </select>
@@ -181,7 +181,7 @@ export function AddDataDialog({ file, onClose, onAdded }: Props) {
             {error && <p role="alert" style={{ margin: 0, fontSize: 13, color: '#ef4444', lineHeight: 1.5 }}>{error}</p>}
 
             <button type="submit" className="nb-focus" disabled={!picked || busy || remaining === 0}
-              style={{ minHeight: 44, borderRadius: 9999, border: 'none', background: '#36f4a4', color: '#000', fontWeight: 500, fontSize: 14, cursor: busy ? 'wait' : 'pointer', opacity: !picked || busy || remaining === 0 ? 0.6 : 1 }}>
+              style={{ minHeight: 44, borderRadius: 9999, border: 'none', background: 'var(--signal)', color: '#000', fontWeight: 500, fontSize: 14, cursor: busy ? 'wait' : 'pointer', opacity: !picked || busy || remaining === 0 ? 0.6 : 1 }}>
               {busy ? (isPdf ? 'Reading and indexing the PDF…' : 'Merging… this can take a minute') : 'Add to document'}
             </button>
           </form>

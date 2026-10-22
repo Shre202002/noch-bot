@@ -25,7 +25,7 @@ const STATUS_LABEL: Record<LinkUserRow['status'], string> = {
 
 const STATUS_COLOR: Record<LinkUserRow['status'], string> = {
   pending: '#eab308',
-  approved: '#36f4a4',
+  approved: 'var(--signal)',
   rejected: 'var(--nb-text-tertiary)',
   blocked: '#ef4444',
 };
@@ -96,7 +96,7 @@ export function LinkAccessDialog({ slug, label, onClose, onPendingChange }: Prop
 
   return (
     <Dialog open={slug !== null} onOpenChange={open => { if (!open) onClose(); }}>
-      <DialogContent className="max-w-lg border-[#2a2d35] bg-[#1f2228] text-white">
+      <DialogContent className="max-w-lg border-[var(--nb-line)] bg-[var(--nb-surface-2)] text-foreground">
         <DialogHeader>
           <DialogTitle>Manage access</DialogTitle>
           <DialogDescription style={{ color: 'var(--nb-text-secondary)' }}>
@@ -115,9 +115,9 @@ export function LinkAccessDialog({ slug, label, onClose, onPendingChange }: Prop
         ) : (
           <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8, maxHeight: '55vh', overflowY: 'auto' }}>
             {users.map(user => (
-              <li key={user.id} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '10px 12px', borderRadius: 10, background: '#0a0a0a', border: '1px solid #2a2d35' }}>
+              <li key={user.id} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '10px 12px', borderRadius: 10, background: 'var(--nb-surface)', border: '1px solid var(--nb-line)' }}>
                 <div style={{ minWidth: 0, flex: '1 1 180px' }}>
-                  <div style={{ fontSize: 14, color: '#fff', overflowWrap: 'anywhere' }}>{user.loginId}</div>
+                  <div style={{ fontSize: 14, color: 'var(--foreground)', overflowWrap: 'anywhere' }}>{user.loginId}</div>
                   <div style={{ fontSize: 12, color: 'var(--nb-text-tertiary)', marginTop: 2, display: 'flex', flexWrap: 'wrap', columnGap: 8 }}>
                     <span style={{ color: STATUS_COLOR[user.status] }}>{STATUS_LABEL[user.status]}</span>
                     <span>Last sign-in {formatDate(user.lastLoginAt)}</span>
@@ -132,8 +132,8 @@ export function LinkAccessDialog({ slug, label, onClose, onPendingChange }: Prop
                         onClick={() => act(user, a.action)}
                         aria-label={`${a.label} ${user.loginId}`}
                         style={{ minHeight: 36, padding: '0 12px', borderRadius: 9999, fontSize: 12, cursor: busyId === user.id ? 'wait' : 'pointer',
-                          background: a.primary ? '#36f4a4' : 'transparent', color: a.primary ? '#000' : 'var(--nb-text-secondary)',
-                          border: a.primary ? 'none' : '1px solid #3a3d45', opacity: busyId === user.id ? 0.6 : 1 }}>
+                          background: a.primary ? 'var(--signal)' : 'transparent', color: a.primary ? '#000' : 'var(--nb-text-secondary)',
+                          border: a.primary ? 'none' : '1px solid var(--nb-line-2)', opacity: busyId === user.id ? 0.6 : 1 }}>
                         {a.label}
                       </button>
                     ))}

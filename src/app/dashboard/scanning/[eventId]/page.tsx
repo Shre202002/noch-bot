@@ -86,26 +86,26 @@ function useMinWidth(px: number): boolean {
 // A row only redraws when its own attendee changes or its highlight starts or ends, not on every poll.
 const AttendeeRow = memo(function AttendeeRow({ a, flashed }: { a: Attendee; flashed: boolean }) {
   return (
-    <tr className={`border-t border-white/5 transition-colors duration-1000 ${flashed ? "bg-signal/15" : ""}`}>
-      <td dir="auto" className="max-w-[16rem] truncate py-2 pr-3 font-semibold text-white">{a.name || "—"}</td>
-      <td className="max-w-[18rem] break-words py-2 pr-3 text-white/70">{[a.email, a.phone].filter(Boolean).join(" · ") || "—"}</td>
-      <td className="py-2 pr-3 text-white/70"><span className="font-mono text-xs">{a.code}</span><br /><span className="text-xs text-white/60">{a.label}</span></td>
+    <tr className={`border-t border-foreground/5 transition-colors duration-1000 ${flashed ? "bg-signal/15" : ""}`}>
+      <td dir="auto" className="max-w-[16rem] truncate py-2 pr-3 font-semibold text-foreground">{a.name || "—"}</td>
+      <td className="max-w-[18rem] break-words py-2 pr-3 text-foreground/70">{[a.email, a.phone].filter(Boolean).join(" · ") || "—"}</td>
+      <td className="py-2 pr-3 text-foreground/70"><span className="font-mono text-xs">{a.code}</span><br /><span className="text-xs text-foreground/60">{a.label}</span></td>
       <td className="py-2 pr-3">{a.status === "scanned" ? <Badge className="bg-signal text-black">Scanned</Badge> : <Badge variant="secondary">{a.status === "active" ? "Not yet" : a.status}</Badge>}</td>
-      <td className="py-2 pr-3 tabular-nums text-white/70">{time(a.scannedAt) || "—"}</td>
-      <td className="py-2 text-white/70">{a.scannedBy || "—"}</td>
+      <td className="py-2 pr-3 tabular-nums text-foreground/70">{time(a.scannedAt) || "—"}</td>
+      <td className="py-2 text-foreground/70">{a.scannedBy || "—"}</td>
     </tr>
   );
 });
 
 const AttendeeCard = memo(function AttendeeCard({ a, flashed }: { a: Attendee; flashed: boolean }) {
   return (
-    <li className={`rounded-xl border border-white/10 p-3 transition-colors duration-1000 ${flashed ? "bg-signal/15" : "bg-white/[0.03]"}`}>
+    <li className={`rounded-xl border border-foreground/10 p-3 transition-colors duration-1000 ${flashed ? "bg-signal/15" : "bg-foreground/[0.03]"}`}>
       <div className="flex items-start justify-between gap-2">
-        <p dir="auto" className="min-w-0 truncate font-semibold text-white">{a.name || "—"}</p>
+        <p dir="auto" className="min-w-0 truncate font-semibold text-foreground">{a.name || "—"}</p>
         {a.status === "scanned" ? <Badge className="shrink-0 bg-signal text-black">Scanned</Badge> : <Badge variant="secondary" className="shrink-0">{a.status === "active" ? "Not yet" : a.status}</Badge>}
       </div>
-      {(a.email || a.phone) && <p className="mt-0.5 break-words text-sm text-white/70">{[a.email, a.phone].filter(Boolean).join(" · ")}</p>}
-      <p className="mt-1.5 flex flex-wrap items-center gap-x-3 text-xs text-white/60">
+      {(a.email || a.phone) && <p className="mt-0.5 break-words text-sm text-foreground/70">{[a.email, a.phone].filter(Boolean).join(" · ")}</p>}
+      <p className="mt-1.5 flex flex-wrap items-center gap-x-3 text-xs text-foreground/60">
         <span className="font-mono">{a.code}</span>
         <span>{a.label}</span>
         {a.scannedAt && <span className="tabular-nums">{time(a.scannedAt)}{a.scannedBy ? ` · ${a.scannedBy}` : ""}</span>}
@@ -302,7 +302,7 @@ export default function EventScanningPage() {
     <div className="mx-auto max-w-6xl space-y-6 pb-20">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <Link href="/dashboard/scanning" className="mb-2 inline-flex items-center gap-1 text-sm text-white/60 hover:text-white">
+          <Link href="/dashboard/scanning" className="mb-2 inline-flex items-center gap-1 text-sm text-foreground/60 hover:text-foreground">
             <ArrowLeft aria-hidden="true" className="h-4 w-4" /> All events
           </Link>
           <h1 dir="auto" className="break-words text-3xl font-black tracking-tight">{feed.eventName}</h1>
@@ -325,39 +325,39 @@ export default function EventScanningPage() {
       <section aria-label="Door counts" className="grid grid-cols-3 gap-2 sm:gap-4">
         {[
           { label: "Scanned", value: counts.scanned, tone: "text-signal", icon: UserCheck },
-          { label: "Not yet", value: counts.remaining, tone: "text-white", icon: Users },
-          { label: "Total", value: counts.total, tone: "text-white", icon: Users },
+          { label: "Not yet", value: counts.remaining, tone: "text-foreground", icon: Users },
+          { label: "Total", value: counts.total, tone: "text-foreground", icon: Users },
         ].map((s) => (
-          <Card key={s.label} className="border-white/10 bg-card/40">
+          <Card key={s.label} className="border-foreground/10 bg-card/40">
             <CardContent className="p-3 sm:p-5">
-              <p className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-white/50"><s.icon aria-hidden="true" className="h-3.5 w-3.5" /> {s.label}</p>
+              <p className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-foreground/50"><s.icon aria-hidden="true" className="h-3.5 w-3.5" /> {s.label}</p>
               <p className={`mt-1 text-3xl font-black tabular-nums sm:text-4xl ${s.tone}`}>{s.value}</p>
             </CardContent>
           </Card>
         ))}
         <div className="col-span-3">
-          <div className="flex items-center justify-between text-xs text-white/60"><span>Checked in</span><span>{percent}%</span></div>
-          <div role="progressbar" aria-label="Share of tickets checked in" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100} className="mt-1 h-2.5 overflow-hidden rounded-full bg-white/10">
+          <div className="flex items-center justify-between text-xs text-foreground/60"><span>Checked in</span><span>{percent}%</span></div>
+          <div role="progressbar" aria-label="Share of tickets checked in" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100} className="mt-1 h-2.5 overflow-hidden rounded-full bg-foreground/10">
             <div className="h-full rounded-full bg-signal transition-all duration-500" style={{ width: `${percent}%` }} />
           </div>
         </div>
       </section>
 
       <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-2">
-        <Card className="min-w-0 border-white/10 bg-card/40">
+        <Card className="min-w-0 border-foreground/10 bg-card/40">
           <CardContent className="space-y-3 p-5">
             <h2 className="text-lg font-bold">Live scans</h2>
             {recent.length === 0 ? (
-              <p className="py-6 text-center text-sm text-white/50">No tickets scanned yet. Scans appear here the moment they happen.</p>
+              <p className="py-6 text-center text-sm text-foreground/50">No tickets scanned yet. Scans appear here the moment they happen.</p>
             ) : (
               <ul aria-live="polite" className="space-y-2">
                 {recent.map((a) => (
-                  <li key={a.code} className={`flex items-center justify-between gap-3 rounded-xl px-3 py-2 transition-colors duration-1000 ${isFlashed(a.code) ? "bg-signal/20" : "bg-white/5"}`}>
+                  <li key={a.code} className={`flex items-center justify-between gap-3 rounded-xl px-3 py-2 transition-colors duration-1000 ${isFlashed(a.code) ? "bg-signal/20" : "bg-foreground/5"}`}>
                     <div className="min-w-0">
-                      <p dir="auto" className="truncate font-semibold text-white">{who(a)}</p>
-                      <p className="truncate text-xs text-white/50">{a.code} · {a.label}</p>
+                      <p dir="auto" className="truncate font-semibold text-foreground">{who(a)}</p>
+                      <p className="truncate text-xs text-foreground/50">{a.code} · {a.label}</p>
                     </div>
-                    <div className="min-w-0 max-w-[45%] shrink-0 text-right text-xs text-white/60">
+                    <div className="min-w-0 max-w-[45%] shrink-0 text-right text-xs text-foreground/60">
                       <p className="tabular-nums">{time(a.scannedAt)}</p>
                       {a.scannedBy && <p dir="auto" className="truncate">by {a.scannedBy}</p>}
                     </div>
@@ -369,12 +369,12 @@ export default function EventScanningPage() {
         </Card>
 
         <div className="min-w-0 space-y-6">
-          <Card className="border-white/10 bg-card/40">
+          <Card className="border-foreground/10 bg-card/40">
             <CardContent className="space-y-3 p-5">
               <h2 className="flex items-center gap-2 text-lg font-bold"><Link2 aria-hidden="true" className="h-5 w-5" /> Scanner link</h2>
               {!feed.link ? (
                 <>
-                  <p className="text-sm text-white/60">Share one link with your door staff. They create an account, you approve them, and they can scan this event&apos;s tickets only.</p>
+                  <p className="text-sm text-foreground/60">Share one link with your door staff. They create an account, you approve them, and they can scan this event&apos;s tickets only.</p>
                   <Button variant="signal" disabled={busy === "create"} onClick={() => act("create", `/api/events/${eventId}/scanner-link`, { action: "create" })}>
                     {busy === "create" ? <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" /> : null} Create scanner link
                   </Button>
@@ -400,20 +400,20 @@ export default function EventScanningPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-white/10 bg-card/40">
+          <Card className="border-foreground/10 bg-card/40">
             <CardContent className="space-y-3 p-5">
               <h2 className="flex items-center gap-2 text-lg font-bold">
                 Scanner accounts
                 {feed.pendingScanners > 0 && <Badge className="bg-amber-500/90 text-black">{feed.pendingScanners} waiting</Badge>}
               </h2>
               {feed.scanners.length === 0 ? (
-                <p className="text-sm text-white/50">No one has signed up yet.</p>
+                <p className="text-sm text-foreground/50">No one has signed up yet.</p>
               ) : (
                 <ul className="space-y-2">
                   {[...feed.scanners].sort((a, b) => (a.status === "pending" ? 0 : 1) - (b.status === "pending" ? 0 : 1)).map((s) => (
-                    <li key={s.id} className="rounded-xl bg-white/5 p-3">
+                    <li key={s.id} className="rounded-xl bg-foreground/5 p-3">
                       <div className="flex items-center justify-between gap-2">
-                        <p dir="auto" className="min-w-0 truncate font-semibold text-white">{s.name || s.loginId}{s.name && <span className="ml-2 text-xs font-normal text-white/50">{s.loginId}</span>}</p>
+                        <p dir="auto" className="min-w-0 truncate font-semibold text-foreground">{s.name || s.loginId}{s.name && <span className="ml-2 text-xs font-normal text-foreground/50">{s.loginId}</span>}</p>
                         <span className="shrink-0 text-xs font-semibold" style={{ color: SCANNER_STATUS[s.status].color }}>
                           {SCANNER_STATUS[s.status].label}{s.status === "approved" && s.signedIn ? " · signed in" : ""}
                         </span>
@@ -440,31 +440,31 @@ export default function EventScanningPage() {
         </div>
       </div>
 
-      <Card className="border-white/10 bg-card/40">
+      <Card className="border-foreground/10 bg-card/40">
         <CardContent className="space-y-4 p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-lg font-bold">Attendees <span className="text-sm font-normal text-white/50">({rows.length})</span></h2>
+            <h2 className="text-lg font-bold">Attendees <span className="text-sm font-normal text-foreground/50">({rows.length})</span></h2>
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative w-full sm:w-auto">
-                <Search aria-hidden="true" className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-white/40" />
+                <Search aria-hidden="true" className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-foreground/40" />
                 <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search name, email, code" aria-label="Search attendees" className="w-full pl-8 max-sm:h-11 max-sm:text-base sm:w-56" />
               </div>
               {(["all", "scanned", "not_yet"] as const).map((f) => (
                 <button key={f} type="button" onClick={() => setFilter(f)} aria-pressed={filter === f}
-                  className={`rounded-full border px-3 py-1.5 text-sm max-sm:min-h-11 max-sm:px-4 ${filter === f ? "border-signal bg-signal/15 text-signal" : "border-white/15 text-white/70 hover:text-white"}`}>
+                  className={`rounded-full border px-3 py-1.5 text-sm max-sm:min-h-11 max-sm:px-4 ${filter === f ? "border-signal bg-signal/15 text-signal" : "border-foreground/15 text-foreground/70 hover:text-foreground"}`}>
                   {f === "all" ? "All" : f === "scanned" ? "Scanned" : "Not yet"}
                 </button>
               ))}
             </div>
           </div>
           {rows.length === 0 ? (
-            <p className="py-8 text-center text-sm text-white/50">{attendees.size === 0 ? "No confirmed tickets yet." : "No one matches."}</p>
+            <p className="py-8 text-center text-sm text-foreground/50">{attendees.size === 0 ? "No confirmed tickets yet." : "No one matches."}</p>
           ) : (
             <>
             {isWide ? (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
-                  <thead className="text-xs uppercase tracking-wide text-white/50">
+                  <thead className="text-xs uppercase tracking-wide text-foreground/50">
                     <tr><th className="py-2 pr-3">Attendee</th><th className="py-2 pr-3">Contact</th><th className="py-2 pr-3">Ticket</th><th className="py-2 pr-3">Status</th><th className="py-2 pr-3">Scanned</th><th className="py-2">By</th></tr>
                   </thead>
                   <tbody>
@@ -477,7 +477,7 @@ export default function EventScanningPage() {
                 {rows.slice(0, MAX_ROWS).map((a) => <AttendeeCard key={a.code} a={a} flashed={isFlashed(a.code)} />)}
               </ul>
             )}
-            {rows.length > MAX_ROWS && <p className="pt-3 text-center text-xs text-white/50">Showing the first {MAX_ROWS}. Use search to find the rest.</p>}
+            {rows.length > MAX_ROWS && <p className="pt-3 text-center text-xs text-foreground/50">Showing the first {MAX_ROWS}. Use search to find the rest.</p>}
             </>
           )}
         </CardContent>

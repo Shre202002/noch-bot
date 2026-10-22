@@ -259,7 +259,7 @@ export default function EventDetailPage() {
             </Button>
             <div>
               <div className="flex items-center gap-3">
-                <h1 className="text-3xl font-black tracking-tight text-white">{event.name}</h1>
+                <h1 className="text-3xl font-black tracking-tight text-foreground">{event.name}</h1>
                 <Badge variant={event.status === "published" ? "default" : "secondary"}>{event.status.toUpperCase()}</Badge>
               </div>
               <p className="text-sm text-muted-foreground mt-1">Manage your event experience and ticket issuance.</p>
@@ -276,17 +276,17 @@ export default function EventDetailPage() {
         <div className="flex flex-col gap-4 min-w-[280px]">
           <Card className="border-border bg-card/40 backdrop-blur-sm">
             <CardContent className="p-5 space-y-4">
-              <h3 className="text-xs font-bold uppercase tracking-widest text-white/50">Readiness</h3>
+              <h3 className="text-xs font-bold uppercase tracking-widest text-foreground/50">Readiness</h3>
               <ul className="space-y-1">
                 {readiness?.steps.map((step) => (
                   <li key={step.id}>
                     <button
                       type="button"
                       onClick={() => goTo(step.tab)}
-                      className="flex w-full items-center gap-2 rounded-lg px-1 py-1.5 text-left text-sm hover:bg-white/5 cursor-pointer"
+                      className="flex w-full items-center gap-2 rounded-lg px-1 py-1.5 text-left text-sm hover:bg-foreground/5 cursor-pointer"
                     >
-                      {step.done ? <CheckCircle2 aria-hidden="true" className="h-4 w-4 shrink-0 text-[#36f4a4]" /> : <AlertCircle aria-hidden="true" className="h-4 w-4 shrink-0 text-orange-400" />}
-                      <span className={step.done ? "text-white" : "text-white/70"}>{step.label}</span>
+                      {step.done ? <CheckCircle2 aria-hidden="true" className="h-4 w-4 shrink-0 text-signal" /> : <AlertCircle aria-hidden="true" className="h-4 w-4 shrink-0 text-orange-400" />}
+                      <span className={step.done ? "text-foreground" : "text-foreground/70"}>{step.label}</span>
                       <span className="sr-only">{step.done ? " (complete)" : " (needs attention)"}</span>
                     </button>
                   </li>
@@ -295,13 +295,13 @@ export default function EventDetailPage() {
               {!published ? (
                 <Button
                   onClick={() => goTo("live")}
-                  className="w-full rounded-full bg-[#36f4a4] text-black hover:bg-[#36f4a4]/90 font-black h-11 cursor-pointer"
+                  className="w-full rounded-full bg-signal text-black hover:bg-signal/90 font-black h-11 cursor-pointer"
                 >
                   <Rocket aria-hidden="true" className="mr-2 h-4 w-4" />
                   {readiness?.complete ? "Review & go live" : "See what is left"}
                 </Button>
               ) : (
-                <Button asChild variant="outline" className="w-full rounded-full border-white/15 text-white h-11 cursor-pointer">
+                <Button asChild variant="outline" className="w-full rounded-full border-foreground/15 text-foreground h-11 cursor-pointer">
                   <Link href={`/dashboard/bookings/${event._id}`}>
                     <Ticket aria-hidden="true" className="mr-2 h-4 w-4" /> View bookings
                   </Link>
@@ -319,18 +319,18 @@ export default function EventDetailPage() {
           <Card className="border-border bg-card/30 backdrop-blur-sm">
             <CardContent className="p-6 space-y-6">
               <div className="grid gap-2">
-                <Label className="text-white/70">Event Name</Label>
-                <Input value={name} onChange={(e) => setName(e.target.value)} className="bg-black/40 border-white/10 text-white" />
+                <Label className="text-foreground/70">Event Name</Label>
+                <Input value={name} onChange={(e) => setName(e.target.value)} className="bg-background/40 border-foreground/10 text-foreground" />
               </div>
               <div className="grid gap-2">
-                <Label className="text-white/70">Description</Label>
-                <Textarea value={description} onChange={(e) => setDescription(e.target.value)} className="bg-black/40 border-white/10 min-h-[100px] text-white" />
+                <Label className="text-foreground/70">Description</Label>
+                <Textarea value={description} onChange={(e) => setDescription(e.target.value)} className="bg-background/40 border-foreground/10 min-h-[100px] text-foreground" />
               </div>
               <div className="grid gap-2">
-                <Label className="text-white/70">Capacity</Label>
-                <Input type="number" value={capacity} onChange={(e) => setCapacity(Number(e.target.value))} className="bg-black/40 border-white/10 text-white" />
+                <Label className="text-foreground/70">Capacity</Label>
+                <Input type="number" value={capacity} onChange={(e) => setCapacity(Number(e.target.value))} className="bg-background/40 border-foreground/10 text-foreground" />
               </div>
-              <Button onClick={handleSaveDetails} disabled={saving} className="rounded-full px-8 h-10 font-bold cursor-pointer bg-[#36f4a4] text-black hover:bg-[#36f4a4]/90 shadow-[0_0_0_3px_rgba(54,244,164,0.18)]">
+              <Button onClick={handleSaveDetails} disabled={saving} className="rounded-full px-8 h-10 font-bold cursor-pointer bg-signal text-black hover:bg-signal/90 shadow-[0_0_0_3px_color-mix(in srgb, var(--signal) 18%, transparent)]">
                 {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                 Save Changes
               </Button>
@@ -341,7 +341,7 @@ export default function EventDetailPage() {
             <CardContent className="p-6 space-y-4">
               <div>
                 <h3 className="text-lg font-bold text-red-400">Danger Zone</h3>
-                <p className="text-sm text-zinc-400">Deleting an event is permanent. You can only delete events with no ticket sales.</p>
+                <p className="text-sm text-muted-foreground">Deleting an event is permanent. You can only delete events with no ticket sales.</p>
               </div>
 
               <AlertDialog>
@@ -355,16 +355,16 @@ export default function EventDetailPage() {
                     Delete Event
                   </Button>
                 </AlertDialogTrigger>
-                <AlertDialogContent className="bg-zinc-950 border-zinc-800 text-white">
+                <AlertDialogContent className="bg-card border-border text-foreground">
                   <AlertDialogHeader>
                     <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                    <AlertDialogDescription className="text-zinc-400">
+                    <AlertDialogDescription className="text-muted-foreground">
                       This action cannot be undone. This will permanently delete the event
                       <strong> "{event.name}"</strong> and all associated attendee form questions.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel className="bg-transparent border-zinc-800 text-white hover:bg-zinc-900 cursor-pointer">Cancel</AlertDialogCancel>
+                    <AlertDialogCancel className="bg-transparent border-border text-foreground hover:bg-accent cursor-pointer">Cancel</AlertDialogCancel>
                     <AlertDialogAction
                       onClick={handleDeleteEvent}
                       className="bg-red-600 text-white hover:bg-red-700 font-bold border-none cursor-pointer"
@@ -396,43 +396,43 @@ export default function EventDetailPage() {
 
         <TabsContent value="gateway">
           {isGatewayConfigured && !isEditingGateway ? (
-            <Card className="border-[#36f4a4]/20 bg-[#36f4a4]/5 backdrop-blur-sm overflow-hidden">
+            <Card className="border-signal/20 bg-signal/5 backdrop-blur-sm overflow-hidden">
               <CardContent className="p-8 text-center space-y-6">
                 <div className="flex justify-center">
-                  <div className="h-20 w-20 rounded-full bg-[#36f4a4]/10 border-4 border-[#36f4a4]/20 flex items-center justify-center animate-in zoom-in duration-500">
-                    <ShieldCheck className="h-10 w-10 text-[#36f4a4]" />
+                  <div className="h-20 w-20 rounded-full bg-signal/10 border-4 border-signal/20 flex items-center justify-center animate-in zoom-in duration-500">
+                    <ShieldCheck className="h-10 w-10 text-signal" />
                   </div>
                 </div>
                 <div>
-                  <h3 className="text-2xl font-black text-white">Payment Gateway Verified</h3>
+                  <h3 className="text-2xl font-black text-foreground">Payment Gateway Verified</h3>
                   <p className="text-muted-foreground mt-2 max-w-md mx-auto">
-                    Your <span className="text-[#36f4a4] font-bold uppercase">{configuredProvider}</span> integration is connected and secured with AES-256 encryption.
+                    Your <span className="text-signal font-bold uppercase">{configuredProvider}</span> integration is connected and secured with AES-256 encryption.
                   </p>
                 </div>
 
                 <div className="flex justify-center items-center gap-4 pt-4">
-                  <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-white/70 text-xs font-bold uppercase tracking-wider">
-                    <Check className="h-3 w-3 text-[#36f4a4]" />
+                  <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-foreground/5 border border-foreground/10 text-foreground/70 text-xs font-bold uppercase tracking-wider">
+                    <Check className="h-3 w-3 text-signal" />
                     Ready for Checkout
                   </div>
 
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-white hover:bg-white/5 rounded-full cursor-pointer">
+                      <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground hover:bg-foreground/5 rounded-full cursor-pointer">
                         <RefreshCcw className="h-3 w-3 mr-2" />
                         Update Configuration
                       </Button>
                     </AlertDialogTrigger>
-                    <AlertDialogContent className="bg-black border-white/10 text-white">
+                    <AlertDialogContent className="bg-background border-foreground/10 text-foreground">
                       <AlertDialogHeader>
                         <AlertDialogTitle>Update Payment Gateway?</AlertDialogTitle>
-                        <AlertDialogDescription className="text-zinc-400">
+                        <AlertDialogDescription className="text-muted-foreground">
                           Updating your credentials will overwrite the existing ones. This will affect all paid events in your organization. Are you sure you want to continue?
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
-                        <AlertDialogCancel className="bg-transparent border-white/10 text-white hover:bg-white/5 cursor-pointer">Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => setIsEditingGateway(true)} className="bg-white text-black hover:bg-zinc-200 cursor-pointer font-bold">
+                        <AlertDialogCancel className="bg-transparent border-foreground/10 text-foreground hover:bg-foreground/5 cursor-pointer">Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => setIsEditingGateway(true)} className="bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer font-bold">
                           Yes, Update Gateway
                         </AlertDialogAction>
                       </AlertDialogFooter>
@@ -447,17 +447,17 @@ export default function EventDetailPage() {
                 <div className="flex items-center gap-4 mb-4">
                   <div className="h-10 w-10 rounded-full bg-blue-500/10 flex items-center justify-center"><CreditCard className="h-5 w-5 text-blue-400" /></div>
                   <div>
-                    <h3 className="font-bold text-white">Payment Gateway</h3>
+                    <h3 className="font-bold text-foreground">Payment Gateway</h3>
                     <p className="text-sm text-muted-foreground">Credentials are saved for your entire organization.</p>
                   </div>
                 </div>
 
                 <div className="grid gap-6">
                   <div className="space-y-2">
-                    <Label className="text-white">Provider</Label>
+                    <Label className="text-foreground">Provider</Label>
                     <Select value={gatewayProvider} onValueChange={setGatewayProvider}>
-                      <SelectTrigger className="bg-black/40 border-white/10 text-white cursor-pointer"><SelectValue /></SelectTrigger>
-                      <SelectContent className="bg-black border-white/10 text-white">
+                      <SelectTrigger className="bg-background/40 border-foreground/10 text-foreground cursor-pointer"><SelectValue /></SelectTrigger>
+                      <SelectContent className="bg-background border-foreground/10 text-foreground">
                         <SelectItem value="stripe">Stripe</SelectItem>
                         <SelectItem value="razorpay">Razorpay</SelectItem>
                       </SelectContent>
@@ -466,48 +466,48 @@ export default function EventDetailPage() {
 
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
-                      <Label className="text-white">{gatewayProvider === 'stripe' ? 'Secret Key' : 'Key ID'}</Label>
+                      <Label className="text-foreground">{gatewayProvider === 'stripe' ? 'Secret Key' : 'Key ID'}</Label>
                       <Input
                         type="password"
                         placeholder={gatewayProvider === 'stripe' ? "sk_test_..." : "rzp_test_..."}
                         value={gatewayKeys.key_id}
                         onChange={e => setGatewayKeys(p => ({ ...p, key_id: e.target.value }))}
-                        className="bg-black/40 border-white/10 text-white"
+                        className="bg-background/40 border-foreground/10 text-foreground"
                       />
                     </div>
                     {gatewayProvider === 'razorpay' && (
                       <div className="space-y-2">
-                        <Label className="text-white">Key Secret</Label>
+                        <Label className="text-foreground">Key Secret</Label>
                         <Input
                           type="password"
                           placeholder="••••••••"
                           value={gatewayKeys.key_secret}
                           onChange={e => setGatewayKeys(p => ({ ...p, key_secret: e.target.value }))}
-                          className="bg-black/40 border-white/10 text-white"
+                          className="bg-background/40 border-foreground/10 text-foreground"
                         />
                       </div>
                     )}
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-white">Webhook Secret (Recommended)</Label>
+                    <Label className="text-foreground">Webhook Secret (Recommended)</Label>
                     <Input
                       type="password"
                       placeholder="whsec_..."
                       value={gatewayKeys.webhook_secret}
                       onChange={e => setGatewayKeys(p => ({ ...p, webhook_secret: e.target.value }))}
-                      className="bg-black/40 border-white/10 text-white"
+                      className="bg-background/40 border-foreground/10 text-foreground"
                     />
                     <p className="text-[10px] text-muted-foreground italic">Use this to verify payment events securely.</p>
                   </div>
 
                   <div className="flex gap-4">
                     {isEditingGateway && (
-                      <Button variant="ghost" onClick={() => setIsEditingGateway(false)} className="text-white hover:bg-white/5 rounded-full cursor-pointer">
+                      <Button variant="ghost" onClick={() => setIsEditingGateway(false)} className="text-foreground hover:bg-foreground/5 rounded-full cursor-pointer">
                         Cancel
                       </Button>
                     )}
-                    <Button onClick={handleSaveGateway} disabled={saving} className="flex-1 rounded-full font-bold h-11 cursor-pointer bg-[#36f4a4] text-black hover:bg-[#36f4a4]/90 shadow-[0_0_0_3px_rgba(54,244,164,0.18)]">
+                    <Button onClick={handleSaveGateway} disabled={saving} className="flex-1 rounded-full font-bold h-11 cursor-pointer bg-signal text-black hover:bg-signal/90 shadow-[0_0_0_3px_color-mix(in srgb, var(--signal) 18%, transparent)]">
                       {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Verify & Connect Gateway"}
                     </Button>
                   </div>
@@ -834,16 +834,16 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
       <div className="space-y-8">
         <section className="space-y-6">
           <div>
-            <h3 className="font-bold text-white text-lg">Ticket design</h3>
+            <h3 className="font-bold text-foreground text-lg">Ticket design</h3>
             <p className="text-sm text-muted-foreground">Add your logo, pick a design, then tune the colours. The preview updates as you go.</p>
           </div>
 
           <div className="space-y-4">
-            <Label className="flex items-center gap-2 text-white">
-              <span aria-hidden="true" className="grid size-5 place-content-center rounded-full bg-white/10 text-[11px] font-bold">1</span>
+            <Label className="flex items-center gap-2 text-foreground">
+              <span aria-hidden="true" className="grid size-5 place-content-center rounded-full bg-foreground/10 text-[11px] font-bold">1</span>
               Event logo
             </Label>
-            <div role="tablist" aria-label="Logo source" className="inline-flex rounded-full border border-white/10 bg-white/[0.03] p-1">
+            <div role="tablist" aria-label="Logo source" className="inline-flex rounded-full border border-foreground/10 bg-foreground/[0.03] p-1">
               {([
                 { value: "upload", label: "Upload image" },
                 { value: "emblem", label: "Emblem" },
@@ -855,7 +855,7 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
                   aria-selected={logoMode === o.value}
                   onClick={() => setLogoMode(o.value)}
                   className={`cursor-pointer rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-                    logoMode === o.value ? "bg-[#36f4a4]/15 text-white ring-1 ring-[#36f4a4]/60" : "text-white/55 hover:text-white"
+                    logoMode === o.value ? "bg-signal/15 text-foreground ring-1 ring-signal/60" : "text-foreground/55 hover:text-foreground"
                   }`}
                 >
                   {o.label}
@@ -866,7 +866,7 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
             {logoMode === "upload" ? (
               <div className="space-y-4">
             <div className="flex items-center gap-4">
-              <div className="h-20 w-20 rounded-xl border border-white/10 bg-black/40 flex items-center justify-center overflow-hidden">
+              <div className="h-20 w-20 rounded-xl border border-foreground/10 bg-background/40 flex items-center justify-center overflow-hidden">
                 {event.logo_url ? (
                   <img
                     src={event.remove_background ? (event.bg_removed_logo_url || event.logo_url) : event.logo_url}
@@ -887,7 +887,7 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
                     size="sm"
                     disabled={uploading}
                     onClick={() => fileInputRef.current?.click()}
-                    className="rounded-full border-white/10 hover:bg-white/5 font-semibold text-white cursor-pointer"
+                    className="rounded-full border-foreground/10 hover:bg-foreground/5 font-semibold text-foreground cursor-pointer"
                   >
                     {uploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
                     {event.logo_url ? "Change Logo" : "Upload Logo"}
@@ -913,11 +913,11 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
             </div>
 
             {event.logo_url && (
-              <div className="flex items-center justify-between p-3 rounded-xl border border-white/5 bg-accent/10">
+              <div className="flex items-center justify-between p-3 rounded-xl border border-foreground/5 bg-accent/10">
                 <div className="flex items-center gap-2">
                   <Scissors className="h-4 w-4 text-primary" />
                   <div className="space-y-0.5">
-                    <p className="text-xs font-bold text-white">Remove background</p>
+                    <p className="text-xs font-bold text-foreground">Remove background</p>
                     <p className="text-[10px] text-muted-foreground">Clean logo for templates</p>
                   </div>
                 </div>
@@ -950,25 +950,25 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
 
           <div className="space-y-4">
             <div className="flex items-baseline justify-between gap-3">
-              <Label className="flex items-center gap-2 text-white">
-                <span aria-hidden="true" className="grid size-5 place-content-center rounded-full bg-white/10 text-[11px] font-bold">2</span>
+              <Label className="flex items-center gap-2 text-foreground">
+                <span aria-hidden="true" className="grid size-5 place-content-center rounded-full bg-foreground/10 text-[11px] font-bold">2</span>
                 Choose a design
               </Label>
-              <span className="text-[11px] text-white/40">{TICKET_TEMPLATES.length} designs</span>
+              <span className="text-[11px] text-foreground/40">{TICKET_TEMPLATES.length} designs</span>
             </div>
             <TemplatePicker value={templateId} onChange={handleTemplateChange} />
           </div>
         </section>
 
-        <section className="space-y-6 pt-4 border-t border-white/5">
+        <section className="space-y-6 pt-4 border-t border-foreground/5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span aria-hidden="true" className="grid size-5 place-content-center rounded-full bg-white/10 text-[11px] font-bold text-white">3</span>
-              <h3 className="font-bold text-white text-base">Customize colours</h3>
+              <span aria-hidden="true" className="grid size-5 place-content-center rounded-full bg-foreground/10 text-[11px] font-bold text-foreground">3</span>
+              <h3 className="font-bold text-foreground text-base">Customize colours</h3>
             </div>
             <div className="flex items-center gap-4">
               {isSavingPalette && (
-                <div className="flex items-center gap-1.5 text-[10px] text-[#36f4a4] animate-pulse">
+                <div className="flex items-center gap-1.5 text-[10px] text-signal animate-pulse">
                   <Loader2 className="h-3 w-3 animate-spin" />
                   Saving...
                 </div>
@@ -977,7 +977,7 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
                 variant="ghost"
                 size="sm"
                 onClick={handleResetPalette}
-                className="text-[11px] h-8 text-muted-foreground hover:text-white rounded-full cursor-pointer"
+                className="text-[11px] h-8 text-muted-foreground hover:text-foreground rounded-full cursor-pointer"
               >
                 <RotateCcw className="h-3 w-3 mr-1.5" />
                 Reset Defaults
@@ -985,7 +985,7 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-x-6 gap-y-4 bg-accent/5 p-6 rounded-2xl border border-white/5">
+          <div className="grid grid-cols-2 gap-x-6 gap-y-4 bg-accent/5 p-6 rounded-2xl border border-foreground/5">
             {COLOR_FIELDS.map(([key, label]) => (
               <TicketColorField
                 key={key}
@@ -999,20 +999,20 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
           </div>
         </section>
 
-        <Card className={designConfirmed ? "border-[#36f4a4]/30 bg-[#36f4a4]/5" : "border-[#36f4a4]/60 bg-[#36f4a4]/5 shadow-[0_0_0_3px_rgba(54,244,164,0.12)]"}>
+        <Card className={designConfirmed ? "border-signal/30 bg-signal/5" : "border-signal/60 bg-signal/5 shadow-[0_0_0_3px_color-mix(in srgb, var(--signal) 12%, transparent)]"}>
           <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
             <div className="min-w-0">
-              <p className="text-sm font-bold text-white">
+              <p className="text-sm font-bold text-foreground">
                 {designConfirmed ? "Design saved" : "Happy with this ticket?"}
               </p>
-              <p className="text-xs text-white/60">
+              <p className="text-xs text-foreground/60">
                 {designConfirmed ? "You can keep adjusting it. Changes save automatically." : "Save it to finish this step before going live."}
               </p>
             </div>
             <Button
               onClick={confirmDesign}
               disabled={confirming}
-              className="rounded-full font-bold cursor-pointer bg-[#36f4a4] text-black hover:bg-[#36f4a4]/90 shadow-[0_0_0_3px_rgba(54,244,164,0.18)]"
+              className="rounded-full font-bold cursor-pointer bg-signal text-black hover:bg-signal/90 shadow-[0_0_0_3px_color-mix(in srgb, var(--signal) 18%, transparent)]"
             >
               {confirming ? <Loader2 aria-hidden="true" className="mr-2 h-4 w-4 animate-spin" /> : <Check aria-hidden="true" className="mr-2 h-4 w-4" />}
               {designConfirmed ? "Save again" : "Use this design"}
@@ -1024,7 +1024,7 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
           <CardContent className="p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Mail className="h-4 w-4 text-blue-400" />
-              <span className="text-xs font-medium text-white/70">Need a custom branded design?</span>
+              <span className="text-xs font-medium text-foreground/70">Need a custom branded design?</span>
             </div>
             <Button asChild variant="link" size="sm" className="text-blue-400 text-xs p-0 h-auto font-bold cursor-pointer">
               <a href="mailto:support@nochbot.space">Contact Admin</a>
@@ -1037,12 +1037,12 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
       <div className="lg:sticky lg:top-4 lg:self-start">
         <div>
           <div className="mb-4 flex items-center justify-between gap-3">
-            <h3 className="text-xs font-bold uppercase tracking-widest text-white/50">Live ticket preview</h3>
-            <span className="rounded-full border border-white/10 px-2.5 py-0.5 text-[11px] text-white/60">
+            <h3 className="text-xs font-bold uppercase tracking-widest text-foreground/50">Live ticket preview</h3>
+            <span className="rounded-full border border-foreground/10 px-2.5 py-0.5 text-[11px] text-foreground/60">
               {TICKET_TEMPLATES.find((t) => t.id === templateId)?.name}
             </span>
           </div>
-          <div className="rounded-3xl border border-white/10 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.06),transparent_70%)] bg-black/30 p-4 lg:p-5 [&_*]:transition-[background-color,border-color,color] [&_*]:duration-150">
+          <div className="rounded-3xl border border-foreground/10 bg-[radial-gradient(ellipse_at_top,color-mix(in srgb, var(--foreground) 6%, transparent),transparent_70%)] bg-background/30 p-4 lg:p-5 [&_*]:transition-[background-color,border-color,color] [&_*]:duration-150">
             <div className="mx-auto flex justify-center">
               <TicketPreview
                 event={previewEvent}
@@ -1050,7 +1050,7 @@ function TicketDesignView({ event, onUpdate }: { event: EventData, onUpdate: () 
               />
             </div>
           </div>
-          <p className="mt-3 text-center text-[11px] text-white/40 [@media(max-height:760px)]:hidden">Shown with a sample attendee. Real tickets use each person's own details.</p>
+          <p className="mt-3 text-center text-[11px] text-foreground/40 [@media(max-height:760px)]:hidden">Shown with a sample attendee. Real tickets use each person's own details.</p>
           {savingSettings && (
             <div className="mt-4 flex items-center justify-center gap-2 text-xs text-primary animate-pulse">
               <Loader2 className="h-3 w-3 animate-spin" />

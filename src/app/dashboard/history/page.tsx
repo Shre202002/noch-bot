@@ -116,7 +116,7 @@ export default function HistoryPage() {
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
               placeholder="Search by website..."
-              className="w-full pl-9 pr-4 py-2.5 bg-accent/30 border border-border rounded-xl text-sm outline-none focus:border-[#36f4a4]/50 transition-colors placeholder:text-muted-foreground"
+              className="w-full pl-9 pr-4 py-2.5 bg-accent/30 border border-border rounded-xl text-sm outline-none focus:border-signal/50 transition-colors placeholder:text-muted-foreground"
             />
           </div>
 
@@ -155,7 +155,7 @@ export default function HistoryPage() {
                     className={cn(
                       "p-4 rounded-xl border cursor-pointer transition-all group",
                       selectedId === conv._id
-                        ? "border-[#36f4a4]/40 bg-[#36f4a4]/5"
+                        ? "border-signal/40 bg-signal/5"
                         : "border-border bg-card/30 hover:border-border hover:bg-accent/20"
                     )}
                   >
@@ -180,7 +180,7 @@ export default function HistoryPage() {
                       </Badge>
                       <ChevronRight className={cn(
                         "h-3.5 w-3.5 transition-all",
-                        selectedId === conv._id ? "text-[#36f4a4]" : "text-muted-foreground opacity-0 group-hover:opacity-100"
+                        selectedId === conv._id ? "text-signal" : "text-muted-foreground opacity-0 group-hover:opacity-100"
                       )} />
                     </div>
                   </motion.div>
@@ -267,8 +267,8 @@ export default function HistoryPage() {
                         className={cn("flex gap-3", msg.role === "user" ? "justify-end" : "justify-start")}
                       >
                         {msg.role === "assistant" && (
-                          <div className="w-7 h-7 rounded-lg bg-[#36f4a4]/10 border border-[#36f4a4]/20 flex items-center justify-center shrink-0 mt-0.5">
-                            <Bot className="h-3.5 w-3.5 text-[#36f4a4]" />
+                          <div className="w-7 h-7 rounded-lg bg-signal/10 border border-signal/20 flex items-center justify-center shrink-0 mt-0.5">
+                            <Bot className="h-3.5 w-3.5 text-signal" />
                           </div>
                         )}
                         <div className="max-w-[78%] space-y-1">

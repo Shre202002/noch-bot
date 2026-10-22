@@ -84,7 +84,7 @@ const QuotaBar = ({
     ? "bg-orange-500"
     : isWarning
     ? "bg-yellow-500"
-    : "bg-[#36f4a4]";
+    : "bg-signal";
 
   const textColor = isExhausted
     ? "text-red-400"
@@ -92,7 +92,7 @@ const QuotaBar = ({
     ? "text-orange-400"
     : isWarning
     ? "text-yellow-400"
-    : "text-[#36f4a4]";
+    : "text-signal";
 
   return (
     <div className="space-y-2">
@@ -146,7 +146,7 @@ const QuotaBar = ({
 
 const StatCard = ({ title, value, label, icon: Icon, color, delay }: any) => {
   const colorMap: Record<string, string> = {
-    green:  "text-[#36f4a4] bg-[#36f4a4]/10 border-[#36f4a4]/20",
+    green:  "text-signal bg-signal/10 border-signal/20",
     blue:   "text-blue-400 bg-blue-400/10 border-blue-400/20",
     purple: "text-purple-400 bg-purple-400/10 border-purple-400/20",
     orange: "text-orange-400 bg-orange-400/10 border-orange-400/20",
@@ -160,7 +160,7 @@ const StatCard = ({ title, value, label, icon: Icon, color, delay }: any) => {
               <Icon className="h-5 w-5" />
             </div>
             {color === "green" && (
-              <Badge variant="outline" className="bg-[#36f4a4]/5 text-[#36f4a4] border-[#36f4a4]/20 text-[10px] font-bold uppercase tracking-wider">
+              <Badge variant="outline" className="bg-signal/5 text-signal border-signal/20 text-[10px] font-bold uppercase tracking-wider">
                 Live
               </Badge>
             )}
@@ -178,7 +178,7 @@ const SetupStep = ({ title, completed, icon: Icon, href, delay }: any) => (
   <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay, duration: 0.5 }} className="group">
     <Link href={href} className="flex items-center gap-4 p-4 rounded-2xl border border-transparent hover:border-border hover:bg-accent/30 transition-all">
       <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-full border transition-all",
-        completed ? "bg-[#36f4a4]/10 border-[#36f4a4]/40 text-[#36f4a4]" : "bg-muted border-border text-muted-foreground"
+        completed ? "bg-signal/10 border-signal/40 text-signal" : "bg-muted border-border text-muted-foreground"
       )}>
         {completed ? <CheckCircle2 className="h-5 w-5" /> : <Icon className="h-5 w-5" />}
       </div>
@@ -267,7 +267,7 @@ export default function DashboardOverviewPage() {
                 {msgQuota?.remaining.toLocaleString()} messages remaining · Resets {msgQuota?.resetDate}
               </p>
             </div>
-            <Button size="sm" className="rounded-full shrink-0 bg-white text-black hover:opacity-90" asChild>
+            <Button size="sm" className="rounded-full shrink-0 bg-primary text-primary-foreground hover:opacity-90" asChild>
               <Link href="/dashboard/account">
                 <Crown className="h-3.5 w-3.5 mr-1.5" />
                 Upgrade
@@ -282,10 +282,10 @@ export default function DashboardOverviewPage() {
         <div className="space-y-4 flex-1">
           <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-3">
             <div className="relative">
-              <div className="h-3 w-3 rounded-full bg-[#36f4a4] animate-pulse" />
-              <div className="absolute inset-0 h-3 w-3 rounded-full bg-[#36f4a4]/40 animate-ping" />
+              <div className="h-3 w-3 rounded-full bg-signal animate-pulse" />
+              <div className="absolute inset-0 h-3 w-3 rounded-full bg-signal/40 animate-ping" />
             </div>
-            <span className="text-xs font-bold text-[#36f4a4] uppercase tracking-[0.2em]">Operational</span>
+            <span className="text-xs font-bold text-signal uppercase tracking-[0.2em]">Operational</span>
           </motion.div>
           <div className="space-y-1">
             <motion.h1 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="text-4xl md:text-5xl font-black tracking-tight">
@@ -312,7 +312,7 @@ export default function DashboardOverviewPage() {
           <Button variant="outline" className="rounded-full bg-background/50 border-border hover:bg-accent transition-all group" asChild>
             <Link href="/dashboard/configure?tab=Preview"><Zap className="mr-2 h-4 w-4 text-yellow-500" />Test Chatbot</Link>
           </Button>
-          <Button className="rounded-full bg-white text-black hover:opacity-90 font-bold" asChild>
+          <Button className="rounded-full bg-primary text-primary-foreground hover:opacity-90 font-bold" asChild>
             <Link href="/dashboard/configure?tab=Embed"><Code2 className="mr-2 h-4 w-4" />Embed Code</Link>
           </Button>
         </motion.div>
@@ -349,7 +349,7 @@ export default function DashboardOverviewPage() {
                 </Badge>
               </div>
               <CardContent className="p-0 flex flex-col md:flex-row h-[400px]">
-                <div className="flex-1 bg-black/40 p-8 flex items-center justify-center relative overflow-hidden">
+                <div className="flex-1 bg-background/40 p-8 flex items-center justify-center relative overflow-hidden">
                   <div className="relative z-10 flex flex-col items-center text-center gap-6">
                     <div className="h-20 w-20 rounded-3xl bg-primary/20 border border-primary/30 flex items-center justify-center shadow-2xl shadow-primary/20">
                       <Zap className="h-10 w-10 text-primary animate-pulse" />
@@ -360,7 +360,7 @@ export default function DashboardOverviewPage() {
                       </p>
                       <p className="text-sm text-muted-foreground max-w-[200px]">{data?.websiteUrl || "No website crawled yet"}</p>
                       {data?.totalMessages ? (
-                        <p className="text-xs text-[#36f4a4] font-semibold">{data.totalMessages.toLocaleString()} messages handled</p>
+                        <p className="text-xs text-signal font-semibold">{data.totalMessages.toLocaleString()} messages handled</p>
                       ) : null}
                     </div>
                   </div>
@@ -371,7 +371,7 @@ export default function DashboardOverviewPage() {
                 <div className="w-full md:w-[320px] border-l border-border flex flex-col bg-background/50">
                   <div className="p-4 border-b border-border bg-accent/5">
                     <div className="flex items-center gap-2">
-                      <TrendingUp className="h-4 w-4 text-[#36f4a4]" />
+                      <TrendingUp className="h-4 w-4 text-signal" />
                       <span className="text-xs font-bold">Top Questions</span>
                     </div>
                   </div>
@@ -444,7 +444,7 @@ export default function DashboardOverviewPage() {
                     variant="secondary"
                     className={cn(
                       "capitalize text-[10px] font-bold border",
-                      data?.plan === "pro"     ? "bg-[#36f4a4]/10 text-[#36f4a4] border-[#36f4a4]/20" :
+                      data?.plan === "pro"     ? "bg-signal/10 text-signal border-signal/20" :
                       data?.plan === "starter" ? "bg-blue-400/10 text-blue-400 border-blue-400/20" :
                                                   "bg-muted text-muted-foreground border-border"
                     )}
@@ -500,7 +500,7 @@ export default function DashboardOverviewPage() {
               <div className="space-y-3">
                 {[
                   { label: "Total Conversations", value: (data?.totalConversations ?? 0).toLocaleString(),  color: "text-blue-400"    },
-                  { label: "Active Today",         value: (data?.activeToday ?? 0).toLocaleString(),         color: "text-[#36f4a4]"  },
+                  { label: "Active Today",         value: (data?.activeToday ?? 0).toLocaleString(),         color: "text-signal"  },
                   { label: "Avg Response Time",    value: formatMs(data?.avgResponseTimeMs ?? 0),             color: "text-orange-400" },
                   { label: "Messages This Month",  value: (msgQuota?.used ?? 0).toLocaleString(),             color: "text-purple-400" },
                 ].map(({ label, value, color }) => (

@@ -490,16 +490,16 @@ export default function PdfPage() {
   // ADD this just before: return (
   const mdComponents = {
     h2: ({ children }: any) => (
-      <h2 style={{ fontSize: 15, fontWeight: 700, color: '#36f4a4', margin: '12px 0 6px 0' }}>{children}</h2>
+      <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--signal)', margin: '12px 0 6px 0' }}>{children}</h2>
     ),
     h3: ({ children }: any) => (
-      <h3 style={{ fontSize: 13, fontWeight: 600, color: '#a8f0d0', margin: '10px 0 4px 0' }}>{children}</h3>
+      <h3 style={{ fontSize: 13, fontWeight: 600, color: 'var(--signal)', margin: '10px 0 4px 0' }}>{children}</h3>
     ),
     p: ({ children }: any) => (
       <p style={{ margin: '4px 0', lineHeight: 1.7 }}>{children}</p>
     ),
     strong: ({ children }: any) => (
-      <strong style={{ color: '#fff', fontWeight: 700 }}>{children}</strong>
+      <strong style={{ color: 'var(--foreground)', fontWeight: 700 }}>{children}</strong>
     ),
     ul: ({ children }: any) => (
       <ul style={{ paddingLeft: 18, margin: '6px 0' }}>{children}</ul>
@@ -519,19 +519,19 @@ export default function PdfPage() {
       <thead style={{ background: '#36f4a420' }}>{children}</thead>
     ),
     th: ({ children }: any) => (
-      <th style={{ border: '1px solid #36f4a440', padding: '6px 10px', color: '#36f4a4', fontWeight: 600, textAlign: 'left' }}>{children}</th>
+      <th style={{ border: '1px solid #36f4a440', padding: '6px 10px', color: 'var(--signal)', fontWeight: 600, textAlign: 'left' }}>{children}</th>
     ),
     td: ({ children }: any) => (
-      <td style={{ border: '1px solid #2a2d35', padding: '6px 10px', color: '#e8eaed' }}>{children}</td>
+      <td style={{ border: '1px solid var(--nb-line)', padding: '6px 10px', color: 'var(--foreground)' }}>{children}</td>
     ),
     blockquote: ({ children }: any) => (
-      <blockquote style={{ borderLeft: '2px solid #3a3d45', paddingLeft: 12, margin: '8px 0', color: 'var(--nb-text-secondary)' }}>{children}</blockquote>
+      <blockquote style={{ borderLeft: '2px solid var(--nb-line-2)', paddingLeft: 12, margin: '8px 0', color: 'var(--nb-text-secondary)' }}>{children}</blockquote>
     ),
     code: ({ children }: any) => (
-      <code style={{ background: '#0a0a0a', border: '1px solid #2a2d35', borderRadius: 4, padding: '1px 6px', fontSize: 12, color: '#36f4a4', fontFamily: 'monospace' }}>{children}</code>
+      <code style={{ background: 'var(--nb-surface)', border: '1px solid var(--nb-line)', borderRadius: 4, padding: '1px 6px', fontSize: 12, color: 'var(--signal)', fontFamily: 'monospace' }}>{children}</code>
     ),
     hr: () => (
-      <hr style={{ border: 'none', borderTop: '1px solid #2a2d35', margin: '10px 0' }} />
+      <hr style={{ border: 'none', borderTop: '1px solid var(--nb-line)', margin: '10px 0' }} />
     ),
   };
 
@@ -557,8 +557,8 @@ export default function PdfPage() {
       {/* Header */}
       <div style={{ marginBottom: 32 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
-          <FileText className="h-7 w-7 text-[#36f4a4]" />
-          <h1 style={{ fontSize: 32, fontWeight: 400, color: '#fff', letterSpacing: '-0.8px', margin: 0 }}>
+          <FileText className="h-7 w-7 text-signal" />
+          <h1 style={{ fontSize: 32, fontWeight: 400, color: 'var(--foreground)', letterSpacing: '-0.8px', margin: 0 }}>
             PDF RAG
           </h1>
         </div>
@@ -574,9 +574,9 @@ export default function PdfPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, animation: 'fadeIn 0.2s ease' }}>
 
           {/* Upload card */}
-          <div style={{ background: '#1f2228', border: '1px solid #2a2d35', borderRadius: 14, padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div style={{ fontSize: 13, color: '#fff', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Upload className="h-4 w-4 text-[#36f4a4]" /> Upload document
+          <div style={{ background: 'var(--nb-surface-2)', border: '1px solid var(--nb-line)', borderRadius: 14, padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ fontSize: 13, color: 'var(--foreground)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Upload className="h-4 w-4 text-signal" /> Upload document
             </div>
 
             {/* Drop zone */}
@@ -597,16 +597,16 @@ export default function PdfPage() {
                 else if (f) setUploadError('Only PDF, CSV and Excel (.xlsx) files are supported.');
               }}
               style={{
-                border: `2px dashed ${pdfFile ? '#36f4a4' : '#2a2d35'}`,
+                border: `2px dashed ${pdfFile ? 'var(--signal)' : 'var(--nb-line)'}`,
                 borderRadius: 10, padding: '20px 12px', textAlign: 'center',
                 cursor: 'pointer', transition: 'all 0.15s',
-                background: pdfFile ? '#0d2420' : 'transparent',
+                background: pdfFile ? 'var(--nb-success-bg)' : 'transparent',
               }}
             >
-              <FileText className="h-7 w-7 mx-auto mb-2" style={{ color: pdfFile ? '#36f4a4' : 'var(--nb-text-tertiary)' }} />
+              <FileText className="h-7 w-7 mx-auto mb-2" style={{ color: pdfFile ? 'var(--signal)' : 'var(--nb-text-tertiary)' }} />
               {pdfFile ? (
                 <>
-                  <div style={{ fontSize: 13, color: '#36f4a4', fontWeight: 500, wordBreak: 'break-all' }}>{pdfFile.name}</div>
+                  <div style={{ fontSize: 13, color: 'var(--signal)', fontWeight: 500, wordBreak: 'break-all' }}>{pdfFile.name}</div>
                   <div style={{ fontSize: 11, color: 'var(--nb-text-secondary)', marginTop: 3 }}>{(pdfFile.size / 1024 / 1024).toFixed(2)} MB · click to change</div>
                 </>
               ) : (
@@ -620,14 +620,14 @@ export default function PdfPage() {
             </div>
 
             <input value={pdfLabel} onChange={e => setPdfLabel(e.target.value)} placeholder="Label (optional)" aria-label="Document label (optional)" maxLength={120} className="nb-focus"
-              style={{ background: '#0a0a0a', border: '1px solid #2a2d35', borderRadius: 8, padding: '9px 12px', color: '#fff', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box' }} />
+              style={{ background: 'var(--nb-surface)', border: '1px solid var(--nb-line)', borderRadius: 8, padding: '9px 12px', color: 'var(--foreground)', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box' }} />
 
             <button
               type="button"
               onClick={handlePdfUpload}
               disabled={!pdfFile || uploading}
               style={{
-                background: !pdfFile || uploading ? '#2a2d35' : '#36f4a4',
+                background: !pdfFile || uploading ? 'var(--nb-line)' : 'var(--signal)',
                 color: !pdfFile || uploading ? 'var(--nb-text-secondary)' : '#000',
                 border: 'none',
                 borderRadius: 9999,
@@ -642,17 +642,17 @@ export default function PdfPage() {
               }}
             >
               {uploading
-                ? <><span style={{ width: 14, height: 14, border: '2px solid #7d8187', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }} /> Uploading...</>
+                ? <><span style={{ width: 14, height: 14, border: '2px solid #7d8187', borderTopColor: 'var(--foreground)', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }} /> Uploading...</>
                 : 'Embed & Store'}
             </button>
 
             {uploadProgress && (
-              <div style={{ fontFamily: 'monospace', fontSize: 12, color: uploadProgress.startsWith('✅') ? '#36f4a4' : 'var(--nb-text-secondary)', padding: '8px 10px', background: '#0a0a0a', borderRadius: 8, border: '1px solid #2a2d35' }}>
+              <div style={{ fontFamily: 'monospace', fontSize: 12, color: uploadProgress.startsWith('✅') ? 'var(--signal)' : 'var(--nb-text-secondary)', padding: '8px 10px', background: 'var(--nb-surface)', borderRadius: 8, border: '1px solid var(--nb-line)' }}>
                 {uploadProgress}
               </div>
             )}
             {uploadError && (
-              <div style={{ fontSize: 12, color: '#ef4444', padding: '8px 10px', background: '#1a0a0a', borderRadius: 8, border: '1px solid #ef444440' }}>
+              <div style={{ fontSize: 12, color: '#ef4444', padding: '8px 10px', background: 'var(--nb-danger-bg)', borderRadius: 8, border: '1px solid #ef444440' }}>
                 ❌ {uploadError}
               </div>
             )}
@@ -668,22 +668,22 @@ export default function PdfPage() {
               {listNotice && (
                 <div style={{ fontSize: 12, lineHeight: 1.5, padding: '8px 10px', borderRadius: 8,
                   color: listNotice.tone === 'error' ? '#ef4444' : 'var(--nb-text-secondary)',
-                  background: listNotice.tone === 'error' ? '#1a0a0a' : '#0a0a0a',
-                  border: `1px solid ${listNotice.tone === 'error' ? '#ef444440' : '#2a2d35'}` }}>
+                  background: listNotice.tone === 'error' ? 'var(--nb-danger-bg)' : 'var(--nb-surface)',
+                  border: `1px solid ${listNotice.tone === 'error' ? '#ef444440' : 'var(--nb-line)'}` }}>
                   {listNotice.text}
                 </div>
               )}
             </div>
 
             {uploadedPdfs.length === 0 ? (
-              <div style={{ background: '#1f2228', border: '1px solid #2a2d35', borderRadius: 12, padding: '28px 16px', textAlign: 'center', color: 'var(--nb-text-tertiary)', fontSize: 13 }}>
+              <div style={{ background: 'var(--nb-surface-2)', border: '1px solid var(--nb-line)', borderRadius: 12, padding: '28px 16px', textAlign: 'center', color: 'var(--nb-text-tertiary)', fontSize: 13 }}>
                 No documents yet
               </div>
             ) : (
               uploadedPdfs.map(pdf => (
                 <div key={pdf.fileId} className="pdf-card"
                   onClick={() => { setSelectedPdfId(pdf.fileId); setPdfChatMessages([]); }}
-                  style={{ background: selectedPdfId === pdf.fileId ? '#0d2420' : '#1f2228', border: `1px solid ${selectedPdfId === pdf.fileId ? '#36f4a4' : '#2a2d35'}`, borderRadius: 12, padding: 14, cursor: 'pointer', transition: 'all 0.15s' }}>
+                  style={{ background: selectedPdfId === pdf.fileId ? 'var(--nb-success-bg)' : 'var(--nb-surface-2)', border: `1px solid ${selectedPdfId === pdf.fileId ? 'var(--signal)' : 'var(--nb-line)'}`, borderRadius: 12, padding: 14, cursor: 'pointer', transition: 'all 0.15s' }}>
 
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
                     <button type="button" className="nb-focus"
@@ -692,10 +692,10 @@ export default function PdfPage() {
                       onClick={e => { e.stopPropagation(); setSelectedPdfId(pdf.fileId); setPdfChatMessages([]); }}
                       style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1, background: 'transparent', border: 'none', padding: 0, margin: 0, textAlign: 'left', cursor: 'pointer', color: 'inherit', font: 'inherit', borderRadius: 6 }}>
                       {isTabular(pdf)
-                        ? <FileSpreadsheet className="h-4 w-4 flex-shrink-0" style={{ color: selectedPdfId === pdf.fileId ? '#36f4a4' : 'var(--nb-text-secondary)' }} />
-                        : <FileText className="h-4 w-4 flex-shrink-0" style={{ color: selectedPdfId === pdf.fileId ? '#36f4a4' : 'var(--nb-text-secondary)' }} />}
+                        ? <FileSpreadsheet className="h-4 w-4 flex-shrink-0" style={{ color: selectedPdfId === pdf.fileId ? 'var(--signal)' : 'var(--nb-text-secondary)' }} />
+                        : <FileText className="h-4 w-4 flex-shrink-0" style={{ color: selectedPdfId === pdf.fileId ? 'var(--signal)' : 'var(--nb-text-secondary)' }} />}
                       <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 13, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pdf.label || pdf.fileName}</div>
+                        <div style={{ fontSize: 13, color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pdf.label || pdf.fileName}</div>
                         <div style={{ fontSize: 11, color: 'var(--nb-text-secondary)', marginTop: 2 }}>{isTabular(pdf)
                           ? `${(pdf.rowCount ?? 0).toLocaleString('en-US')} rows · ${pdf.columnCount ?? 0} columns`
                           : `${pdf.chunkCount} chunks`}</div>
@@ -724,7 +724,7 @@ export default function PdfPage() {
                             <button type="button" className="nb-focus" disabled={busyAction}
                               aria-label={`Retry ${pdf.label || pdf.fileName} with a new upload`}
                               onClick={() => chooseFileFor(pdf.fileId, 'retry')}
-                              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 32, padding: '0 10px', borderRadius: 9999, background: 'transparent', border: '1px solid #36f4a4', color: '#36f4a4', fontSize: 11, cursor: busyAction ? 'wait' : 'pointer' }}>
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 32, padding: '0 10px', borderRadius: 9999, background: 'transparent', border: '1px solid #36f4a4', color: 'var(--signal)', fontSize: 11, cursor: busyAction ? 'wait' : 'pointer' }}>
                               <RotateCcw aria-hidden="true" className="h-3 w-3" /> {busyAction ? 'Uploading…' : 'Retry upload'}
                             </button>
                           )}
@@ -748,7 +748,7 @@ export default function PdfPage() {
                             <>
                               {error}
                               <button type="button" className="nb-focus" onClick={() => { setIndexErrors(prev => { const n = { ...prev }; delete n[pdf.fileId]; return n; }); runIndexing(pdf.fileId); }}
-                                style={{ background: 'none', border: 'none', color: '#36f4a4', fontSize: 11, cursor: 'pointer', padding: '4px 2px', textDecoration: 'underline' }}>
+                                style={{ background: 'none', border: 'none', color: 'var(--signal)', fontSize: 11, cursor: 'pointer', padding: '4px 2px', textDecoration: 'underline' }}>
                                 Retry
                               </button>
                             </>
@@ -758,7 +758,7 @@ export default function PdfPage() {
                             atLimit ? 'Smart search ready · file limit reached' : 'Smart search ready'
                           ) : (
                             <button type="button" className="nb-focus" onClick={() => runIndexing(pdf.fileId)}
-                              style={{ background: 'none', border: 'none', color: '#36f4a4', fontSize: 11, cursor: 'pointer', padding: '4px 0', textDecoration: 'underline' }}>
+                              style={{ background: 'none', border: 'none', color: 'var(--signal)', fontSize: 11, cursor: 'pointer', padding: '4px 0', textDecoration: 'underline' }}>
                               Enable smart search
                             </button>
                           )}
@@ -767,7 +767,7 @@ export default function PdfPage() {
                           <button type="button" className="nb-focus" disabled={busyAction}
                             aria-label={`Replace ${pdf.label || pdf.fileName} with a new PDF`}
                             onClick={() => chooseFileFor(pdf.fileId, 'replace')}
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 32, padding: '0 10px', borderRadius: 9999, background: 'transparent', border: '1px solid #2a2d35', color: 'var(--nb-text-secondary)', fontSize: 11, cursor: busyAction ? 'wait' : 'pointer' }}>
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 32, padding: '0 10px', borderRadius: 9999, background: 'transparent', border: '1px solid var(--nb-line)', color: 'var(--nb-text-secondary)', fontSize: 11, cursor: busyAction ? 'wait' : 'pointer' }}>
                             <RotateCcw aria-hidden="true" className="h-3 w-3" /> Replace PDF
                           </button>
                         )}
@@ -779,7 +779,7 @@ export default function PdfPage() {
                             rowCount: pdf.rowCount, idColumn: pdf.idColumn ?? null, columns: pdf.columns,
                             additionsUsed: used, additionsLimit: max,
                           })}
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 32, padding: '0 10px', borderRadius: 9999, background: 'transparent', border: '1px solid #2a2d35', color: 'var(--nb-text-secondary)', fontSize: 11, cursor: atLimit ? 'not-allowed' : 'pointer', opacity: atLimit ? 0.5 : 1 }}>
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 32, padding: '0 10px', borderRadius: 9999, background: 'transparent', border: '1px solid var(--nb-line)', color: 'var(--nb-text-secondary)', fontSize: 11, cursor: atLimit ? 'not-allowed' : 'pointer', opacity: atLimit ? 0.5 : 1 }}>
                           <Upload aria-hidden="true" className="h-3 w-3" /> Add more data ({used} of {max})
                         </button>
                       </div>
@@ -787,15 +787,15 @@ export default function PdfPage() {
                   })()}
 
                   {/* Share row */}
-                  <div hidden={pdf.status === 'failed' || pdf.status === 'parsing'} style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #2a2d35' }} onClick={e => e.stopPropagation()}>
+                  <div hidden={pdf.status === 'failed' || pdf.status === 'parsing'} style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--nb-line)' }} onClick={e => e.stopPropagation()}>
                     {shareLinks[pdf.fileId] ? (
                       <>
                       <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                        <div style={{ flex: 1, fontSize: 11, color: '#36f4a4', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>
+                        <div style={{ flex: 1, fontSize: 11, color: 'var(--signal)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>
                           {shareLinks[pdf.fileId].url}
                         </div>
                         <button type="button" className="nb-focus" onClick={() => copyShareLink(pdf.fileId)} title="Copy link" aria-label={copiedLinkId === pdf.fileId ? 'Link copied' : 'Copy share link'}
-                          style={{ background: 'transparent', border: 'none', color: copiedLinkId === pdf.fileId ? '#36f4a4' : 'var(--nb-text-secondary)', cursor: 'pointer', padding: 2, flexShrink: 0 }}>
+                          style={{ background: 'transparent', border: 'none', color: copiedLinkId === pdf.fileId ? 'var(--signal)' : 'var(--nb-text-secondary)', cursor: 'pointer', padding: 2, flexShrink: 0 }}>
                           {copiedLinkId === pdf.fileId ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                         </button>
                         <a href={shareLinks[pdf.fileId].url} target="_blank" rel="noopener noreferrer" aria-label="Open share link in a new tab" className="nb-focus" style={{ color: 'var(--nb-text-secondary)', display: 'flex' }}>
@@ -809,7 +809,7 @@ export default function PdfPage() {
                           </span>
                           <button type="button" className="nb-focus"
                             onClick={() => setAccessDialog({ slug: shareLinks[pdf.fileId].slug, label: pdf.label || pdf.fileName })}
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 32, padding: '0 10px', borderRadius: 9999, background: 'transparent', border: '1px solid #2a2d35', color: 'var(--nb-text-secondary)', fontSize: 11, cursor: 'pointer' }}>
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 32, padding: '0 10px', borderRadius: 9999, background: 'transparent', border: '1px solid var(--nb-line)', color: 'var(--nb-text-secondary)', fontSize: 11, cursor: 'pointer' }}>
                             <Users aria-hidden="true" className="h-3 w-3" />
                             Manage access
                             {(shareLinks[pdf.fileId].pendingCount ?? 0) > 0 && (
@@ -832,14 +832,14 @@ export default function PdfPage() {
                           aria-labelledby={`require-login-${pdf.fileId}`}
                           onClick={() => setRequireLoginFor(prev => ({ ...prev, [pdf.fileId]: !prev[pdf.fileId] }))}
                           style={{ position: 'relative', width: 36, height: 20, borderRadius: 9999, border: 'none', padding: 0, cursor: 'pointer', flexShrink: 0,
-                            background: requireLoginFor[pdf.fileId] ? '#36f4a4' : '#3a3d45', transition: 'background 0.15s' }}>
+                            background: requireLoginFor[pdf.fileId] ? 'var(--signal)' : 'var(--nb-line-2)', transition: 'background 0.15s' }}>
                           <span aria-hidden="true" style={{ position: 'absolute', top: 2, left: requireLoginFor[pdf.fileId] ? 18 : 2, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.15s cubic-bezier(0.16, 1, 0.3, 1)' }} />
                         </button>
                       </div>
                       <button onClick={() => generateShareLink(pdf.fileId)} disabled={generatingLink === pdf.fileId}
-                        style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', border: '1px solid #2a2d35', borderRadius: 9999, padding: '4px 10px', color: 'var(--nb-text-secondary)', fontSize: 11, cursor: 'pointer', width: '100%', justifyContent: 'center' }}>
+                        style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', border: '1px solid var(--nb-line)', borderRadius: 9999, padding: '4px 10px', color: 'var(--nb-text-secondary)', fontSize: 11, cursor: 'pointer', width: '100%', justifyContent: 'center' }}>
                         {generatingLink === pdf.fileId
-                          ? <><span style={{ width: 10, height: 10, border: '1.5px solid #7d8187', borderTopColor: '#36f4a4', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }} /> Generating...</>
+                          ? <><span style={{ width: 10, height: 10, border: '1.5px solid #7d8187', borderTopColor: 'var(--signal)', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }} /> Generating...</>
                           : <><Link2 className="h-3 w-3" /> Generate Share Link</>}
                       </button>
                       </>
@@ -867,7 +867,7 @@ export default function PdfPage() {
                   const name = pdf.label || pdf.fileName;
                   const busy = restoringPdfId === pdf.fileId;
                   return (
-                    <li key={pdf.fileId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '10px 12px', borderRadius: 10, border: '1px dashed #2a2d35' }}>
+                    <li key={pdf.fileId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '10px 12px', borderRadius: 10, border: '1px dashed var(--nb-line)' }}>
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontSize: 13, color: 'var(--nb-text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
                         <div style={{ fontSize: 11, color: 'var(--nb-text-tertiary)', marginTop: 2 }}>
@@ -877,7 +877,7 @@ export default function PdfPage() {
                       <button type="button" className="nb-focus" onClick={() => restorePdf(pdf.fileId)}
                         disabled={busy}
                         aria-label={`Restore ${name}`}
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0, minHeight: 36, padding: '6px 12px', borderRadius: 9999, background: 'transparent', border: '1px solid #36f4a4', color: '#36f4a4', fontSize: 12, cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.6 : 1 }}>
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0, minHeight: 36, padding: '6px 12px', borderRadius: 9999, background: 'transparent', border: '1px solid #36f4a4', color: 'var(--signal)', fontSize: 12, cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.6 : 1 }}>
                         <RotateCcw aria-hidden="true" className="h-3.5 w-3.5" />
                         {busy ? 'Restoring…' : 'Restore'}
                       </button>
@@ -908,18 +908,18 @@ export default function PdfPage() {
             Test Chat{selectedPdf ? ` — ${selectedPdf.label || selectedPdf.fileName}` : ''}
           </div>
 
-          <div style={{ background: '#1f2228', border: '1px solid #2a2d35', borderRadius: 14, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: 'min(560px, calc(100dvh - 96px))', minHeight: 380 }}>
+          <div style={{ background: 'var(--nb-surface-2)', border: '1px solid var(--nb-line)', borderRadius: 14, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: 'min(560px, calc(100dvh - 96px))', minHeight: 380 }}>
             {/* Chat header */}
-            <div style={{ background: '#161a1f', borderBottom: '1px solid #2a2d35', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ background: 'var(--nb-surface-2)', borderBottom: '1px solid var(--nb-line)', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{ width: 34, height: 34, borderRadius: 10, background: '#36f4a420', border: '1px solid #36f4a430', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <FileText className="h-4 w-4 text-[#36f4a4]" />
+                <FileText className="h-4 w-4 text-signal" />
               </div>
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 14, color: '#fff', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div style={{ fontSize: 14, color: 'var(--foreground)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {selectedPdf ? (selectedPdf.label || selectedPdf.fileName) : 'Document Assistant'}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--nb-text-secondary)' }}>
-                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: selectedPdfId ? '#36f4a4' : '#4a4e56' }} />
+                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: selectedPdfId ? 'var(--signal)' : '#4a4e56' }} />
                   {selectedPdfId ? 'Ready' : 'No document selected'}
                 </div>
               </div>
@@ -946,7 +946,7 @@ export default function PdfPage() {
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginTop: 8 }}>
                   {['Summarize this document', 'What are the key points?', 'List the main topics'].map(s => (
                     <button key={s} type="button" className="nb-focus" onClick={() => setPdfChatInput(s)}
-                      style={{ background: '#2a2d35', border: '1px solid #3a3d45', borderRadius: 9999, padding: '6px 14px', color: 'var(--nb-text-secondary)', fontSize: 12, cursor: 'pointer' }}>
+                      style={{ background: 'var(--nb-line)', border: '1px solid var(--nb-line-2)', borderRadius: 9999, padding: '6px 14px', color: 'var(--nb-text-secondary)', fontSize: 12, cursor: 'pointer' }}>
                       {s}
                     </button>
                   ))}
@@ -956,7 +956,7 @@ export default function PdfPage() {
               <>
                 {pdfChatMessages.map((msg, i) => (
                   <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
-                    <div style={{ maxWidth: '78%', padding: '10px 14px', borderRadius: msg.role === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px', background: msg.role === 'user' ? '#36f4a4' : '#0a0a0a', color: msg.role === 'user' ? '#000' : '#e8eaed', fontSize: 13, lineHeight: 1.6, border: msg.role === 'assistant' ? '1px solid #2a2d35' : 'none' }}>
+                    <div style={{ maxWidth: '78%', padding: '10px 14px', borderRadius: msg.role === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px', background: msg.role === 'user' ? 'var(--signal)' : 'var(--nb-surface)', color: msg.role === 'user' ? '#000' : 'var(--foreground)', fontSize: 13, lineHeight: 1.6, border: msg.role === 'assistant' ? '1px solid var(--nb-line)' : 'none' }}>
                       {msg.role === 'user' ? msg.content : (
                         <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{msg.content}</ReactMarkdown>
                       )}
@@ -965,16 +965,16 @@ export default function PdfPage() {
                 ))}
                 {pdfChatLoading && !pdfChatIsTyping && (
                   <div aria-hidden="true" style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                    <div style={{ padding: '10px 14px', borderRadius: '18px 18px 18px 4px', background: '#0a0a0a', border: '1px solid #2a2d35', display: 'flex', gap: 4 }}>
+                    <div style={{ padding: '10px 14px', borderRadius: '18px 18px 18px 4px', background: 'var(--nb-surface)', border: '1px solid var(--nb-line)', display: 'flex', gap: 4 }}>
                       {[0, 1, 2].map(j => <span key={j} style={{ width: 6, height: 6, borderRadius: '50%', background: '#7d8187', display: 'inline-block', animation: `typingPulse 1.2s infinite ${j * 0.2}s` }} />)}
                     </div>
                   </div>
                 )}
                 {pdfChatIsTyping && (
                   <div aria-hidden="true" style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                    <div style={{ maxWidth: '78%', padding: '10px 14px', borderRadius: '18px 18px 18px 4px', background: '#0a0a0a', color: '#e8eaed', fontSize: 13, lineHeight: 1.6, border: '1px solid #2a2d35' }}>
+                    <div style={{ maxWidth: '78%', padding: '10px 14px', borderRadius: '18px 18px 18px 4px', background: 'var(--nb-surface)', color: 'var(--foreground)', fontSize: 13, lineHeight: 1.6, border: '1px solid var(--nb-line)' }}>
                       <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{pdfChatTypingText}</ReactMarkdown>
-                      <span style={{ display: 'inline-block', width: 2, height: '1em', background: '#36f4a4', marginLeft: 3, verticalAlign: 'text-bottom', animation: 'cursorBlink 0.7s infinite' }} />
+                      <span style={{ display: 'inline-block', width: 2, height: '1em', background: 'var(--signal)', marginLeft: 3, verticalAlign: 'text-bottom', animation: 'cursorBlink 0.7s infinite' }} />
                     </div>
                   </div>
                 )}
@@ -984,17 +984,17 @@ export default function PdfPage() {
             </div>
 
             {/* Input */}
-            <div style={{ borderTop: '1px solid #2a2d35', padding: 16, display: 'flex', gap: 10 }}>
+            <div style={{ borderTop: '1px solid var(--nb-line)', padding: 16, display: 'flex', gap: 10 }}>
               <input value={pdfChatInput} onChange={e => setPdfChatInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendPdfChatMessage()}
                 aria-label="Ask about this document" className="nb-focus"
                 placeholder={selectedPdfId ? 'Ask about this document...' : 'Select a document first'}
                 disabled={!selectedPdfId || pdfChatLoading}
-                style={{ flex: 1, background: '#0a0a0a', border: '1px solid #2a2d35', borderRadius: 10, padding: '11px 14px', color: '#fff', fontSize: 13, outline: 'none' }} />
+                style={{ flex: 1, background: 'var(--nb-surface)', border: '1px solid var(--nb-line)', borderRadius: 10, padding: '11px 14px', color: 'var(--foreground)', fontSize: 13, outline: 'none' }} />
               {pdfChatLoading || pdfChatIsTyping ? (
                 <button
                   onClick={stopResponse}
                   style={{
-                    background: '#1f2228',
+                    background: 'var(--nb-surface-2)',
                     color: '#ef4444',
                     border: '1px solid #ef444460',
                     borderRadius: 10,
@@ -1022,7 +1022,7 @@ export default function PdfPage() {
                   onClick={sendPdfChatMessage}
                   disabled={!selectedPdfId || !pdfChatInput.trim()}
                   style={{
-                    background: '#36f4a4',
+                    background: 'var(--signal)',
                     color: '#000',
                     border: 'none',
                     borderRadius: 10,
@@ -1048,8 +1048,8 @@ export default function PdfPage() {
               ['💬 Chat', 'Relevant chunks or table queries → Groq answers'],
               ['🔗 Share', 'Public /pdf-chat/[slug] URL'],
             ].map(([title, desc]) => (
-              <div key={title} style={{ flex: 1, minWidth: 120, background: '#1f2228', border: '1px solid #2a2d35', borderRadius: 10, padding: '10px 14px' }}>
-                <div style={{ fontSize: 12, color: '#36f4a4', fontWeight: 600, marginBottom: 3 }}>{title}</div>
+              <div key={title} style={{ flex: 1, minWidth: 120, background: 'var(--nb-surface-2)', border: '1px solid var(--nb-line)', borderRadius: 10, padding: '10px 14px' }}>
+                <div style={{ fontSize: 12, color: 'var(--signal)', fontWeight: 600, marginBottom: 3 }}>{title}</div>
                 <div style={{ fontSize: 11, color: 'var(--nb-text-secondary)', lineHeight: 1.4 }}>{desc}</div>
               </div>
             ))}

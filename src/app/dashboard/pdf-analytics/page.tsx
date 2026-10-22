@@ -41,10 +41,10 @@ type Message = {
 };
 
 const mdComponents = {
-  h2: ({ children }: any) => <h2 style={{ fontSize: 13, fontWeight: 700, color: '#36f4a4', margin: '8px 0 4px' }}>{children}</h2>,
-  h3: ({ children }: any) => <h3 style={{ fontSize: 12, fontWeight: 600, color: '#a8f0d0', margin: '6px 0 3px' }}>{children}</h3>,
+  h2: ({ children }: any) => <h2 style={{ fontSize: 13, fontWeight: 700, color: 'var(--signal)', margin: '8px 0 4px' }}>{children}</h2>,
+  h3: ({ children }: any) => <h3 style={{ fontSize: 12, fontWeight: 600, color: 'var(--signal)', margin: '6px 0 3px' }}>{children}</h3>,
   p: ({ children }: any) => <p style={{ margin: '3px 0', lineHeight: 1.6 }}>{children}</p>,
-  strong: ({ children }: any) => <strong style={{ color: '#fff', fontWeight: 700 }}>{children}</strong>,
+  strong: ({ children }: any) => <strong style={{ color: 'var(--foreground)', fontWeight: 700 }}>{children}</strong>,
   ul: ({ children }: any) => <ul style={{ paddingLeft: 16, margin: '4px 0' }}>{children}</ul>,
   ol: ({ children }: any) => <ol style={{ paddingLeft: 16, margin: '4px 0' }}>{children}</ol>,
   li: ({ children }: any) => <li style={{ margin: '2px 0', lineHeight: 1.5 }}>{children}</li>,
@@ -53,9 +53,9 @@ const mdComponents = {
       <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 11 }}>{children}</table>
     </div>
   ),
-  th: ({ children }: any) => <th style={{ border: '1px solid #36f4a440', padding: '4px 8px', color: '#36f4a4', fontWeight: 600, textAlign: 'left' }}>{children}</th>,
-  td: ({ children }: any) => <td style={{ border: '1px solid #2a2d35', padding: '4px 8px', color: '#e8eaed' }}>{children}</td>,
-  code: ({ children }: any) => <code style={{ background: '#0a0a0a', borderRadius: 3, padding: '1px 4px', fontSize: 11, color: '#36f4a4', fontFamily: 'monospace' }}>{children}</code>,
+  th: ({ children }: any) => <th style={{ border: '1px solid #36f4a440', padding: '4px 8px', color: 'var(--signal)', fontWeight: 600, textAlign: 'left' }}>{children}</th>,
+  td: ({ children }: any) => <td style={{ border: '1px solid var(--nb-line)', padding: '4px 8px', color: 'var(--foreground)' }}>{children}</td>,
+  code: ({ children }: any) => <code style={{ background: 'var(--nb-surface)', borderRadius: 3, padding: '1px 4px', fontSize: 11, color: 'var(--signal)', fontFamily: 'monospace' }}>{children}</code>,
 };
 
 function MiniChart({ data, color }: { data: ChartPoint[]; color: string }) {
@@ -152,7 +152,7 @@ export default function PdfAnalyticsPage() {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 400, color: '#36f4a4', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 400, color: 'var(--signal)', flexDirection: 'column', gap: 12 }}>
         <div style={{ width: 28, height: 28, border: '2px solid #36f4a4', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         <span style={{ color: 'var(--nb-text-secondary)', fontSize: 13 }}>Loading analytics...</span>
@@ -172,8 +172,8 @@ export default function PdfAnalyticsPage() {
       {/* Header */}
       <div style={{ marginBottom: 28 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-          <TrendingUp size={24} color="#36f4a4" />
-          <h1 style={{ fontSize: 28, fontWeight: 400, color: '#fff', letterSpacing: '-0.6px', margin: 0 }}>PDF Chat Analytics</h1>
+          <TrendingUp size={24} color="var(--signal)" />
+          <h1 style={{ fontSize: 28, fontWeight: 400, color: 'var(--foreground)', letterSpacing: '-0.6px', margin: 0 }}>PDF Chat Analytics</h1>
         </div>
         <p style={{ fontSize: 13, color: 'var(--nb-text-secondary)', margin: 0 }}>Real conversations from your shared PDF links</p>
       </div>
@@ -181,12 +181,12 @@ export default function PdfAnalyticsPage() {
       {/* ── Stat Cards ── */}
       <div className="grid grid-cols-2 xl:grid-cols-4" style={{ gap: 14, marginBottom: 24 }}>
         {[
-          { label: 'Total Sessions',    value: stats?.totalSessions ?? 0,   icon: Users,          color: '#36f4a4' },
+          { label: 'Total Sessions',    value: stats?.totalSessions ?? 0,   icon: Users,          color: 'var(--signal)' },
           { label: 'Total Messages',    value: stats?.totalMessages ?? 0,   icon: MessageSquare,  color: '#60a5fa' },
           { label: 'Unique Visitors',   value: stats?.uniqueVisitors ?? 0,  icon: Globe,          color: '#f59e0b' },
           { label: 'Avg Msgs/Session',  value: stats?.avgMessages ?? '0',   icon: TrendingUp,     color: '#a78bfa' },
         ].map(card => (
-          <div key={card.label} style={{ background: '#1f2228', border: '1px solid #2a2d35', borderRadius: 14, padding: '18px 20px', animation: 'fadeIn 0.2s ease' }}>
+          <div key={card.label} style={{ background: 'var(--nb-surface-2)', border: '1px solid var(--nb-line)', borderRadius: 14, padding: '18px 20px', animation: 'fadeIn 0.2s ease' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
               <span style={{ fontSize: 12, color: 'var(--nb-text-secondary)' }}>{card.label}</span>
               <card.icon size={16} color={card.color} />
@@ -199,11 +199,11 @@ export default function PdfAnalyticsPage() {
       {/* ── Charts ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2" style={{ gap: 14, marginBottom: 24 }}>
         {[
-          { title: 'Sessions Over Time', data: sessionsOverTime, color: '#36f4a4' },
+          { title: 'Sessions Over Time', data: sessionsOverTime, color: 'var(--signal)' },
           { title: 'User Messages Over Time', data: messagesOverTime, color: '#60a5fa' },
         ].map(chart => (
-          <div key={chart.title} style={{ background: '#1f2228', border: '1px solid #2a2d35', borderRadius: 14, padding: '18px 20px' }}>
-            <div style={{ fontSize: 13, color: '#fff', fontWeight: 500, marginBottom: 14 }}>{chart.title}</div>
+          <div key={chart.title} style={{ background: 'var(--nb-surface-2)', border: '1px solid var(--nb-line)', borderRadius: 14, padding: '18px 20px' }}>
+            <div style={{ fontSize: 13, color: 'var(--foreground)', fontWeight: 500, marginBottom: 14 }}>{chart.title}</div>
             <MiniChart data={chart.data} color={chart.color} />
             {chart.data.length > 0 && (
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
@@ -216,9 +216,9 @@ export default function PdfAnalyticsPage() {
       </div>
 
       {/* ── PDF Breakdown ── */}
-      <div style={{ background: '#1f2228', border: '1px solid #2a2d35', borderRadius: 14, padding: '18px 20px', marginBottom: 24 }}>
-        <div style={{ fontSize: 13, color: '#fff', fontWeight: 500, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <FileText size={15} color="#36f4a4" /> PDF Performance
+      <div style={{ background: 'var(--nb-surface-2)', border: '1px solid var(--nb-line)', borderRadius: 14, padding: '18px 20px', marginBottom: 24 }}>
+        <div style={{ fontSize: 13, color: 'var(--foreground)', fontWeight: 500, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <FileText size={15} color="var(--signal)" /> PDF Performance
         </div>
         {pdfStats.length === 0 ? (
           <div style={{ color: 'var(--nb-text-tertiary)', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>No data yet — share a PDF link to start tracking</div>
@@ -226,7 +226,7 @@ export default function PdfAnalyticsPage() {
           <div style={{ overflowX: 'auto', margin: '0 -20px', padding: '0 20px' }}>
           <table style={{ width: '100%', minWidth: 480, borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
-              <tr style={{ borderBottom: '1px solid #2a2d35' }}>
+              <tr style={{ borderBottom: '1px solid var(--nb-line)' }}>
                 {['PDF', 'Sessions', 'Messages', 'Last Active'].map(h => (
                   <th key={h} style={{ textAlign: 'left', padding: '8px 12px', color: 'var(--nb-text-secondary)', fontWeight: 500, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</th>
                 ))}
@@ -234,13 +234,13 @@ export default function PdfAnalyticsPage() {
             </thead>
             <tbody>
               {pdfStats.map(pdf => (
-                <tr key={pdf.fileId} className="pdf-row" style={{ borderBottom: '1px solid #1a1d24', cursor: 'pointer', transition: 'background 0.15s' }}
+                <tr key={pdf.fileId} className="pdf-row" style={{ borderBottom: '1px solid var(--nb-line)', cursor: 'pointer', transition: 'background 0.15s' }}
                   onClick={() => setFilterFileId(pdf.fileId === filterFileId ? 'all' : pdf.fileId)}>
-                  <td style={{ padding: '10px 12px', color: '#fff' }}>
+                  <td style={{ padding: '10px 12px', color: 'var(--foreground)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <FileText size={13} color="#36f4a4" />
+                      <FileText size={13} color="var(--signal)" />
                       {pdf.label || 'Untitled'}
-                      {filterFileId === pdf.fileId && <span style={{ fontSize: 10, background: '#36f4a420', color: '#36f4a4', borderRadius: 4, padding: '1px 6px' }}>filtered</span>}
+                      {filterFileId === pdf.fileId && <span style={{ fontSize: 10, background: '#36f4a420', color: 'var(--signal)', borderRadius: 4, padding: '1px 6px' }}>filtered</span>}
                     </div>
                   </td>
                   <td style={{ padding: '10px 12px', color: '#60a5fa' }}>{pdf.sessions}</td>
@@ -255,14 +255,14 @@ export default function PdfAnalyticsPage() {
       </div>
 
       {/* ── Sessions List ── */}
-      <div style={{ background: '#1f2228', border: '1px solid #2a2d35', borderRadius: 14, padding: '18px 20px' }}>
+      <div style={{ background: 'var(--nb-surface-2)', border: '1px solid var(--nb-line)', borderRadius: 14, padding: '18px 20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
-          <div style={{ fontSize: 13, color: '#fff', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <MessageSquare size={15} color="#36f4a4" />
+          <div style={{ fontSize: 13, color: 'var(--foreground)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <MessageSquare size={15} color="var(--signal)" />
             Chat Sessions
             <span style={{ fontSize: 11, color: 'var(--nb-text-secondary)', fontWeight: 400 }}>({filteredSessions.length})</span>
             {filterFileId !== 'all' && (
-              <button onClick={() => setFilterFileId('all')} style={{ fontSize: 10, background: '#36f4a420', color: '#36f4a4', border: 'none', borderRadius: 4, padding: '2px 8px', cursor: 'pointer' }}>
+              <button onClick={() => setFilterFileId('all')} style={{ fontSize: 10, background: '#36f4a420', color: 'var(--signal)', border: 'none', borderRadius: 4, padding: '2px 8px', cursor: 'pointer' }}>
                 Clear filter ×
               </button>
             )}
@@ -271,7 +271,7 @@ export default function PdfAnalyticsPage() {
             placeholder="Search by label or IP..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            style={{ background: '#0a0a0a', border: '1px solid #2a2d35', borderRadius: 8, padding: '7px 12px', color: '#fff', fontSize: 12, outline: 'none', width: '100%', maxWidth: 260, minHeight: 36 }}
+            style={{ background: 'var(--nb-surface)', border: '1px solid var(--nb-line)', borderRadius: 8, padding: '7px 12px', color: 'var(--foreground)', fontSize: 12, outline: 'none', width: '100%', maxWidth: 260, minHeight: 36 }}
           />
         </div>
 
@@ -284,13 +284,13 @@ export default function PdfAnalyticsPage() {
             {filteredSessions.map(session => (
               <div key={session.sessionId} className="session-row"
                 onClick={() => openSession(session)}
-                style={{ background: '#161a1f', border: '1px solid #2a2d35', borderRadius: 10, padding: '12px 16px', cursor: 'pointer', transition: 'all 0.15s', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                style={{ background: 'var(--nb-surface-2)', border: '1px solid var(--nb-line)', borderRadius: 10, padding: '12px 16px', cursor: 'pointer', transition: 'all 0.15s', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
                   <div style={{ width: 36, height: 36, borderRadius: 9, background: '#36f4a420', border: '1px solid #36f4a430', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <MessageSquare size={15} color="#36f4a4" />
+                    <MessageSquare size={15} color="var(--signal)" />
                   </div>
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 13, color: '#fff', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <div style={{ fontSize: 13, color: 'var(--foreground)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {session.label || 'Untitled PDF'}
                     </div>
                     <div style={{ fontSize: 11, color: 'var(--nb-text-secondary)', marginTop: 2, display: 'flex', flexWrap: 'wrap', columnGap: 10, rowGap: 2 }}>
@@ -301,7 +301,7 @@ export default function PdfAnalyticsPage() {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 18, fontWeight: 700, color: '#36f4a4' }}>{session.messageCount}</div>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--signal)' }}>{session.messageCount}</div>
                     <div style={{ fontSize: 10, color: 'var(--nb-text-secondary)' }}>messages</div>
                   </div>
                   <ChevronRight size={16} color="var(--nb-icon-muted)" />
@@ -316,12 +316,12 @@ export default function PdfAnalyticsPage() {
       {selectedSession && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
           onClick={e => { if (e.target === e.currentTarget) setSelectedSession(null); }}>
-          <div style={{ background: '#1f2228', border: '1px solid #2a2d35', borderRadius: 16, width: '100%', maxWidth: 680, maxHeight: '85vh', display: 'flex', flexDirection: 'column', animation: 'fadeIn 0.2s ease' }}>
+          <div style={{ background: 'var(--nb-surface-2)', border: '1px solid var(--nb-line)', borderRadius: 16, width: '100%', maxWidth: 680, maxHeight: '85vh', display: 'flex', flexDirection: 'column', animation: 'fadeIn 0.2s ease' }}>
 
             {/* Modal header */}
-            <div style={{ padding: '16px 20px', borderBottom: '1px solid #2a2d35', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--nb-line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
               <div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: '#fff' }}>{selectedSession.label || 'Untitled PDF'}</div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--foreground)' }}>{selectedSession.label || 'Untitled PDF'}</div>
                 <div style={{ fontSize: 11, color: 'var(--nb-text-secondary)', marginTop: 2, display: 'flex', gap: 12 }}>
                   <span>📅 {formatDate(selectedSession.createdAt)}</span>
                   <span>🌐 {selectedSession.ip || 'Unknown'}</span>
@@ -336,7 +336,7 @@ export default function PdfAnalyticsPage() {
 
             {/* User agent */}
             {selectedSession.userAgent && (
-              <div style={{ padding: '8px 20px', background: '#161a1f', borderBottom: '1px solid #2a2d35', fontSize: 10, color: 'var(--nb-text-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <div style={{ padding: '8px 20px', background: 'var(--nb-surface-2)', borderBottom: '1px solid var(--nb-line)', fontSize: 10, color: 'var(--nb-text-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 🖥 {selectedSession.userAgent}
               </div>
             )}
@@ -356,10 +356,10 @@ export default function PdfAnalyticsPage() {
                     <div style={{
                       maxWidth: '80%', padding: '9px 13px',
                       borderRadius: msg.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-                      background: msg.role === 'user' ? '#36f4a4' : '#0a0a0a',
-                      color: msg.role === 'user' ? '#000' : '#e8eaed',
+                      background: msg.role === 'user' ? 'var(--signal)' : 'var(--nb-surface)',
+                      color: msg.role === 'user' ? '#000' : 'var(--foreground)',
                       fontSize: 12.5, lineHeight: 1.6,
-                      border: msg.role === 'assistant' ? '1px solid #2a2d35' : 'none',
+                      border: msg.role === 'assistant' ? '1px solid var(--nb-line)' : 'none',
                     }}>
                       {msg.role === 'user'
                         ? msg.content

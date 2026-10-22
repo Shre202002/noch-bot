@@ -74,7 +74,7 @@ type Draft = {
 
 const EMPTY_DRAFT: Draft = { label: "", field_type: "text", validation_rule: "none", custom_regex: "", is_required: true };
 
-const GREEN = "bg-[#36f4a4] text-black hover:bg-[#36f4a4]/90 shadow-[0_0_0_3px_rgba(54,244,164,0.18)]";
+const GREEN = "bg-signal text-black hover:bg-signal/90 shadow-[0_0_0_3px_color-mix(in srgb, var(--signal) 18%, transparent)]";
 
 const TYPE_ICONS: Record<string, typeof Type> = { text: Type, email: Mail, phone: Phone, number: Hash, date: Calendar };
 
@@ -247,7 +247,7 @@ export function FormBuilder({
     <div className="space-y-4">
       {SUGGESTION_GROUPS.map((group) => (
         <div key={group} className="space-y-2">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">{group}</p>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-foreground/40">{group}</p>
           <div className="flex flex-wrap gap-2">
             {SUGGESTIONS.filter((s) => s.group === group).map((s) => {
               const added = isAdded(s, fields);
@@ -263,8 +263,8 @@ export function FormBuilder({
                   title={s.hint}
                   className={`inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors ${
                     added
-                      ? "cursor-default border-[#36f4a4]/30 bg-[#36f4a4]/10 text-[#36f4a4]"
-                      : "cursor-pointer border-white/15 text-white/80 hover:border-[#36f4a4]/60 hover:bg-[#36f4a4]/5 hover:text-white"
+                      ? "cursor-default border-signal/30 bg-signal/10 text-signal"
+                      : "cursor-pointer border-foreground/15 text-foreground/80 hover:border-signal/60 hover:bg-signal/5 hover:text-foreground"
                   }`}
                 >
                   {pending ? (
@@ -272,7 +272,7 @@ export function FormBuilder({
                   ) : added ? (
                     <Check aria-hidden="true" className="h-3.5 w-3.5" />
                   ) : (
-                    <Icon aria-hidden="true" className="h-3.5 w-3.5 text-white/40" />
+                    <Icon aria-hidden="true" className="h-3.5 w-3.5 text-foreground/40" />
                   )}
                   {s.label}
                 </button>
@@ -288,10 +288,10 @@ export function FormBuilder({
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h2 className="text-xl font-black tracking-tight text-white">Attendee form</h2>
+          <h2 className="text-xl font-black tracking-tight text-foreground">Attendee form</h2>
           <p className="text-sm text-muted-foreground">
             What the chat bot and website widget ask each attendee.{" "}
-            <span className="text-white/60">
+            <span className="text-foreground/60">
               {fields.length} {fields.length === 1 ? "question" : "questions"}
             </span>
           </p>
@@ -310,15 +310,15 @@ export function FormBuilder({
       )}
 
       {fields.length === 0 ? (
-        <Card className="border-dashed border-white/15 bg-card/20">
+        <Card className="border-dashed border-foreground/15 bg-card/20">
           <CardContent className="space-y-6 p-6 sm:p-8">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="flex items-start gap-3">
-                <span className="grid size-10 shrink-0 place-content-center rounded-xl bg-[#36f4a4]/10 text-[#36f4a4]">
+                <span className="grid size-10 shrink-0 place-content-center rounded-xl bg-signal/10 text-signal">
                   <Sparkles aria-hidden="true" className="h-5 w-5" />
                 </span>
                 <div>
-                  <h3 className="font-bold text-white">No questions yet</h3>
+                  <h3 className="font-bold text-foreground">No questions yet</h3>
                   <p className="text-sm text-muted-foreground">Start with the essentials, or pick from the suggestions. One click adds each.</p>
                 </div>
               </div>
@@ -350,7 +350,7 @@ export function FormBuilder({
       )}
 
       <Dialog open={dialogOpen} onOpenChange={(open) => !saving && setDialogOpen(open)}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto bg-black border-white/10 text-white sm:max-w-xl">
+        <DialogContent className="max-h-[90vh] overflow-y-auto bg-background border-foreground/10 text-foreground sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>{editing ? "Edit question" : "Add a question"}</DialogTitle>
             <DialogDescription>
@@ -363,7 +363,7 @@ export function FormBuilder({
           </DialogHeader>
 
           {!editing && (
-            <div role="tablist" aria-label="How to add a question" className="grid grid-cols-2 gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1">
+            <div role="tablist" aria-label="How to add a question" className="grid grid-cols-2 gap-1 rounded-xl border border-foreground/10 bg-foreground/[0.03] p-1">
               {([
                 { value: "suggested", title: "Suggested", hint: "One click each", Icon: Sparkles },
                 { value: "custom", title: "Write your own", hint: "Custom question", Icon: Pencil },
@@ -378,13 +378,13 @@ export function FormBuilder({
                     setDialogError("");
                   }}
                   className={`flex cursor-pointer items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-left transition-colors ${
-                    mode === value ? "bg-[#36f4a4]/10 text-white ring-1 ring-[#36f4a4]/60" : "text-white/55 hover:bg-white/5 hover:text-white"
+                    mode === value ? "bg-signal/10 text-foreground ring-1 ring-signal/60" : "text-foreground/55 hover:bg-foreground/5 hover:text-foreground"
                   }`}
                 >
-                  <Icon aria-hidden="true" className={`h-4 w-4 shrink-0 ${mode === value ? "text-[#36f4a4]" : ""}`} />
+                  <Icon aria-hidden="true" className={`h-4 w-4 shrink-0 ${mode === value ? "text-signal" : ""}`} />
                   <span className="min-w-0">
                     <span className="block text-sm font-semibold leading-tight">{title}</span>
-                    <span className="block text-[11px] leading-tight text-white/45">{hint}</span>
+                    <span className="block text-[11px] leading-tight text-foreground/45">{hint}</span>
                   </span>
                 </button>
               ))}
@@ -393,9 +393,9 @@ export function FormBuilder({
 
           {!editing && mode === "suggested" && (
             <section role="tabpanel" aria-label="Suggested questions" className="space-y-4">
-              <p className="text-sm text-white/60">
+              <p className="text-sm text-foreground/60">
                 Click a question to add it to your form straight away.{" "}
-                <span className="text-white/40">
+                <span className="text-foreground/40">
                   {SUGGESTIONS.filter((s) => isAdded(s, fields)).length} of {SUGGESTIONS.length} added
                 </span>
               </p>
@@ -410,7 +410,7 @@ export function FormBuilder({
                 <button
                   type="button"
                   onClick={() => setMode("custom")}
-                  className="cursor-pointer text-left text-sm text-white/60 underline-offset-4 hover:text-white hover:underline"
+                  className="cursor-pointer text-left text-sm text-foreground/60 underline-offset-4 hover:text-foreground hover:underline"
                 >
                   Need something else? Write your own
                 </button>
@@ -438,7 +438,7 @@ export function FormBuilder({
                 value={draft.label}
                 onChange={(e) => setDraft({ ...draft, label: e.target.value })}
                 placeholder="e.g. What is your favourite session topic?"
-                className="bg-black/40 border-white/10 text-white"
+                className="bg-background/40 border-foreground/10 text-foreground"
                 autoFocus
               />
             </div>
@@ -461,10 +461,10 @@ export function FormBuilder({
                     }))
                   }
                 >
-                  <SelectTrigger className="bg-black/40 border-white/10 text-white cursor-pointer">
+                  <SelectTrigger className="bg-background/40 border-foreground/10 text-foreground cursor-pointer">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-black border-white/10 text-white">
+                  <SelectContent className="bg-background border-foreground/10 text-foreground">
                     {Object.entries(TYPE_LABELS).map(([value, label]) => (
                       <SelectItem key={value} value={value}>{label}</SelectItem>
                     ))}
@@ -474,10 +474,10 @@ export function FormBuilder({
               <div className="space-y-2">
                 <Label>Check the answer</Label>
                 <Select value={draft.validation_rule} onValueChange={(v) => setDraft({ ...draft, validation_rule: v })}>
-                  <SelectTrigger className="bg-black/40 border-white/10 text-white cursor-pointer">
+                  <SelectTrigger className="bg-background/40 border-foreground/10 text-foreground cursor-pointer">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-black border-white/10 text-white">
+                  <SelectContent className="bg-background border-foreground/10 text-foreground">
                     {Object.entries(RULE_LABELS).map(([value, label]) => (
                       <SelectItem key={value} value={value}>{label}</SelectItem>
                     ))}
@@ -494,12 +494,12 @@ export function FormBuilder({
                   value={draft.custom_regex}
                   onChange={(e) => setDraft({ ...draft, custom_regex: e.target.value })}
                   placeholder="^[0-9]+$"
-                  className="bg-black/40 border-white/10 font-mono text-white"
+                  className="bg-background/40 border-foreground/10 font-mono text-foreground"
                 />
               </div>
             )}
 
-            <div className="flex items-center justify-between rounded-lg border border-white/5 bg-white/5 p-3">
+            <div className="flex items-center justify-between rounded-lg border border-foreground/5 bg-foreground/5 p-3">
               <Label htmlFor="question-required" className="cursor-pointer">Required</Label>
               <Switch
                 id="question-required"
@@ -522,7 +522,7 @@ export function FormBuilder({
                 variant="ghost"
                 onClick={() => (editing ? setDialogOpen(false) : setMode("suggested"))}
                 disabled={saving}
-                className="text-white hover:bg-white/5 cursor-pointer"
+                className="text-foreground hover:bg-foreground/5 cursor-pointer"
               >
                 {editing ? "Cancel" : "Back to suggestions"}
               </Button>
@@ -559,30 +559,30 @@ function QuestionRow({
 
   return (
     <li ref={setNodeRef} style={style} className={isDragging ? "opacity-60" : undefined}>
-      <Card className="border-white/10 bg-card/40 transition-colors hover:border-white/20">
+      <Card className="border-foreground/10 bg-card/40 transition-colors hover:border-foreground/20">
         <CardContent className="flex items-center gap-3 p-3 sm:gap-4 sm:p-4">
           <button
             type="button"
             {...attributes}
             {...listeners}
             aria-label={`Reorder question ${index + 1}: ${field.label}`}
-            className="grid size-9 shrink-0 cursor-grab touch-none place-content-center rounded-lg text-white/40 hover:bg-white/5 hover:text-white"
+            className="grid size-9 shrink-0 cursor-grab touch-none place-content-center rounded-lg text-foreground/40 hover:bg-foreground/5 hover:text-foreground"
           >
             <GripVertical aria-hidden="true" className="h-4 w-4" />
           </button>
-          <span aria-hidden="true" className="grid size-7 shrink-0 place-content-center rounded-full bg-white/5 text-xs font-bold text-white/60">
+          <span aria-hidden="true" className="grid size-7 shrink-0 place-content-center rounded-full bg-foreground/5 text-xs font-bold text-foreground/60">
             {index + 1}
           </span>
           <div className="min-w-0 flex-1 space-y-1.5">
-            <p className="truncate text-sm font-bold text-white sm:text-base">{field.label}</p>
+            <p className="truncate text-sm font-bold text-foreground sm:text-base">{field.label}</p>
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="outline" className="gap-1 border-white/10 text-[11px] font-medium text-white/60">
+              <Badge variant="outline" className="gap-1 border-foreground/10 text-[11px] font-medium text-foreground/60">
                 <Icon aria-hidden="true" className="h-3 w-3" /> {TYPE_LABELS[field.field_type] ?? field.field_type}
               </Badge>
-              {rule && <span className="text-xs text-white/50">{rule}</span>}
+              {rule && <span className="text-xs text-foreground/50">{rule}</span>}
               <span
                 className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-                  field.is_required ? "bg-[#36f4a4]/10 text-[#36f4a4]" : "bg-white/5 text-white/40"
+                  field.is_required ? "bg-signal/10 text-signal" : "bg-foreground/5 text-foreground/40"
                 }`}
               >
                 {field.is_required ? "Required" : "Optional"}
@@ -590,7 +590,7 @@ function QuestionRow({
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1">
-            <Button variant="ghost" size="icon" onClick={onEdit} aria-label={`Edit question: ${field.label}`} className="size-9 cursor-pointer rounded-full text-white hover:bg-white/10">
+            <Button variant="ghost" size="icon" onClick={onEdit} aria-label={`Edit question: ${field.label}`} className="size-9 cursor-pointer rounded-full text-foreground hover:bg-foreground/10">
               <Pencil aria-hidden="true" className="h-4 w-4" />
             </Button>
             <Button

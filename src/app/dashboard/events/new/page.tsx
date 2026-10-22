@@ -119,23 +119,23 @@ export default function NewEventPage() {
             <ArrowLeft className="h-5 w-5" />
           </Link>
         </Button>
-        <h1 className="text-3xl font-black tracking-tight text-white">New Event</h1>
+        <h1 className="text-3xl font-black tracking-tight text-foreground">New Event</h1>
       </div>
 
       <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-8" inert={busy ? true : undefined}>
         <Card className="border-border bg-card/50 backdrop-blur-sm">
           <CardContent className="p-6 space-y-6">
             <div className="grid gap-2">
-              <Label className="text-white/70">Event Name</Label>
-              <Input {...form.register("name")} placeholder="NochBot Developers Meetup" className="bg-black/40 border-white/10" />
+              <Label className="text-foreground/70">Event Name</Label>
+              <Input {...form.register("name")} placeholder="NochBot Developers Meetup" className="bg-background/40 border-foreground/10" />
               {form.formState.errors.name && (
                 <p className="text-xs text-red-500">{form.formState.errors.name.message}</p>
               )}
             </div>
 
             <div className="grid gap-2">
-              <Label className="text-white/70">Description</Label>
-              <Textarea {...form.register("description")} placeholder="Describe your event..." className="min-h-[120px] bg-black/40 border-white/10" />
+              <Label className="text-foreground/70">Description</Label>
+              <Textarea {...form.register("description")} placeholder="Describe your event..." className="min-h-[120px] bg-background/40 border-foreground/10" />
               {form.formState.errors.description && (
                 <p className="text-xs text-red-500">{form.formState.errors.description.message}</p>
               )}
@@ -143,7 +143,7 @@ export default function NewEventPage() {
 
             <div className="grid gap-6 md:grid-cols-2">
               <div className="grid gap-2">
-                <Label className="text-white/70">Start Date & Time</Label>
+                <Label className="text-foreground/70">Start Date & Time</Label>
                 <Controller
                   control={form.control}
                   name="start_at"
@@ -157,7 +157,7 @@ export default function NewEventPage() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label className="text-white/70">End Date & Time</Label>
+                <Label className="text-foreground/70">End Date & Time</Label>
                 <Controller
                   control={form.control}
                   name="end_at"
@@ -173,21 +173,21 @@ export default function NewEventPage() {
             </div>
 
             <div className="grid gap-2">
-              <Label className="text-white/70">Venue / Location</Label>
-              <Input {...form.register("venue")} placeholder="Tech Hub, Main Hall" className="bg-black/40 border-white/10" />
+              <Label className="text-foreground/70">Venue / Location</Label>
+              <Input {...form.register("venue")} placeholder="Tech Hub, Main Hall" className="bg-background/40 border-foreground/10" />
             </div>
 
             <div className="grid gap-6 md:grid-cols-2">
               <div className="grid gap-2">
-                <Label className="text-white/70">Total Capacity</Label>
-                <Input type="number" {...form.register("capacity")} className="bg-black/40 border-white/10" />
+                <Label className="text-foreground/70">Total Capacity</Label>
+                <Input type="number" {...form.register("capacity")} className="bg-background/40 border-foreground/10" />
                 {form.formState.errors.capacity && (
                   <p className="text-xs text-red-500">{form.formState.errors.capacity.message}</p>
                 )}
               </div>
-              <div className="flex items-center justify-between rounded-xl border border-white/5 p-4 bg-accent/20 h-14 self-end">
+              <div className="flex items-center justify-between rounded-xl border border-foreground/5 p-4 bg-accent/20 h-14 self-end">
                 <div className="space-y-0.5">
-                  <Label className="text-white/70">Allow Group Booking</Label>
+                  <Label className="text-foreground/70">Allow Group Booking</Label>
                 </div>
                 <Switch 
                   className="cursor-pointer"
@@ -200,8 +200,8 @@ export default function NewEventPage() {
             <AnimatePresence>
               {form.watch("allow_group_booking") && (
                 <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="grid gap-2 overflow-hidden">
-                  <Label className="text-white/70">Max Tickets per Booking</Label>
-                  <Input type="number" {...form.register("max_tickets_per_booking")} className="bg-black/40 border-white/10" />
+                  <Label className="text-foreground/70">Max Tickets per Booking</Label>
+                  <Input type="number" {...form.register("max_tickets_per_booking")} className="bg-background/40 border-foreground/10" />
                   {form.formState.errors.max_tickets_per_booking && (
                     <p className="text-xs text-red-500">{form.formState.errors.max_tickets_per_booking.message}</p>
                   )}
@@ -209,9 +209,9 @@ export default function NewEventPage() {
               )}
             </AnimatePresence>
 
-            <div className="flex items-center justify-between rounded-xl border border-white/5 p-4 bg-accent/20">
+            <div className="flex items-center justify-between rounded-xl border border-foreground/5 p-4 bg-accent/20">
               <div className="space-y-0.5">
-                <Label className="text-white/70 font-bold">Paid Event</Label>
+                <Label className="text-foreground/70 font-bold">Paid Event</Label>
                 <p className="text-xs text-muted-foreground">Charge for tickets via integrated gateways</p>
               </div>
               <Switch 
@@ -225,23 +225,23 @@ export default function NewEventPage() {
               {form.watch("is_paid") && (
                 <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="grid grid-cols-2 gap-4 pt-2 overflow-hidden">
                   <div className="grid gap-2">
-                    <Label className="text-white/70">Price</Label>
-                    <Input type="number" step="0.01" {...form.register("price")} className="bg-black/40 border-white/10" />
+                    <Label className="text-foreground/70">Price</Label>
+                    <Input type="number" step="0.01" {...form.register("price")} className="bg-background/40 border-foreground/10" />
                     {form.formState.errors.price && (
                       <p className="text-xs text-red-500">{form.formState.errors.price.message}</p>
                     )}
                   </div>
                   <div className="grid gap-2">
-                    <Label className="text-white/70">Currency</Label>
+                    <Label className="text-foreground/70">Currency</Label>
                     <Controller
                       control={form.control}
                       name="currency"
                       render={({ field }) => (
                         <Select value={field.value} onValueChange={field.onChange}>
-                          <SelectTrigger className="bg-black/40 border-white/10 cursor-pointer">
+                          <SelectTrigger className="bg-background/40 border-foreground/10 cursor-pointer">
                             <SelectValue placeholder="Select currency" />
                           </SelectTrigger>
-                          <SelectContent className="bg-black border-white/10 text-white">
+                          <SelectContent className="bg-background border-foreground/10 text-foreground">
                             <SelectItem className="cursor-pointer" value="INR">INR (₹)</SelectItem>
                             <SelectItem className="cursor-pointer" value="USD">USD ($)</SelectItem>
                             <SelectItem className="cursor-pointer" value="EUR">EUR (€)</SelectItem>
@@ -259,10 +259,10 @@ export default function NewEventPage() {
         </Card>
 
         <div className="flex justify-end gap-4">
-          <Button asChild variant="outline" className="rounded-full border-white/10 text-white/70 hover:bg-white/5 cursor-pointer">
+          <Button asChild variant="outline" className="rounded-full border-foreground/10 text-foreground/70 hover:bg-foreground/5 cursor-pointer">
             <Link href="/dashboard/events">Cancel</Link>
           </Button>
-          <Button type="submit" disabled={busy} className="rounded-full bg-white text-black hover:bg-zinc-200 min-w-[140px] font-bold cursor-pointer">
+          <Button type="submit" disabled={busy} className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90 min-w-[140px] font-bold cursor-pointer">
             {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
             {redirecting ? "Opening event…" : loading ? "Creating…" : "Create Draft"}
           </Button>
@@ -275,9 +275,9 @@ export default function NewEventPage() {
           aria-live="polite"
           className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm"
         >
-          <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-card px-6 py-4 shadow-xl">
-            <Loader2 aria-hidden="true" className="h-5 w-5 animate-spin text-white" />
-            <span className="text-sm font-medium text-white">
+          <div className="flex items-center gap-3 rounded-2xl border border-foreground/10 bg-card px-6 py-4 shadow-xl">
+            <Loader2 aria-hidden="true" className="h-5 w-5 animate-spin text-foreground" />
+            <span className="text-sm font-medium text-foreground">
               {redirecting ? "Draft created. Opening your event…" : "Creating your draft…"}
             </span>
           </div>
@@ -307,25 +307,25 @@ function DateTimePicker({ date, setDate, error }: { date?: Date, setDate: (d: Da
           <Button
             variant="outline"
             className={cn(
-              "w-full justify-start text-left font-normal bg-black/40 border-white/10 rounded-lg h-9 px-3 cursor-pointer",
+              "w-full justify-start text-left font-normal bg-background/40 border-foreground/10 rounded-lg h-9 px-3 cursor-pointer",
               !date && "text-muted-foreground"
             )}
           >
-            <CalendarIcon className="mr-2 h-4 w-4 text-white/50" />
+            <CalendarIcon className="mr-2 h-4 w-4 text-foreground/50" />
             {date ? format(date, "PPP p") : <span>Pick date and time</span>}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0 bg-black border-white/10" align="start">
-          <div className="rounded-lg border border-white/10">
+        <PopoverContent className="w-auto p-0 bg-background border-foreground/10" align="start">
+          <div className="rounded-lg border border-foreground/10">
             <Calendar
               mode="single"
               selected={date}
               onSelect={(d) => d && updateDateTime(d)}
-              className="p-2 bg-black"
+              className="p-2 bg-background"
             />
-            <div className="border-t border-white/10 p-3">
+            <div className="border-t border-foreground/10 p-3">
               <div className="flex items-center gap-3">
-                <Label className="text-xs text-white/70">
+                <Label className="text-xs text-foreground/70">
                   Enter time
                 </Label>
                 <div className="relative grow">
@@ -337,7 +337,7 @@ function DateTimePicker({ date, setDate, error }: { date?: Date, setDate: (d: Da
                       setTime(e.target.value);
                       updateDateTime(undefined, e.target.value);
                     }}
-                    className="peer ps-9 bg-black/40 border-white/10 h-8 text-xs [&::-webkit-calendar-picker-indicator]:hidden"
+                    className="peer ps-9 bg-background/40 border-foreground/10 h-8 text-xs [&::-webkit-calendar-picker-indicator]:hidden"
                   />
                   <div className="pointer-events-none absolute inset-y-0 start-0 flex items-center justify-center ps-3 text-muted-foreground/80 peer-disabled:opacity-50">
                     <Clock size={14} strokeWidth={2} aria-hidden="true" />

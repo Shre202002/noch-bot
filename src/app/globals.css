@@ -60,6 +60,13 @@
   --nb-text-tertiary: #878b93;
   --nb-icon-muted: #73777f;
   --signal: #36f4a4;
+  /* Dashboard panel roles (page cards, raised panels, hairlines); the dark values are the original hard-coded hexes. */
+  --nb-surface: #0a0a0a;
+  --nb-surface-2: #1f2228;
+  --nb-line: #2a2d35;
+  --nb-line-2: #3a3d45;
+  --nb-success-bg: #0d2420;
+  --nb-danger-bg: #1a0a0a;
 
   --radius: 0.5rem;
   --font-display: "Inter", system-ui, sans-serif;
@@ -108,6 +115,12 @@
   --nb-text-tertiary: #5f6470;
   --nb-icon-muted: #7a7f8a;
   --signal: #0a8f5b;
+  --nb-surface: #ffffff;
+  --nb-surface-2: #f1f3f5;
+  --nb-line: #d9dce2;
+  --nb-line-2: #c4c8d0;
+  --nb-success-bg: #e3f6ee;
+  --nb-danger-bg: #fdeceb;
 
   --background: oklch(0.985 0 0);
   --foreground: oklch(0.16 0 0);

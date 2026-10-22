@@ -46,7 +46,7 @@ export default function EventsPage() {
           <h1 className="text-4xl font-black tracking-tight">Events</h1>
           <p className="mt-1 text-muted-foreground">Manage your ticketed experiences</p>
         </div>
-        <Button asChild className="rounded-full bg-white text-black hover:bg-zinc-200 cursor-pointer">
+        <Button asChild className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer">
           <Link href="/dashboard/events/new">
             <Plus className="mr-2 h-4 w-4" /> Create Event
           </Link>

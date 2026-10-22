@@ -21,8 +21,8 @@ export function EventProgress({
   return (
     <div className="w-full space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold uppercase tracking-widest">
-        <span className="text-white/50">Setup progress</span>
-        <span className="text-[#36f4a4]">{published ? "Live" : `${done} of ${total} complete`}</span>
+        <span className="text-foreground/50">Setup progress</span>
+        <span className="text-signal">{published ? "Live" : `${done} of ${total} complete`}</span>
       </div>
       <div
         role="progressbar"
@@ -30,15 +30,15 @@ export function EventProgress({
         aria-valuemax={100}
         aria-valuenow={percent}
         aria-label="Event setup progress"
-        className="h-1.5 w-full overflow-hidden rounded-full bg-white/10"
+        className="h-1.5 w-full overflow-hidden rounded-full bg-foreground/10"
       >
-        <div className="h-full rounded-full bg-[#36f4a4] transition-[width] duration-500 ease-out" style={{ width: `${percent}%` }} />
+        <div className="h-full rounded-full bg-signal transition-[width] duration-500 ease-out" style={{ width: `${percent}%` }} />
       </div>
       {!published && (
-        <p className="text-sm text-white/70">
+        <p className="text-sm text-foreground/70">
           {nextLabel ? (
             <>
-              Next step: <span className="font-bold text-white">{nextLabel}</span>
+              Next step: <span className="font-bold text-foreground">{nextLabel}</span>
             </>
           ) : (
             "All steps are done. Open Go live to publish."

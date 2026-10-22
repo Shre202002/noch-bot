@@ -23,7 +23,7 @@ interface AccountData {
 const PLAN_CONFIG = {
   free:    { label: "Free",    color: "bg-muted text-muted-foreground border-border",         limit: "100 messages/mo"  },
   starter: { label: "Starter", color: "bg-blue-500/10 text-blue-400 border-blue-400/20",      limit: "5,000 messages/mo" },
-  pro:     { label: "Pro",     color: "bg-[#36f4a4]/10 text-[#36f4a4] border-[#36f4a4]/20",  limit: "50,000 messages/mo" },
+  pro:     { label: "Pro",     color: "bg-signal/10 text-signal border-signal/20",  limit: "50,000 messages/mo" },
 };
 
 export default function AccountPage() {
@@ -146,15 +146,15 @@ export default function AccountPage() {
         <Card className="border-border bg-card/50">
           <CardContent className="p-6 space-y-6">
             <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-xl bg-[#36f4a4]/10 border border-[#36f4a4]/20 flex items-center justify-center">
-                <User className="h-5 w-5 text-[#36f4a4]" />
+              <div className="w-10 h-10 rounded-xl bg-signal/10 border border-signal/20 flex items-center justify-center">
+                <User className="h-5 w-5 text-signal" />
               </div>
               <h2 className="font-bold">Profile</h2>
             </div>
 
             {/* Avatar + info */}
             <div className="flex items-center gap-4 p-4 rounded-xl bg-accent/20 border border-border">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#36f4a4]/20 to-primary/20 border border-border flex items-center justify-center text-2xl font-black text-foreground">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-signal/20 to-primary/20 border border-border flex items-center justify-center text-2xl font-black text-foreground">
                 {(account?.name || account?.email || "U")[0].toUpperCase()}
               </div>
               <div>
@@ -175,14 +175,14 @@ export default function AccountPage() {
                   onChange={(e) => setName(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && saveName()}
                   placeholder="Enter your name"
-                  className="flex-1 px-3 py-2.5 bg-accent/30 border border-border rounded-xl text-sm outline-none focus:border-[#36f4a4]/50 transition-colors placeholder:text-muted-foreground"
+                  className="flex-1 px-3 py-2.5 bg-accent/30 border border-border rounded-xl text-sm outline-none focus:border-signal/50 transition-colors placeholder:text-muted-foreground"
                 />
                 <Button onClick={saveName} disabled={nameLoading || !name.trim()} size="sm" className="rounded-xl px-4">
                   {nameLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 </Button>
               </div>
               {nameMsg && (
-                <p className={cn("text-xs flex items-center gap-1.5", nameMsg.type === "success" ? "text-[#36f4a4]" : "text-red-400")}>
+                <p className={cn("text-xs flex items-center gap-1.5", nameMsg.type === "success" ? "text-signal" : "text-red-400")}>
                   {nameMsg.type === "success" ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertCircle className="h-3.5 w-3.5" />}
                   {nameMsg.text}
                 </p>
@@ -206,7 +206,7 @@ export default function AccountPage() {
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Total Crawls</p>
               </div>
               <div className="p-3 rounded-xl bg-accent/20 border border-border text-center">
-                <p className="text-2xl font-black text-[#36f4a4]">{plan.label}</p>
+                <p className="text-2xl font-black text-signal">{plan.label}</p>
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Current Plan</p>
               </div>
             </div>
@@ -255,7 +255,7 @@ export default function AccountPage() {
             </div>
 
             {pwMsg && (
-              <p className={cn("text-xs flex items-center gap-1.5", pwMsg.type === "success" ? "text-[#36f4a4]" : "text-red-400")}>
+              <p className={cn("text-xs flex items-center gap-1.5", pwMsg.type === "success" ? "text-signal" : "text-red-400")}>
                 {pwMsg.type === "success" ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertCircle className="h-3.5 w-3.5" />}
                 {pwMsg.text}
               </p>

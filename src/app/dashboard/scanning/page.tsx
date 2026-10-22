@@ -72,21 +72,21 @@ export default function ScanningOverviewPage() {
           {events?.map((e) => (
             <li key={e.id}>
               <Link href={`/dashboard/scanning/${e.id}`} className="group block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal">
-                <Card className="h-full border-white/10 bg-card/40 transition-colors group-hover:border-white/25">
+                <Card className="h-full border-foreground/10 bg-card/40 transition-colors group-hover:border-foreground/25">
                   <CardContent className="space-y-4 p-5">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <h2 className="truncate text-lg font-bold text-white">{e.name}</h2>
-                        <p className="truncate text-sm text-white/50">
+                        <h2 className="truncate text-lg font-bold text-foreground">{e.name}</h2>
+                        <p className="truncate text-sm text-foreground/50">
                           {[e.start_at ? new Date(e.start_at).toLocaleDateString(undefined, { dateStyle: "medium" }) : null, e.venue].filter(Boolean).join(" · ")}
                         </p>
                       </div>
                       <Badge variant={e.status === "published" ? "default" : "secondary"}>{e.status.toUpperCase()}</Badge>
                     </div>
                     <div className="flex items-center justify-between gap-2">
-                      <p className="flex items-center gap-2 text-sm text-white/70">
+                      <p className="flex items-center gap-2 text-sm text-foreground/70">
                         <UserCheck aria-hidden="true" className="h-4 w-4" />
-                        <span><b className="text-white">{e.checked_in}</b> of {e.confirmed_tickets} scanned</span>
+                        <span><b className="text-foreground">{e.checked_in}</b> of {e.confirmed_tickets} scanned</span>
                       </p>
                       <span className="inline-flex items-center gap-1 text-sm font-semibold text-signal">
                         <ScanLine aria-hidden="true" className="h-4 w-4" /> Open scanning <ChevronRight aria-hidden="true" className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />

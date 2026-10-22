@@ -69,7 +69,7 @@ export default function BookingsOverviewPage() {
               <p className="text-lg font-bold">No events yet</p>
               <p className="text-sm text-muted-foreground">Bookings appear here once you create and publish an event.</p>
             </div>
-            <Button asChild className="rounded-full bg-[#36f4a4] text-black hover:bg-[#36f4a4]/90 font-bold cursor-pointer">
+            <Button asChild className="rounded-full bg-signal text-black hover:bg-signal/90 font-bold cursor-pointer">
               <Link href="/dashboard/events/new"><Plus aria-hidden="true" className="mr-2 h-4 w-4" /> Create event</Link>
             </Button>
           </CardContent>
@@ -82,14 +82,14 @@ export default function BookingsOverviewPage() {
               <li key={e.id}>
                 <Link
                   href={`/dashboard/bookings/${e.id}`}
-                  className="group block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#36f4a4]"
+                  className="group block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal"
                 >
-                  <Card className="h-full border-white/10 bg-card/40 transition-colors group-hover:border-white/25">
+                  <Card className="h-full border-foreground/10 bg-card/40 transition-colors group-hover:border-foreground/25">
                     <CardContent className="space-y-4 p-5">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <h2 className="truncate text-lg font-bold text-white">{e.name}</h2>
-                          <p className="truncate text-sm text-white/50">
+                          <h2 className="truncate text-lg font-bold text-foreground">{e.name}</h2>
+                          <p className="truncate text-sm text-foreground/50">
                             {[e.start_at ? new Date(e.start_at).toLocaleDateString(undefined, { dateStyle: "medium" }) : null, e.venue].filter(Boolean).join(" · ")}
                           </p>
                         </div>
@@ -97,17 +97,17 @@ export default function BookingsOverviewPage() {
                       </div>
 
                       <dl className="grid grid-cols-3 gap-3 text-center">
-                        <div className="rounded-xl bg-white/5 p-3">
-                          <dt className="flex items-center justify-center gap-1 text-[11px] uppercase tracking-wide text-white/50"><Ticket aria-hidden="true" className="h-3 w-3" /> Booked</dt>
-                          <dd className="text-xl font-black text-white">{e.confirmed_tickets}<span className="text-sm font-normal text-white/40"> / {e.capacity}</span></dd>
+                        <div className="rounded-xl bg-foreground/5 p-3">
+                          <dt className="flex items-center justify-center gap-1 text-[11px] uppercase tracking-wide text-foreground/50"><Ticket aria-hidden="true" className="h-3 w-3" /> Booked</dt>
+                          <dd className="text-xl font-black text-foreground">{e.confirmed_tickets}<span className="text-sm font-normal text-foreground/40"> / {e.capacity}</span></dd>
                         </div>
-                        <div className="rounded-xl bg-white/5 p-3">
-                          <dt className="flex items-center justify-center gap-1 text-[11px] uppercase tracking-wide text-white/50"><UserCheck aria-hidden="true" className="h-3 w-3" /> Checked in</dt>
-                          <dd className="text-xl font-black text-white">{e.checked_in}</dd>
+                        <div className="rounded-xl bg-foreground/5 p-3">
+                          <dt className="flex items-center justify-center gap-1 text-[11px] uppercase tracking-wide text-foreground/50"><UserCheck aria-hidden="true" className="h-3 w-3" /> Checked in</dt>
+                          <dd className="text-xl font-black text-foreground">{e.checked_in}</dd>
                         </div>
-                        <div className="rounded-xl bg-white/5 p-3">
-                          <dt className="text-[11px] uppercase tracking-wide text-white/50">Bookings</dt>
-                          <dd className="text-xl font-black text-white">{total}</dd>
+                        <div className="rounded-xl bg-foreground/5 p-3">
+                          <dt className="text-[11px] uppercase tracking-wide text-foreground/50">Bookings</dt>
+                          <dd className="text-xl font-black text-foreground">{total}</dd>
                         </div>
                       </dl>
 
@@ -122,9 +122,9 @@ export default function BookingsOverviewPage() {
                           {e.tests > 0 && (
                             <span className="rounded-full border border-red-500/50 px-2.5 py-1 text-red-200">{e.tests} test</span>
                           )}
-                          {total === 0 && e.tests === 0 && <span className="text-white/40">No bookings yet</span>}
+                          {total === 0 && e.tests === 0 && <span className="text-foreground/40">No bookings yet</span>}
                         </div>
-                        <span className="inline-flex items-center gap-1 text-sm font-semibold text-[#36f4a4]">
+                        <span className="inline-flex items-center gap-1 text-sm font-semibold text-signal">
                           View bookings <ChevronRight aria-hidden="true" className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                         </span>
                       </div>

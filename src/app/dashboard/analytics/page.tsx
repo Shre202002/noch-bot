@@ -40,7 +40,7 @@ interface AnalyticsData {
 
 const StatCard = ({ title, value, label, icon: Icon, color, delay }: any) => {
   const colorMap: Record<string, string> = {
-    green: "text-[#36f4a4] bg-[#36f4a4]/10 border-[#36f4a4]/20",
+    green: "text-signal bg-signal/10 border-signal/20",
     blue: "text-blue-400 bg-blue-400/10 border-blue-400/20",
     purple: "text-purple-400 bg-purple-400/10 border-purple-400/20",
     orange: "text-orange-400 bg-orange-400/10 border-orange-400/20",
@@ -58,7 +58,7 @@ const StatCard = ({ title, value, label, icon: Icon, color, delay }: any) => {
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-1">{title}</p>
           <h3 className="text-3xl font-black text-foreground">{value}</h3>
           <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
-            <TrendingUp className="h-3 w-3 text-[#36f4a4]" />
+            <TrendingUp className="h-3 w-3 text-signal" />
             {label}
           </p>
         </CardContent>
@@ -73,7 +73,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     <div className="bg-[#111111] border border-border rounded-xl p-3 shadow-2xl backdrop-blur-md">
       <p className="text-[10px] uppercase font-bold text-muted-foreground mb-2">{label}</p>
       <div className="flex items-center gap-2">
-        <div className="w-2 h-2 rounded-full bg-[#36f4a4]" />
+        <div className="w-2 h-2 rounded-full bg-signal" />
         <p className="text-foreground font-bold text-sm">{payload[0].value} messages</p>
       </div>
     </div>
@@ -99,7 +99,7 @@ export default function AnalyticsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <div className="w-8 h-8 rounded-full border-2 border-white border-t-transparent animate-spin" />
+        <div className="w-8 h-8 rounded-full border-2 border-foreground border-t-transparent animate-spin" />
       </div>
     );
   }
@@ -171,7 +171,7 @@ export default function AnalyticsPage() {
             <CardContent className="p-0">
               <div className="p-6 border-b border-border flex items-center justify-between">
                 <div>
-                  <h3 className="font-bold text-sm text-white">Engagement Activity</h3>
+                  <h3 className="font-bold text-sm text-foreground">Engagement Activity</h3>
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Message Volume — Last 7 Days</p>
                 </div>
                 <Activity className="h-4 w-4 text-muted-foreground" />
@@ -217,19 +217,19 @@ export default function AnalyticsPage() {
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
             <Card className="border-border bg-card/50 overflow-hidden">
               <CardContent className="p-6 space-y-6">
-                <h3 className="font-bold text-sm text-white uppercase tracking-widest">Behavioral Top Events</h3>
+                <h3 className="font-bold text-sm text-foreground uppercase tracking-widest">Behavioral Top Events</h3>
                 <div className="space-y-4">
                   {topEvents.slice(0, 5).map((event, i) => (
                     <div key={i} className="space-y-1.5">
                       <div className="flex justify-between items-center text-xs">
                         <span className="text-muted-foreground truncate">{event.name.replace(/_/g, ' ')}</span>
-                        <span className="font-black text-white">{event.count}</span>
+                        <span className="font-black text-foreground">{event.count}</span>
                       </div>
-                      <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                      <div className="h-1.5 bg-foreground/5 rounded-full overflow-hidden">
                         <motion.div
                           initial={{ width: 0 }}
                           animate={{ width: `${Math.round((event.count / topEvents[0].count) * 100)}%` }}
-                          className="h-full bg-white rounded-full"
+                          className="h-full bg-foreground rounded-full"
                         />
                       </div>
                     </div>
@@ -243,21 +243,21 @@ export default function AnalyticsPage() {
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
             <Card className="border-border bg-card/50">
               <CardContent className="p-6 space-y-4">
-                <h3 className="font-bold text-sm text-white uppercase tracking-widest">Activation Funnel</h3>
+                <h3 className="font-bold text-sm text-foreground uppercase tracking-widest">Activation Funnel</h3>
                 <div className="flex flex-col gap-3">
                   {funnelData.map((step, i) => {
                     const pct = Math.round((step.value / (funnelData[0].value || 1)) * 100);
                     return (
-                      <div key={i} className="relative p-3 rounded-xl border border-white/5 bg-white/[0.02] flex items-center justify-between">
+                      <div key={i} className="relative p-3 rounded-xl border border-foreground/5 bg-foreground/[0.02] flex items-center justify-between">
                         <div className="z-10 flex flex-col">
                           <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">Step {i + 1}</span>
-                          <span className="text-xs font-medium text-white">{step.name}</span>
+                          <span className="text-xs font-medium text-foreground">{step.name}</span>
                         </div>
                         <div className="z-10 text-right">
-                          <span className="text-sm font-black text-white">{step.value}</span>
+                          <span className="text-sm font-black text-foreground">{step.value}</span>
                           <span className="text-[9px] text-muted-foreground block">{pct}%</span>
                         </div>
-                        <div className="absolute inset-y-0 left-0 bg-white/5 rounded-l-xl transition-all duration-1000" style={{ width: `${pct}%` }} />
+                        <div className="absolute inset-y-0 left-0 bg-foreground/5 rounded-l-xl transition-all duration-1000" style={{ width: `${pct}%` }} />
                       </div>
                     );
                   })}
@@ -287,12 +287,12 @@ export default function AnalyticsPage() {
                 const pct = Math.round((count / totalDevices) * 100);
                 return (
                   <div key={device.key} className="flex flex-col items-center gap-3 text-center">
-                    <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center border border-white/5">
-                      <device.icon className="h-6 w-6 text-white/40" />
+                    <div className="w-12 h-12 rounded-2xl bg-foreground/5 flex items-center justify-center border border-foreground/5">
+                      <device.icon className="h-6 w-6 text-foreground/40" />
                     </div>
                     <div>
                       <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{device.label}</p>
-                      <p className="text-lg font-black text-white">{pct}%</p>
+                      <p className="text-lg font-black text-foreground">{pct}%</p>
                     </div>
                   </div>
                 );
@@ -310,9 +310,9 @@ export default function AnalyticsPage() {
             </h3>
             <div className="space-y-2">
               {topQuestions.slice(0, 4).map((q, i) => (
-                <div key={i} className="flex items-center justify-between p-3 rounded-xl border border-white/5 bg-white/[0.02]">
-                  <span className="text-xs text-white/60 truncate italic flex-1 pr-4">"{q.question}"</span>
-                  <Badge variant="secondary" className="bg-white/10 text-white border-0 text-[10px]">{q.count} times</Badge>
+                <div key={i} className="flex items-center justify-between p-3 rounded-xl border border-foreground/5 bg-foreground/[0.02]">
+                  <span className="text-xs text-foreground/60 truncate italic flex-1 pr-4">"{q.question}"</span>
+                  <Badge variant="secondary" className="bg-foreground/10 text-foreground border-0 text-[10px]">{q.count} times</Badge>
                 </div>
               ))}
             </div>

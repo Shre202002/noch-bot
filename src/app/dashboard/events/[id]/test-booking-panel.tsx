@@ -56,17 +56,17 @@ export function TestBookingPanel({
     return (
       <div className="space-y-6">
         <Header />
-        <Card className="border-white/10 bg-card/30">
+        <Card className="border-foreground/10 bg-card/30">
           <CardContent className="space-y-4 p-6">
-            <p className="flex items-center gap-2 text-sm font-semibold text-white">
+            <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
               <Lock aria-hidden="true" className="h-4 w-4 text-amber-300" /> Finish these steps to unlock the test
             </p>
-            <ul className="divide-y divide-white/5">
+            <ul className="divide-y divide-foreground/5">
               {missing.map((step) => (
                 <li key={step.id} className="flex flex-wrap items-center gap-3 py-3">
                   <AlertCircle aria-hidden="true" className="h-4 w-4 shrink-0 text-orange-400" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-white">{step.label}</p>
+                    <p className="text-sm font-bold text-foreground">{step.label}</p>
                     <p className="text-xs text-orange-300">{step.hint}</p>
                   </div>
                   <Button size="sm" variant="outline" onClick={() => onFix(step.tab)} className="rounded-full border-orange-400/40 text-orange-200 cursor-pointer">
@@ -85,9 +85,9 @@ export function TestBookingPanel({
     <div className="space-y-6">
       <Header />
 
-      <Card className="border-white/10 bg-card/30">
+      <Card className="border-foreground/10 bg-card/30">
         <CardContent className="space-y-4 p-5">
-          <ul className="grid gap-2 text-sm text-white/70 sm:grid-cols-2">
+          <ul className="grid gap-2 text-sm text-foreground/70 sm:grid-cols-2">
             <li>Pick tickets, fill in the attendee form and confirm, just as an attendee would.</li>
             <li>{paid ? "Payment is simulated on a test page: no money is charged." : "This event is free, so the booking confirms straight away."}</li>
             <li>You can open and download the ticket. It carries a TEST ribbon and cannot be scanned.</li>
@@ -96,22 +96,22 @@ export function TestBookingPanel({
 
           <div className="flex flex-wrap items-center gap-3">
             {!running ? (
-              <Button onClick={() => setRunning(true)} className="rounded-full bg-[#36f4a4] font-bold text-black shadow-[0_0_0_3px_rgba(54,244,164,0.18)] hover:bg-[#36f4a4]/90 cursor-pointer">
+              <Button onClick={() => setRunning(true)} className="rounded-full bg-signal font-bold text-black shadow-[0_0_0_3px_color-mix(in srgb, var(--signal) 18%, transparent)] hover:bg-signal/90 cursor-pointer">
                 <Play aria-hidden="true" className="mr-2 h-4 w-4" /> Start test booking
               </Button>
             ) : (
-              <Button variant="outline" onClick={() => setFrameKey((k) => k + 1)} className="rounded-full border-white/15 text-white cursor-pointer">
+              <Button variant="outline" onClick={() => setFrameKey((k) => k + 1)} className="rounded-full border-foreground/15 text-foreground cursor-pointer">
                 Start over
               </Button>
             )}
-            <Button asChild variant="outline" className="rounded-full border-white/15 text-white cursor-pointer">
+            <Button asChild variant="outline" className="rounded-full border-foreground/15 text-foreground cursor-pointer">
               <a href={`/test-booking/${eventId}`} target="_blank" rel="noopener noreferrer">
                 <ExternalLink aria-hidden="true" className="mr-2 h-4 w-4" /> Open in a new tab
               </a>
             </Button>
             {testCount > 0 && (
               <>
-                <Button asChild variant="ghost" className="rounded-full text-white/80 cursor-pointer">
+                <Button asChild variant="ghost" className="rounded-full text-foreground/80 cursor-pointer">
                   <Link href={`/dashboard/bookings/${eventId}`}>View {testCount} test {testCount === 1 ? "booking" : "bookings"}</Link>
                 </Button>
                 <Button variant="ghost" onClick={clear} disabled={clearing} className="rounded-full text-red-300 hover:bg-red-500/10 cursor-pointer">
@@ -125,7 +125,7 @@ export function TestBookingPanel({
       </Card>
 
       {running && (
-        <div className="overflow-hidden rounded-2xl border border-white/10">
+        <div className="overflow-hidden rounded-2xl border border-foreground/10">
           <iframe
             key={frameKey}
             title="Test booking"
@@ -141,8 +141,8 @@ export function TestBookingPanel({
 function Header() {
   return (
     <div>
-      <h2 className="flex items-center gap-2 text-xl font-black tracking-tight text-white">
-        <FlaskConical aria-hidden="true" className="h-5 w-5 text-[#36f4a4]" /> Test your booking
+      <h2 className="flex items-center gap-2 text-xl font-black tracking-tight text-foreground">
+        <FlaskConical aria-hidden="true" className="h-5 w-5 text-signal" /> Test your booking
       </h2>
       <p className="text-sm text-muted-foreground">Recommended before going live. See exactly what an attendee will see, from choosing tickets to downloading the ticket.</p>
     </div>

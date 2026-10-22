@@ -41,8 +41,8 @@ function Thumb({ template }: { template: TicketTemplate }) {
     case "vintage":
       return (
         <div className={`${frame} flex flex-col items-center justify-center gap-1.5 rounded-xl border-2`} style={{ backgroundColor: p.background_color, borderColor: p.border_color }}>
-          <span className="absolute -left-1.5 top-1/2 size-3 rounded-full border-2 bg-black/20" style={{ borderColor: p.border_color }} />
-          <span className="absolute -right-1.5 top-1/2 size-3 rounded-full border-2 bg-black/20" style={{ borderColor: p.border_color }} />
+          <span className="absolute -left-1.5 top-1/2 size-3 rounded-full border-2 bg-background/20" style={{ borderColor: p.border_color }} />
+          <span className="absolute -right-1.5 top-1/2 size-3 rounded-full border-2 bg-background/20" style={{ borderColor: p.border_color }} />
           {bar("55%", p.text_color, "h-1.5")}
           <span className="block w-4/5 border-t border-dashed" style={{ borderColor: p.border_color }} />
           {qr("size-5")}
@@ -59,7 +59,7 @@ function Thumb({ template }: { template: TicketTemplate }) {
       return (
         <div className={`${frame} flex flex-col justify-between rounded-lg p-2`} style={{ background: `linear-gradient(135deg, ${p.background_color}, ${p.accent_color})` }}>
           {bar("60%", p.text_color, "h-1.5")}
-          <span className="flex items-center justify-between rounded-md bg-white/20 p-1.5">{bar("45%", p.text_color)}{qr("size-4")}</span>
+          <span className="flex items-center justify-between rounded-md bg-foreground/20 p-1.5">{bar("45%", p.text_color)}{qr("size-4")}</span>
         </div>
       );
     case "stub":
@@ -75,7 +75,7 @@ function Thumb({ template }: { template: TicketTemplate }) {
     case "badge":
       return (
         <div className="relative mx-auto flex h-full w-[46%] flex-col overflow-hidden rounded-md border" style={{ backgroundColor: p.background_color, borderColor: p.border_color }}>
-          <span className="flex h-[34%] items-start justify-center pt-1" style={{ backgroundColor: p.accent_color }}><span className="block h-0.5 w-4 rounded-full bg-black/30" /></span>
+          <span className="flex h-[34%] items-start justify-center pt-1" style={{ backgroundColor: p.accent_color }}><span className="block h-0.5 w-4 rounded-full bg-background/30" /></span>
           <span className="flex flex-1 flex-col items-center justify-center gap-1">{bar("70%", p.text_color, "h-1.5")}{qr("size-4", "#e5e7eb")}</span>
         </div>
       );
@@ -104,24 +104,24 @@ export function TemplatePicker({ value, onChange }: { value: string; onChange: (
             role="radio"
             aria-checked={selected}
             onClick={() => onChange(t.id)}
-            className={`group relative flex cursor-pointer flex-col gap-2.5 rounded-2xl border p-2.5 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#36f4a4] ${
+            className={`group relative flex cursor-pointer flex-col gap-2.5 rounded-2xl border p-2.5 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal ${
               selected
-                ? "border-[#36f4a4] bg-[#36f4a4]/5 shadow-[0_0_0_3px_rgba(54,244,164,0.14)]"
-                : "border-white/10 bg-white/[0.02] hover:border-white/25 hover:bg-white/[0.04]"
+                ? "border-signal bg-signal/5 shadow-[0_0_0_3px_color-mix(in srgb, var(--signal) 14%, transparent)]"
+                : "border-foreground/10 bg-foreground/[0.02] hover:border-foreground/25 hover:bg-foreground/[0.04]"
             }`}
           >
-            <span className="block aspect-[16/10] w-full overflow-hidden rounded-lg bg-black/40 p-2 ring-1 ring-white/5">
+            <span className="block aspect-[16/10] w-full overflow-hidden rounded-lg bg-background/40 p-2 ring-1 ring-foreground/5">
               <Thumb template={t} />
             </span>
             <span className="space-y-0.5 px-0.5 pb-0.5">
               <span className="flex items-center gap-1.5">
-                <span className="truncate text-sm font-bold text-white">{t.name}</span>
-                {t.isNew && <span className="rounded-full bg-[#36f4a4] px-1.5 py-px text-[9px] font-black uppercase leading-none tracking-wide text-black">New</span>}
+                <span className="truncate text-sm font-bold text-foreground">{t.name}</span>
+                {t.isNew && <span className="rounded-full bg-signal px-1.5 py-px text-[9px] font-black uppercase leading-none tracking-wide text-black">New</span>}
               </span>
-              <span className="block text-[11px] leading-snug text-white/50">{t.description}</span>
+              <span className="block text-[11px] leading-snug text-foreground/50">{t.description}</span>
             </span>
             {selected && (
-              <span aria-hidden="true" className="absolute right-2 top-2 grid size-5 place-content-center rounded-full bg-[#36f4a4] text-black">
+              <span aria-hidden="true" className="absolute right-2 top-2 grid size-5 place-content-center rounded-full bg-signal text-black">
                 <Check className="h-3 w-3" />
               </span>
             )}

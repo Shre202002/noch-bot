@@ -159,7 +159,7 @@ A monochrome field with a single living colour. Black and grey establish depth; 
 ### Named Rules
 **The One Signal Rule.** Signal mint is the only accent. It marks what is live, ready, scanned or primary, and it earns its power by being rare. Amber means waiting, red means refused or destructive; no other hue carries meaning.
 
-**The Never-White-Page Rule.** Pages are black. Paper white is for text and the default button, never a surface behind content.
+**The Never-White-Page Rule.** Pages are black. Paper white is for text and the default button, never a surface behind content. The one sanctioned exception is the dashboard's opt-in light theme (header sun/moon toggle, `:root.dashboard-light` in `globals.css`), which is scoped to the dashboard and never applies to public pages, the landing page or the embedded widget.
 
 **The Grey Ladder Rule.** Secondary text steps down through the four named greys, not through arbitrary opacity. Small captions use the Secondary Text step or brighter, never fainter.
 
@@ -251,7 +251,7 @@ A pill with a pulsing dot: mint and "Live" when data is flowing, amber and "Reco
 - **Do** write errors in plain words next to what went wrong, with a way to retry.
 
 ### Don't:
-- **Don't** put a white or light surface behind dashboard or public-page content.
+- **Don't** put a white or light surface behind public-page content, or behind the dashboard unless the user chose the light theme.
 - **Don't** introduce a second accent hue for chrome; blue, violet and rose belong to charts.
 - **Don't** use mint for body text on light backgrounds, or as a decorative gradient.
 - **Don't** rely on colour alone to say "scanned", "waiting" or "refused".

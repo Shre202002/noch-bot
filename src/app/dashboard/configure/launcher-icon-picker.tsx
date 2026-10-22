@@ -71,10 +71,10 @@ export function LauncherIconPicker({
               padding: "12px 8px 10px",
               borderRadius: 12,
               cursor: "pointer",
-              background: selected ? "rgba(54,244,164,0.08)" : "#13151a",
-              border: selected ? "1px solid #36f4a4" : "1px solid #2a2d35",
-              boxShadow: selected ? "0 0 0 3px rgba(54,244,164,0.14)" : "none",
-              color: "#fff",
+              background: selected ? "color-mix(in srgb, var(--signal) 8%, transparent)" : "var(--nb-surface-2)",
+              border: selected ? "1px solid #36f4a4" : "1px solid var(--nb-line)",
+              boxShadow: selected ? "0 0 0 3px color-mix(in srgb, var(--signal) 14%, transparent)" : "none",
+              color: "var(--foreground)",
             }}
           >
             <IconFace id={icon.id} bubbleColor={bubbleColor} size={48} />
@@ -82,7 +82,7 @@ export function LauncherIconPicker({
             {selected && (
               <span
                 aria-hidden="true"
-                style={{ position: "absolute", top: 6, right: 6, width: 18, height: 18, borderRadius: "50%", background: "#36f4a4", color: "#000", display: "grid", placeItems: "center" }}
+                style={{ position: "absolute", top: 6, right: 6, width: 18, height: 18, borderRadius: "50%", background: "var(--signal)", color: "#000", display: "grid", placeItems: "center" }}
               >
                 <Check style={{ width: 11, height: 11 }} />
               </span>

@@ -30,7 +30,7 @@ type CrawledPage = { url: string; title: string; status: CrawlPageStatus; reason
 type CrawlSummary = { pagesIndexed: number; chunks: number; capReached: boolean; pageLimit: number; upgradeSuggested: boolean; fallbackUsed: boolean }
 
 const PAGE_STATUS_STYLE: Record<CrawlPageStatus, { label: string; color: string }> = {
-  indexed: { label: 'Indexed', color: '#36f4a4' },
+  indexed: { label: 'Indexed', color: 'var(--signal)' },
   fetched: { label: 'Fetched, not indexed', color: 'var(--nb-text-secondary)' },
   skipped: { label: 'Skipped', color: 'var(--nb-text-secondary)' },
   blocked: { label: 'Blocked', color: '#eab308' },
@@ -70,8 +70,8 @@ export default function ConfigurePage() {
   const [extractingTheme, setExtractingTheme] = useState(false)
   const [palette, setPalette] = useState<string[]>([])
   const [themeConfig, setThemeConfig] = useState({
-    bubbleColor: '#36f4a4', headerColor: '#36f4a4',
-    userMsgColor: '#36f4a4', sendBtnColor: '#36f4a4', accentColor: '#36f4a4',
+    bubbleColor: 'var(--signal)', headerColor: 'var(--signal)',
+    userMsgColor: 'var(--signal)', sendBtnColor: 'var(--signal)', accentColor: 'var(--signal)',
     launcherIcon: 'default' as string,
   })
   // Step ticks from saved progress (GET /api/knowledge → setup), so they survive a reload.
@@ -309,7 +309,7 @@ export default function ConfigurePage() {
     { key: 'sendBtnColor', label: 'Send Button', desc: 'Send arrow button' },
   ] as const
 
-  const PRESET_COLORS = ['#36f4a4', '#2563eb', '#8b5cf6', '#FF5701', '#ec4899', '#ef4444', '#eab308', '#ffffff']
+  const PRESET_COLORS = ['var(--signal)', '#2563eb', '#8b5cf6', '#FF5701', '#ec4899', '#ef4444', '#eab308', '#ffffff']
 
   const shareOptions = [
     {
@@ -380,7 +380,7 @@ export default function ConfigurePage() {
       `}</style>
 
       <div style={{ marginBottom: 32 }}>
-        <h1 style={{ fontSize: 36, fontWeight: 400, color: '#fff', letterSpacing: '-0.9px', marginBottom: 6 }}>Configure</h1>
+        <h1 style={{ fontSize: 36, fontWeight: 400, color: 'var(--foreground)', letterSpacing: '-0.9px', marginBottom: 6 }}>Configure</h1>
         <p style={{ fontSize: 14, color: 'var(--nb-text-secondary)' }}>Set up your AI chatbot step by step.</p>
       </div>
 
@@ -399,22 +399,22 @@ export default function ConfigurePage() {
             display: 'flex', alignItems: 'center', gap: 6, minHeight: 36,
             padding: '6px 14px', borderRadius: 9999, cursor: 'pointer', font: 'inherit',
             background: activeTab === tab ? '#36f4a420' : 'transparent',
-            border: activeTab === tab ? '1px solid #36f4a4' : '1px solid #2a2d35',
-            color: activeTab === tab ? '#36f4a4' : done ? 'var(--nb-text-secondary)' : 'var(--nb-text-tertiary)',
+            border: activeTab === tab ? '1px solid #36f4a4' : '1px solid var(--nb-line)',
+            color: activeTab === tab ? 'var(--signal)' : done ? 'var(--nb-text-secondary)' : 'var(--nb-text-tertiary)',
             fontSize: 13, transition: 'all 0.15s'
           }}>
-            {done && <Check aria-hidden="true" className="nb-check-in h-3.5 w-3.5" style={{ color: '#36f4a4' }} />}
+            {done && <Check aria-hidden="true" className="nb-check-in h-3.5 w-3.5" style={{ color: 'var(--signal)' }} />}
             {label}
           </button>
         ))}
       </nav>
 
-      <div style={{ background: '#1f2228', border: '1px solid #2a2d35', borderRadius: 16, padding: 'clamp(16px, 4vw, 32px)', overflow: 'hidden' }}>
+      <div style={{ background: 'var(--nb-surface-2)', border: '1px solid var(--nb-line)', borderRadius: 16, padding: 'clamp(16px, 4vw, 32px)', overflow: 'hidden' }}>
         <div key={activeTab} className="nb-step-panel" style={{ ['--nb-step-dir' as string]: stepDirRef.current }}>
         {activeTab === 'Crawl' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
             <div>
-              <h2 style={{ fontSize: 20, color: '#fff', fontWeight: 600, lineHeight: '28px', marginBottom: 6 }}>Step 1 — Crawl Your Website</h2>
+              <h2 style={{ fontSize: 20, color: 'var(--foreground)', fontWeight: 600, lineHeight: '28px', marginBottom: 6 }}>Step 1 — Crawl Your Website</h2>
               <p style={{ fontSize: 14, color: 'var(--nb-text-secondary)' }}>Enter your website URL. Nochq will crawl your most useful pages and index their content for your chatbot.</p>
             </div>
             <form
@@ -431,17 +431,17 @@ export default function ConfigurePage() {
                   onChange={e => setCrawlUrl(e.target.value)}
                   placeholder="https://yourwebsite.com"
                   disabled={crawling}
-                  style={{ width: '100%', background: '#0a0a0a', border: '1px solid #2a2d35', borderRadius: 8, padding: '12px 16px', color: '#fff', fontSize: 14 }}
+                  style={{ width: '100%', background: 'var(--nb-surface)', border: '1px solid var(--nb-line)', borderRadius: 8, padding: '12px 16px', color: 'var(--foreground)', fontSize: 14 }}
                 />
               </div>
               <button type="submit" disabled={crawling || !crawlUrl.trim()} style={{
-                background: crawling ? '#2a2d35' : '#36f4a4', color: crawling ? 'var(--nb-text-secondary)' : '#000',
+                background: crawling ? 'var(--nb-line)' : 'var(--signal)', color: crawling ? 'var(--nb-text-secondary)' : '#000',
                 border: 'none', borderRadius: 9999, padding: '12px 28px', fontWeight: 600,
                 fontSize: 14, cursor: crawling || !crawlUrl.trim() ? 'not-allowed' : 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, whiteSpace: 'nowrap'
               }}>
                 {crawling ? (
-                  <><span aria-hidden="true" className="motion-reduce:[animation:none]" style={{ width: 14, height: 14, border: '2px solid #7d8187', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }} />Crawling Website…</>
+                  <><span aria-hidden="true" className="motion-reduce:[animation:none]" style={{ width: 14, height: 14, border: '2px solid #7d8187', borderTopColor: 'var(--foreground)', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }} />Crawling Website…</>
                 ) : crawlDone ? 'Re-crawl Website' : 'Start Website Crawl'}
               </button>
             </form>
@@ -459,14 +459,14 @@ export default function ConfigurePage() {
               )}
 
               {!crawling && !crawlDone && !crawlError && crawledPages.length === 0 && (
-                <div style={{ background: '#0a0a0a', border: '1px solid #2a2d35', borderRadius: 8, padding: 16 }}>
-                  <div style={{ fontSize: 14, color: '#fff', fontWeight: 600 }}>No pages crawled yet</div>
+                <div style={{ background: 'var(--nb-surface)', border: '1px solid var(--nb-line)', borderRadius: 8, padding: 16 }}>
+                  <div style={{ fontSize: 14, color: 'var(--foreground)', fontWeight: 600 }}>No pages crawled yet</div>
                   <div style={{ fontSize: 14, color: 'var(--nb-text-secondary)', marginTop: 4 }}>Enter a website URL to build or refresh your chatbot&apos;s knowledge.</div>
                 </div>
               )}
 
               {crawlSummary && (
-                <div style={{ fontSize: 14, color: '#fff', display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'baseline' }}>
+                <div style={{ fontSize: 14, color: 'var(--foreground)', display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'baseline' }}>
                   <span><strong style={{ fontSize: 28, lineHeight: '32px', fontWeight: 600 }}>{crawlSummary.pagesIndexed}</strong> {crawlSummary.pagesIndexed === 1 ? 'page' : 'pages'} indexed</span>
                   <span style={{ color: 'var(--nb-text-secondary)' }}>·</span>
                   <span><strong style={{ fontSize: 28, lineHeight: '32px', fontWeight: 600 }}>{crawlSummary.chunks}</strong> {crawlSummary.chunks === 1 ? 'chunk' : 'chunks'} added</span>
@@ -497,9 +497,9 @@ export default function ConfigurePage() {
                     {crawledPages.map((page, i) => {
                       const status = PAGE_STATUS_STYLE[page.status] ?? PAGE_STATUS_STYLE.skipped
                       return (
-                        <li key={`${page.url}-${i}`} className="nb-row-in" style={{ animationDelay: `${Math.min(i, 8) * 35}ms`, display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 8, padding: '8px 16px', background: '#0a0a0a', borderRadius: 8, border: '1px solid #2a2d35' }}>
+                        <li key={`${page.url}-${i}`} className="nb-row-in" style={{ animationDelay: `${Math.min(i, 8) * 35}ms`, display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 8, padding: '8px 16px', background: 'var(--nb-surface)', borderRadius: 8, border: '1px solid var(--nb-line)' }}>
                           <div style={{ minWidth: 0, flex: '1 1 260px' }}>
-                            {page.title && <div style={{ fontSize: 14, color: '#fff', overflowWrap: 'anywhere' }}>{page.title}</div>}
+                            {page.title && <div style={{ fontSize: 14, color: 'var(--foreground)', overflowWrap: 'anywhere' }}>{page.title}</div>}
                             <div style={{ fontSize: 12, color: 'var(--nb-text-secondary)', fontFamily: 'monospace', overflowWrap: 'anywhere' }}>{page.url}</div>
                             {page.reason && page.status !== 'indexed' && (
                               <div style={{ fontSize: 12, color: 'var(--nb-text-secondary)' }}>{PAGE_REASON_TEXT[page.reason] ?? 'Not indexed'}</div>
@@ -520,7 +520,7 @@ export default function ConfigurePage() {
             </div>
 
             {crawlError && (
-              <div role="alert" style={{ background: '#1a0a0a', border: '1px solid #ef4444', borderRadius: 8, padding: 16, color: '#ef4444', fontSize: 14 }}>
+              <div role="alert" style={{ background: 'var(--nb-danger-bg)', border: '1px solid #ef4444', borderRadius: 8, padding: 16, color: '#ef4444', fontSize: 14 }}>
                 ✕ {crawlError}
                 {crawlErrorDetail && <div style={{ marginTop: 4, color: 'var(--nb-text-secondary)', fontSize: 12 }}>{crawlErrorDetail}</div>}
               </div>
@@ -528,7 +528,7 @@ export default function ConfigurePage() {
 
             {crawlDone && !crawling && (
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <button type="button" onClick={() => setActiveTab('Vectorize')} style={{ background: '#36f4a4', color: '#000', border: 'none', borderRadius: 9999, padding: '12px 28px', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>Review Indexed Content →</button>
+                <button type="button" onClick={() => setActiveTab('Vectorize')} style={{ background: 'var(--signal)', color: '#000', border: 'none', borderRadius: 9999, padding: '12px 28px', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>Review Indexed Content →</button>
               </div>
             )}
           </div>
@@ -537,40 +537,40 @@ export default function ConfigurePage() {
         {activeTab === 'Vectorize' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
             <div>
-              <h2 style={{ fontSize: 20, color: '#fff', fontWeight: 400, marginBottom: 6 }}>Step 2 — Vector Database Status</h2>
+              <h2 style={{ fontSize: 20, color: 'var(--foreground)', fontWeight: 400, marginBottom: 6 }}>Step 2 — Vector Database Status</h2>
               <p style={{ fontSize: 14, color: 'var(--nb-text-secondary)' }}>Your website content has been chunked and converted into high-dimensional vectors for AI retrieval.</p>
             </div>
 
             {!embedDone ? (
-              <div style={{ background: '#0a0a0a', border: '1px solid #2a2d35', borderRadius: 12, padding: 32, textAlign: 'center' }}>
+              <div style={{ background: 'var(--nb-surface)', border: '1px solid var(--nb-line)', borderRadius: 12, padding: 32, textAlign: 'center' }}>
                 <Database className="h-12 w-12 text-[color:var(--nb-text-tertiary)] mx-auto mb-4" />
                 <p style={{ color: 'var(--nb-text-secondary)', fontSize: 14 }}>No vector data found. Please complete the Crawl step first.</p>
-                <button onClick={() => setActiveTab('Crawl')} style={{ marginTop: 16, background: 'transparent', border: '1px solid #36f4a4', color: '#36f4a4', borderRadius: 9999, padding: '8px 20px', fontSize: 13, cursor: 'pointer' }}>Go to Crawl</button>
+                <button onClick={() => setActiveTab('Crawl')} style={{ marginTop: 16, background: 'transparent', border: '1px solid #36f4a4', color: 'var(--signal)', borderRadius: 9999, padding: '8px 20px', fontSize: 13, cursor: 'pointer' }}>Go to Crawl</button>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                <div style={{ display: 'flex', gap: 24, background: '#0d2420', border: '1px solid #36f4a430', borderRadius: 12, padding: 32 }}>
+                <div style={{ display: 'flex', gap: 24, background: 'var(--nb-success-bg)', border: '1px solid #36f4a430', borderRadius: 12, padding: 32 }}>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 11, color: '#36f4a4', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8, fontWeight: 600 }}>Chunks Indexed</div>
-                    <div style={{ fontSize: 48, color: '#fff', fontWeight: 300, lineHeight: 1 }}>{chunkCount}</div>
+                    <div style={{ fontSize: 11, color: 'var(--signal)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8, fontWeight: 600 }}>Chunks Indexed</div>
+                    <div style={{ fontSize: 48, color: 'var(--foreground)', fontWeight: 300, lineHeight: 1 }}>{chunkCount}</div>
                     <div style={{ fontSize: 13, color: 'var(--nb-text-secondary)', marginTop: 8 }}>Individual knowledge units</div>
                   </div>
                   <div style={{ width: 1, background: '#36f4a420' }} />
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 11, color: '#36f4a4', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8, fontWeight: 600 }}>Pages Processed</div>
-                    <div style={{ fontSize: 48, color: '#fff', fontWeight: 300, lineHeight: 1 }}>{pagesIndexed || (crawlDone ? '...' : 0)}</div>
+                    <div style={{ fontSize: 11, color: 'var(--signal)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8, fontWeight: 600 }}>Pages Processed</div>
+                    <div style={{ fontSize: 48, color: 'var(--foreground)', fontWeight: 300, lineHeight: 1 }}>{pagesIndexed || (crawlDone ? '...' : 0)}</div>
                     <div style={{ fontSize: 13, color: 'var(--nb-text-secondary)', marginTop: 8 }}>Unique URLs vectorized</div>
                   </div>
                   <div style={{ marginLeft: 'auto', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-end', gap: 12 }}>
-                    <div style={{ background: '#36f4a4', color: '#000', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div style={{ background: 'var(--signal)', color: '#000', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
                       <Zap className="h-3 w-3 fill-current" /> Stored in MongoDB Atlas
                     </div>
                     <span style={{ fontSize: 11, color: 'var(--nb-text-secondary)' }}>Distance Metric: Cosine</span>
                   </div>
                 </div>
 
-                <div style={{ background: '#0a0a0a', border: '1px solid #2a2d35', borderRadius: 12, padding: 20 }}>
-                  <h3 style={{ fontSize: 13, color: '#fff', marginBottom: 12, fontWeight: 500 }}>Database Optimization</h3>
+                <div style={{ background: 'var(--nb-surface)', border: '1px solid var(--nb-line)', borderRadius: 12, padding: 20 }}>
+                  <h3 style={{ fontSize: 13, color: 'var(--foreground)', marginBottom: 12, fontWeight: 500 }}>Database Optimization</h3>
                   <p style={{ fontSize: 13, color: 'var(--nb-text-secondary)', lineHeight: 1.6 }}>
                     Your data is currently indexed in our primary <strong>NochBot</strong> collection. 
                     This ensures sub-100ms retrieval times during chat sessions. 
@@ -580,7 +580,7 @@ export default function ConfigurePage() {
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, flexWrap: 'wrap', gap: 12 }}>
                   <button onClick={() => setActiveTab('Crawl')} style={{ color: 'var(--nb-text-secondary)', background: 'transparent', border: 'none', fontSize: 14, cursor: 'pointer', textDecoration: 'underline' }}>Re-crawl website</button>
-                  <button onClick={() => setActiveTab('Theme')} style={{ background: '#36f4a4', color: '#000', border: 'none', borderRadius: 9999, padding: '12px 28px', fontWeight: 500, fontSize: 14, cursor: 'pointer' }}>Next: Detect Theme →</button>
+                  <button onClick={() => setActiveTab('Theme')} style={{ background: 'var(--signal)', color: '#000', border: 'none', borderRadius: 9999, padding: '12px 28px', fontWeight: 500, fontSize: 14, cursor: 'pointer' }}>Next: Detect Theme →</button>
                 </div>
               </div>
             )}
@@ -591,17 +591,17 @@ export default function ConfigurePage() {
           <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap' }}>
             <div style={{ flex: 1, minWidth: 'min(100%, 300px)', display: 'flex', flexDirection: 'column', gap: 24 }}>
               <div>
-                <h2 style={{ fontSize: 20, color: '#fff', fontWeight: 400, marginBottom: 6 }}>Step 3 — Detect & Set Theme</h2>
+                <h2 style={{ fontSize: 20, color: 'var(--foreground)', fontWeight: 400, marginBottom: 6 }}>Step 3 — Detect & Set Theme</h2>
                 <p style={{ fontSize: 14, color: 'var(--nb-text-secondary)' }}>Auto-detect your brand colors, then assign each color to chatbot components.</p>
               </div>
-              <button onClick={extractTheme} style={{ background: 'transparent', border: '1px solid #36f4a4', color: '#36f4a4', borderRadius: 9999, padding: '12px 24px', fontSize: 14, cursor: 'pointer', alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button onClick={extractTheme} style={{ background: 'transparent', border: '1px solid #36f4a4', color: 'var(--signal)', borderRadius: 9999, padding: '12px 24px', fontSize: 14, cursor: 'pointer', alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 8 }}>
                 {extractingTheme ? (<><span style={{ width: 14, height: 14, border: '2px solid #36f4a4', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }} />Detecting...</>) : '🎨 Detect Brand Colors'}
               </button>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 {THEME_COMPONENTS.map(({ key, label, desc }) => (
-                  <div key={key} style={{ background: '#0a0a0a', border: '1px solid #2a2d35', borderRadius: 10, padding: 16 }}>
+                  <div key={key} style={{ background: 'var(--nb-surface)', border: '1px solid var(--nb-line)', borderRadius: 10, padding: 16 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 10 }}>
-                      <div><div style={{ fontSize: 13, color: '#fff' }}>{label}</div><div style={{ fontSize: 11, color: 'var(--nb-text-secondary)' }}>{desc}</div></div>
+                      <div><div style={{ fontSize: 13, color: 'var(--foreground)' }}>{label}</div><div style={{ fontSize: 11, color: 'var(--nb-text-secondary)' }}>{desc}</div></div>
                       <BasicColorPicker
                         value={themeConfig[key as keyof typeof themeConfig]}
                         onValueChange={(details) => setThemeConfig(prev => ({ ...prev, [key]: details.value.toString("hex") }))}
@@ -617,9 +617,9 @@ export default function ConfigurePage() {
                     </div>
                   </div>
                 ))}
-                <div style={{ background: '#0a0a0a', border: '1px solid #2a2d35', borderRadius: 10, padding: 16 }}>
+                <div style={{ background: 'var(--nb-surface)', border: '1px solid var(--nb-line)', borderRadius: 10, padding: 16 }}>
                   <div style={{ marginBottom: 12 }}>
-                    <div style={{ fontSize: 13, color: '#fff' }}>Chat icon</div>
+                    <div style={{ fontSize: 13, color: 'var(--foreground)' }}>Chat icon</div>
                     <div style={{ fontSize: 11, color: 'var(--nb-text-secondary)' }}>The button visitors click on your website</div>
                   </div>
                   <LauncherIconPicker
@@ -630,16 +630,16 @@ export default function ConfigurePage() {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                <button onClick={() => setActiveTab('Preview')} style={{ background: '#36f4a4', color: '#000', border: 'none', borderRadius: 9999, padding: '12px 28px', fontWeight: 500, fontSize: 14, cursor: 'pointer' }}>Next: Preview →</button>
+                <button onClick={() => setActiveTab('Preview')} style={{ background: 'var(--signal)', color: '#000', border: 'none', borderRadius: 9999, padding: '12px 28px', fontWeight: 500, fontSize: 14, cursor: 'pointer' }}>Next: Preview →</button>
               </div>
             </div>
             <div style={{ flex: '0 1 260px', minWidth: 0, maxWidth: '100%' }}>
               <div style={{ fontSize: 12, color: 'var(--nb-text-secondary)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Live Preview</div>
               <LauncherPreview icon={themeConfig.launcherIcon} bubbleColor={themeConfig.bubbleColor} />
-              <div style={{ background: '#f7f8fc', borderRadius: 16, overflow: 'hidden', border: '1px solid #2a2d35' }}>
+              <div style={{ background: '#f7f8fc', borderRadius: 16, overflow: 'hidden', border: '1px solid var(--nb-line)' }}>
                 <div style={{ background: themeConfig.headerColor, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div style={{ width: 32, height: 32, borderRadius: 10, background: 'rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>🤖</div>
-                  <div><div style={{ fontSize: 13, fontWeight: 500, color: '#fff' }}>AI Assistant</div><div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)' }}>● Online</div></div>
+                  <div><div style={{ fontSize: 13, fontWeight: 500, color: 'var(--foreground)' }}>AI Assistant</div><div style={{ fontSize: 11, color: 'color-mix(in srgb, var(--foreground) 70%, transparent)' }}>● Online</div></div>
                 </div>
                 <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: '8px 12px', fontSize: 12, color: '#333', maxWidth: '85%' }}>Hi! How can I help?</div>
@@ -657,26 +657,26 @@ export default function ConfigurePage() {
         {activeTab === 'Preview' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             <div>
-              <h2 style={{ fontSize: 20, color: '#fff', fontWeight: 400, marginBottom: 6 }}>Step 4 — Preview Your Chatbot</h2>
+              <h2 style={{ fontSize: 20, color: 'var(--foreground)', fontWeight: 400, marginBottom: 6 }}>Step 4 — Preview Your Chatbot</h2>
               <p style={{ fontSize: 14, color: 'var(--nb-text-secondary)' }}>Interact with your agent live using the custom colors you selected.</p>
             </div>
-            <div role="tablist" aria-label="What to preview" style={{ display: 'inline-flex', alignSelf: 'flex-start', gap: 4, padding: 4, borderRadius: 9999, border: '1px solid #2a2d35', background: '#13151a' }}>
+            <div role="tablist" aria-label="What to preview" style={{ display: 'inline-flex', alignSelf: 'flex-start', gap: 4, padding: 4, borderRadius: 9999, border: '1px solid var(--nb-line)', background: 'var(--nb-surface-2)' }}>
               {([['chat', 'Chat'], ['booking', 'Event booking']] as const).map(([value, label]) => (
                 <button key={value} role="tab" aria-selected={previewMode === value} onClick={() => setPreviewMode(value)}
-                  style={{ cursor: 'pointer', border: 'none', borderRadius: 9999, padding: '8px 18px', fontSize: 13, fontWeight: 500, background: previewMode === value ? 'rgba(54,244,164,0.15)' : 'transparent', color: previewMode === value ? '#fff' : 'var(--nb-text-secondary)', boxShadow: previewMode === value ? 'inset 0 0 0 1px rgba(54,244,164,0.6)' : 'none' }}>
+                  style={{ cursor: 'pointer', border: 'none', borderRadius: 9999, padding: '8px 18px', fontSize: 13, fontWeight: 500, background: previewMode === value ? 'color-mix(in srgb, var(--signal) 15%, transparent)' : 'transparent', color: previewMode === value ? '#fff' : 'var(--nb-text-secondary)', boxShadow: previewMode === value ? 'inset 0 0 0 1px color-mix(in srgb, var(--signal) 60%, transparent)' : 'none' }}>
                   {label}
                 </button>
               ))}
             </div>
             {previewMode === 'booking' && <BookingPreview />}
-            {previewMode === 'chat' && !crawlDone && <div style={{ background: '#1f2228', border: '1px solid #eab308', borderRadius: 8, padding: 16, color: '#eab308', fontSize: 14 }}>⚠ Complete Step 1 (Crawl) first.</div>}
-            <div style={{ maxWidth: 560, background: '#0a0a0a', border: '1px solid #2a2d35', borderRadius: 12, overflow: 'hidden', display: previewMode === 'chat' ? 'flex' : 'none', flexDirection: 'column' }}>
+            {previewMode === 'chat' && !crawlDone && <div style={{ background: 'var(--nb-surface-2)', border: '1px solid #eab308', borderRadius: 8, padding: 16, color: '#eab308', fontSize: 14 }}>⚠ Complete Step 1 (Crawl) first.</div>}
+            <div style={{ maxWidth: 560, background: 'var(--nb-surface)', border: '1px solid var(--nb-line)', borderRadius: 12, overflow: 'hidden', display: previewMode === 'chat' ? 'flex' : 'none', flexDirection: 'column' }}>
               <div style={{ background: themeConfig.headerColor, padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{ width: 32, height: 32, borderRadius: 10, background: 'rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>🤖</div>
                 <div>
-                  <div style={{ fontSize: 14, color: '#fff' }}>AI Assistant</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>
-                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: previewLoading ? '#eab308' : '#36f4a4' }} />
+                  <div style={{ fontSize: 14, color: 'var(--foreground)' }}>AI Assistant</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'color-mix(in srgb, var(--foreground) 70%, transparent)' }}>
+                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: previewLoading ? '#eab308' : 'var(--signal)' }} />
                     {previewLoading ? 'Typing...' : 'Online'}
                   </div>
                 </div>
@@ -688,19 +688,19 @@ export default function ConfigurePage() {
                   <>
                     {previewMessages.map((msg, i) => (
                       <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
-                        <div style={{ maxWidth: '78%', padding: '10px 14px', borderRadius: msg.role === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px', background: msg.role === 'user' ? themeConfig.userMsgColor : '#1f2228', color: msg.role === 'user' ? '#000' : '#fff', fontSize: 13, lineHeight: 1.55, border: msg.role === 'assistant' ? '1px solid #2a2d35' : 'none' }}>{msg.role === 'assistant' ? <ChatText text={msg.content} /> : msg.content}</div>
+                        <div style={{ maxWidth: '78%', padding: '10px 14px', borderRadius: msg.role === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px', background: msg.role === 'user' ? themeConfig.userMsgColor : 'var(--nb-surface-2)', color: msg.role === 'user' ? '#000' : '#fff', fontSize: 13, lineHeight: 1.55, border: msg.role === 'assistant' ? '1px solid var(--nb-line)' : 'none' }}>{msg.role === 'assistant' ? <ChatText text={msg.content} /> : msg.content}</div>
                       </div>
                     ))}
                     {previewLoading && !previewIsTyping && (
                       <div aria-hidden="true" style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                        <div style={{ padding: '10px 14px', borderRadius: '18px 18px 18px 4px', background: '#1f2228', border: '1px solid #2a2d35', display: 'flex', gap: 4 }}>
+                        <div style={{ padding: '10px 14px', borderRadius: '18px 18px 18px 4px', background: 'var(--nb-surface-2)', border: '1px solid var(--nb-line)', display: 'flex', gap: 4 }}>
                           {[0, 1, 2].map(j => (<span key={j} style={{ width: 6, height: 6, borderRadius: '50%', background: '#7d8187', display: 'inline-block', animation: `typingPulse 1.2s infinite ${j * 0.2}s` }} />))}
                         </div>
                       </div>
                     )}
                     {previewIsTyping && (
                       <div aria-hidden="true" style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                        <div style={{ maxWidth: '78%', padding: '10px 14px', borderRadius: '18px 18px 18px 4px', background: '#1f2228', color: '#fff', fontSize: 13, lineHeight: 1.55, border: '1px solid #2a2d35' }}>
+                        <div style={{ maxWidth: '78%', padding: '10px 14px', borderRadius: '18px 18px 18px 4px', background: 'var(--nb-surface-2)', color: 'var(--foreground)', fontSize: 13, lineHeight: 1.55, border: '1px solid var(--nb-line)' }}>
                           <ChatText text={previewTypingText} caret={<span style={{ display: 'inline-block', width: 2, height: '1em', background: themeConfig.sendBtnColor, marginLeft: 3, verticalAlign: 'text-bottom', animation: 'cursorBlink 0.7s infinite' }} />} />
                         </div>
                       </div>
@@ -709,14 +709,14 @@ export default function ConfigurePage() {
                 )}
                 <div ref={previewBottomRef} />
               </div>
-              <div style={{ borderTop: '1px solid #2a2d35', padding: 16, display: 'flex', gap: 10, alignItems: 'center' }}>
-                <input aria-label="Message your chatbot" className="nb-focus" value={previewInput} onChange={e => setPreviewInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendPreviewMessage()} placeholder="Ask a question..." disabled={previewLoading || !crawlDone} style={{ flex: 1, background: '#1f2228', border: '1px solid #2a2d35', borderRadius: 8, padding: '10px 14px', color: '#fff', fontSize: 13, outline: 'none' }} />
+              <div style={{ borderTop: '1px solid var(--nb-line)', padding: 16, display: 'flex', gap: 10, alignItems: 'center' }}>
+                <input aria-label="Message your chatbot" className="nb-focus" value={previewInput} onChange={e => setPreviewInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendPreviewMessage()} placeholder="Ask a question..." disabled={previewLoading || !crawlDone} style={{ flex: 1, background: 'var(--nb-surface-2)', border: '1px solid var(--nb-line)', borderRadius: 8, padding: '10px 14px', color: 'var(--foreground)', fontSize: 13, outline: 'none' }} />
                 <button onClick={() => sendPreviewMessage()} disabled={previewLoading || !previewInput.trim() || !crawlDone} style={{ background: themeConfig?.sendBtnColor || '#6366f1', color: '#000', border: 'none', borderRadius: 9999, padding: '10px 18px', fontWeight: 500, fontSize: 13, cursor: 'pointer', opacity: previewLoading ? 0.5 : 1 }}>Send</button>
               </div>
             </div>
             {previewMessages.filter(m => m.role === 'assistant' && m.content).length > 0 && (
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <button onClick={() => setActiveTab('Embed Code')} style={{ background: '#36f4a4', color: '#000', border: 'none', borderRadius: 9999, padding: '12px 28px', fontWeight: 500, fontSize: 14, cursor: 'pointer' }}>Next: Get Embed Code →</button>
+                <button onClick={() => setActiveTab('Embed Code')} style={{ background: 'var(--signal)', color: '#000', border: 'none', borderRadius: 9999, padding: '12px 28px', fontWeight: 500, fontSize: 14, cursor: 'pointer' }}>Next: Get Embed Code →</button>
               </div>
             )}
           </div>
@@ -726,18 +726,18 @@ export default function ConfigurePage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 640 }}>
             <div className="flex justify-between items-center">
               <div>
-                <h2 style={{ fontSize: 20, color: '#fff', fontWeight: 400, marginBottom: 6 }}>Step 5 — Embed Your Chatbot</h2>
+                <h2 style={{ fontSize: 20, color: 'var(--foreground)', fontWeight: 400, marginBottom: 6 }}>Step 5 — Embed Your Chatbot</h2>
                 <p style={{ fontSize: 14, color: 'var(--nb-text-secondary)' }}>Paste this script tag before &lt;/body&gt; on any website.</p>
               </div>
               
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="bg-transparent border-[#2a2d35] text-[color:var(--nb-text-secondary)] hover:text-white hover:border-[#36f4a4] rounded-full px-6 cursor-pointer">
+                  <Button variant="outline" size="sm" className="bg-transparent border-[var(--nb-line)] text-[color:var(--nb-text-secondary)] hover:text-foreground hover:border-signal rounded-full px-6 cursor-pointer">
                     <Share2 className="mr-2 h-4 w-4" />
                     Share Snippet
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-80 bg-[#0a0a0a] border-[#2a2d35] text-white">
+                <PopoverContent className="w-80 bg-[var(--nb-surface)] border-[var(--nb-line)] text-foreground">
                   <PopoverHeader>
                     <PopoverTitle>Share this snippet</PopoverTitle>
                     <PopoverDescription className="text-[color:var(--nb-text-secondary)]">
@@ -749,13 +749,13 @@ export default function ConfigurePage() {
                       <Button
                         key={option.name}
                         variant="ghost"
-                        className="w-full justify-start text-[color:var(--nb-text-secondary)] hover:text-white hover:bg-[#1f2228] cursor-pointer"
+                        className="w-full justify-start text-[color:var(--nb-text-secondary)] hover:text-foreground hover:bg-[var(--nb-surface-2)] cursor-pointer"
                         size="sm"
                         onClick={option.action}
                       >
                         <option.icon className="mr-2 h-4 w-4" />
                         {option.name}
-                        {option.name === 'Copy Link' && copiedShareUrl && <Check className="ml-auto h-3 w-3 text-[#36f4a4]" />}
+                        {option.name === 'Copy Link' && copiedShareUrl && <Check className="ml-auto h-3 w-3 text-signal" />}
                       </Button>
                     ))}
                   </PopoverBody>
@@ -766,7 +766,7 @@ export default function ConfigurePage() {
                         id="share-url"
                         value={scriptUrl}
                         readOnly
-                        className="text-[10px] h-8 bg-[#1f2228] border-[#2a2d35] text-[#36f4a4]"
+                        className="text-[10px] h-8 bg-[var(--nb-surface-2)] border-[var(--nb-line)] text-signal"
                       />
                       <Button size="sm" variant="outline" className="h-8 w-8 p-0 cursor-pointer" onClick={() => {
                         navigator.clipboard.writeText(scriptUrl);
@@ -782,20 +782,20 @@ export default function ConfigurePage() {
               </Popover>
             </div>
 
-            {!crawlDone && <div style={{ background: '#1f2228', border: '1px solid #eab308', borderRadius: 8, padding: 16, color: '#eab308', fontSize: 14 }}>⚠ Complete Steps 1–3 before embedding.</div>}
+            {!crawlDone && <div style={{ background: 'var(--nb-surface-2)', border: '1px solid #eab308', borderRadius: 8, padding: 16, color: '#eab308', fontSize: 14 }}>⚠ Complete Steps 1–3 before embedding.</div>}
             
-            <div style={{ background: '#0a0a0a', border: '1px solid #2a2d35', borderRadius: 12, overflow: 'hidden' }}>
-              <div style={{ padding: '10px 16px', borderBottom: '1px solid #2a2d35', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ background: 'var(--nb-surface)', border: '1px solid var(--nb-line)', borderRadius: 12, overflow: 'hidden' }}>
+              <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--nb-line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: 12, color: 'var(--nb-text-secondary)', fontFamily: 'monospace' }}>HTML — paste before &lt;/body&gt;</span>
-                <button onClick={() => { navigator.clipboard.writeText(embedCode); markStepDone('embed'); setCopied(true); setTimeout(() => setCopied(false), 2000); }} style={{ background: copied ? '#0d2420' : 'transparent', border: '1px solid #2a2d35', color: copied ? '#36f4a4' : 'var(--nb-text-secondary)', borderRadius: 9999, padding: '4px 14px', fontSize: 12, cursor: 'pointer' }}>{copied ? '✓ Copied!' : 'Copy'}</button>
+                <button onClick={() => { navigator.clipboard.writeText(embedCode); markStepDone('embed'); setCopied(true); setTimeout(() => setCopied(false), 2000); }} style={{ background: copied ? 'var(--nb-success-bg)' : 'transparent', border: '1px solid var(--nb-line)', color: copied ? 'var(--signal)' : 'var(--nb-text-secondary)', borderRadius: 9999, padding: '4px 14px', fontSize: 12, cursor: 'pointer' }}>{copied ? '✓ Copied!' : 'Copy'}</button>
               </div>
-              <pre style={{ padding: 20, margin: 0, fontSize: 13, fontFamily: 'monospace', color: '#36f4a4', overflowX: 'auto', lineHeight: 1.8 }}>{embedCode}</pre>
+              <pre style={{ padding: 20, margin: 0, fontSize: 13, fontFamily: 'monospace', color: 'var(--signal)', overflowX: 'auto', lineHeight: 1.8 }}>{embedCode}</pre>
             </div>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {['Copy the script tag above', 'Paste it before </body> in your website HTML', 'Save and reload — your chatbot is live instantly', 'Works on: Next.js, React, WordPress, Webflow, plain HTML'].map((step, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                  <div style={{ width: 24, height: 24, borderRadius: '50%', flexShrink: 0, background: '#36f4a420', color: '#36f4a4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 500 }}>{i + 1}</div>
+                  <div style={{ width: 24, height: 24, borderRadius: '50%', flexShrink: 0, background: '#36f4a420', color: 'var(--signal)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 500 }}>{i + 1}</div>
                   <span style={{ fontSize: 14, color: 'var(--nb-text-secondary)' }}>{step}</span>
                 </div>
               ))}
