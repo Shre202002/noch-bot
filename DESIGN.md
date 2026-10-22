@@ -140,7 +140,7 @@ The embedded website assistant is a separate world: it wears each organizer's ow
 A monochrome field with a single living colour. Black and grey establish depth; mint, amber and red are signals with fixed meanings.
 
 ### Primary
-- **Signal Mint** (#36f4a4): the one accent. Primary actions on public and operational screens, the "Live" and "Scanned" states, success banners, focus glow, progress fill. It is the most-used colour in the product and still appears on a small share of any screen.
+- **Signal Mint** (#36f4a4, Tailwind `signal`): the one accent. Primary actions on public and operational screens, the "Live" and "Scanned" states, success banners, focus glow, progress fill. It is the most-used colour in the product and still appears on a small share of any screen.
 
 ### Secondary
 - **Waiting Amber** (#eab308): waiting for approval, already scanned, anything that needs a human look but is not an error.
@@ -151,7 +151,7 @@ A monochrome field with a single living colour. Black and grey establish depth; 
 - **Paper White** (oklch(0.98 0 0)): primary text and the default button fill. Never a page background.
 - **Card Black** (oklch(0.06 0 0)): cards and popovers. **Sidebar Black** (oklch(0.04 0 0)) sits slightly deeper for the dashboard rail.
 - **Well Grey** (oklch(0.12 0 0)) and **Raised Grey** (oklch(0.14 0 0)): secondary fills, hover and accent surfaces, table stripes.
-- **Desk Black** (#0a0a0a): the solid surface of standalone public pages such as the scanner, with **Panel Line** (#2a2d35) for solid dividers and **Panel Raised** (#1f2228) for inset panels.
+- **Desk Black** (#0a0a0a, Tailwind `desk`): the solid surface of standalone public pages such as the scanner, with **Panel Line** (#2a2d35) for solid dividers and **Panel Raised** (#1f2228) for inset panels.
 - **Hairline** (oklch(1 0 0 / 10%)): the default border and input stroke.
 - **Quiet Text** (oklch(0.6 0 0)), **Secondary Text** (#9095a0), **Tertiary Text** (#878b93), **Muted Icon** (#73777f): the four text and icon roles under primary, each tuned to clear WCAG AA on the dark surfaces they sit on (the tuning is documented in globals.css).
 - **Chart colours** (blue, violet, green, amber, rose): analytics charts only; never used for interface chrome.
@@ -211,7 +211,7 @@ Two shape voices. **Pills** (fully rounded) are for anything a person acts on or
 ### Buttons
 - **Shape:** 8px corners for the default system button (36px tall), fully rounded for the signal button.
 - **Primary:** paper white fill, black text, 8px 16px padding; hover drops the fill to 90%.
-- **Signal:** mint fill, black text, bold, pill. Used for the main action on operational and public screens (Approve, Create scanner link, Start camera).
+- **Signal:** mint fill, black text, bold, pill (the `signal` variant of the shared Button). Used for the main action on operational and public screens (Approve, Create scanner link, Start camera).
 - **Outline / Ghost:** hairline outline on black, accent-grey hover fill; ghost has no outline.
 - **Hover / Focus:** colour transitions only; keyboard focus shows a 2px outline offset by 2px in the ring colour.
 - **Touch:** on phones, any control a thumb must hit grows to at least 44px tall.

@@ -5,6 +5,17 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { AlertCircle, ArrowLeft, Check, Copy, ExternalLink, Link2, Loader2, RefreshCw, Search, UserCheck, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -44,7 +55,7 @@ const MAX_ROWS = 300;
 
 const SCANNER_STATUS: Record<Scanner["status"], { label: string; color: string }> = {
   pending: { label: "Waiting for approval", color: "#eab308" },
-  approved: { label: "Approved", color: "#36f4a4" },
+  approved: { label: "Approved", color: "var(--color-signal, #36f4a4)" },
   rejected: { label: "Declined", color: "#9ca3af" },
   blocked: { label: "Blocked", color: "#ef4444" },
 };
@@ -75,11 +86,11 @@ function useMinWidth(px: number): boolean {
 // A row only redraws when its own attendee changes or its highlight starts or ends, not on every poll.
 const AttendeeRow = memo(function AttendeeRow({ a, flashed }: { a: Attendee; flashed: boolean }) {
   return (
-    <tr className={`border-t border-white/5 transition-colors duration-1000 ${flashed ? "bg-[#36f4a4]/15" : ""}`}>
+    <tr className={`border-t border-white/5 transition-colors duration-1000 ${flashed ? "bg-signal/15" : ""}`}>
       <td dir="auto" className="max-w-[16rem] truncate py-2 pr-3 font-semibold text-white">{a.name || "—"}</td>
       <td className="max-w-[18rem] break-words py-2 pr-3 text-white/70">{[a.email, a.phone].filter(Boolean).join(" · ") || "—"}</td>
       <td className="py-2 pr-3 text-white/70"><span className="font-mono text-xs">{a.code}</span><br /><span className="text-xs text-white/60">{a.label}</span></td>
-      <td className="py-2 pr-3">{a.status === "scanned" ? <Badge className="bg-[#36f4a4] text-black">Scanned</Badge> : <Badge variant="secondary">{a.status === "active" ? "Not yet" : a.status}</Badge>}</td>
+      <td className="py-2 pr-3">{a.status === "scanned" ? <Badge className="bg-signal text-black">Scanned</Badge> : <Badge variant="secondary">{a.status === "active" ? "Not yet" : a.status}</Badge>}</td>
       <td className="py-2 pr-3 tabular-nums text-white/70">{time(a.scannedAt) || "—"}</td>
       <td className="py-2 text-white/70">{a.scannedBy || "—"}</td>
     </tr>
@@ -88,10 +99,10 @@ const AttendeeRow = memo(function AttendeeRow({ a, flashed }: { a: Attendee; fla
 
 const AttendeeCard = memo(function AttendeeCard({ a, flashed }: { a: Attendee; flashed: boolean }) {
   return (
-    <li className={`rounded-xl border border-white/10 p-3 transition-colors duration-1000 ${flashed ? "bg-[#36f4a4]/15" : "bg-white/[0.03]"}`}>
+    <li className={`rounded-xl border border-white/10 p-3 transition-colors duration-1000 ${flashed ? "bg-signal/15" : "bg-white/[0.03]"}`}>
       <div className="flex items-start justify-between gap-2">
         <p dir="auto" className="min-w-0 truncate font-semibold text-white">{a.name || "—"}</p>
-        {a.status === "scanned" ? <Badge className="shrink-0 bg-[#36f4a4] text-black">Scanned</Badge> : <Badge variant="secondary" className="shrink-0">{a.status === "active" ? "Not yet" : a.status}</Badge>}
+        {a.status === "scanned" ? <Badge className="shrink-0 bg-signal text-black">Scanned</Badge> : <Badge variant="secondary" className="shrink-0">{a.status === "active" ? "Not yet" : a.status}</Badge>}
       </div>
       {(a.email || a.phone) && <p className="mt-0.5 break-words text-sm text-white/70">{[a.email, a.phone].filter(Boolean).join(" · ")}</p>}
       <p className="mt-1.5 flex flex-wrap items-center gap-x-3 text-xs text-white/60">
@@ -117,6 +128,7 @@ export default function EventScanningPage() {
   const [filter, setFilter] = useState<"all" | "scanned" | "not_yet">("all");
   const [busy, setBusy] = useState("");
   const [copied, setCopied] = useState(false);
+  const [confirming, setConfirming] = useState<{ title: string; body: string; action: string; destructive?: boolean; run: () => void } | null>(null);
   const [notice, setNotice] = useState("");
 
   // Polling state lives in refs so the loop never restarts or overlaps.
@@ -296,8 +308,8 @@ export default function EventScanningPage() {
           <h1 dir="auto" className="break-words text-3xl font-black tracking-tight">{feed.eventName}</h1>
           <p className="text-sm text-muted-foreground">Ticket scanning and visitor data, updating live.</p>
         </div>
-        <span role="status" className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-semibold ${error ? "border-red-500/50 text-red-300" : reconnecting ? "border-amber-500/50 text-amber-300" : "border-[#36f4a4]/40 text-[#36f4a4]"}`}>
-          <span aria-hidden="true" className={`h-2.5 w-2.5 rounded-full ${error ? "bg-red-400" : reconnecting ? "bg-amber-400" : "motion-safe:animate-pulse bg-[#36f4a4]"}`} />
+        <span role="status" className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-semibold ${error ? "border-red-500/50 text-red-300" : reconnecting ? "border-amber-500/50 text-amber-300" : "border-signal/40 text-signal"}`}>
+          <span aria-hidden="true" className={`h-2.5 w-2.5 rounded-full ${error ? "bg-red-400" : reconnecting ? "bg-amber-400" : "motion-safe:animate-pulse bg-signal"}`} />
           {error ? "Stopped" : reconnecting ? "Reconnecting…" : "Live"}
         </span>
       </div>
@@ -312,7 +324,7 @@ export default function EventScanningPage() {
 
       <section aria-label="Door counts" className="grid grid-cols-3 gap-2 sm:gap-4">
         {[
-          { label: "Scanned", value: counts.scanned, tone: "text-[#36f4a4]", icon: UserCheck },
+          { label: "Scanned", value: counts.scanned, tone: "text-signal", icon: UserCheck },
           { label: "Not yet", value: counts.remaining, tone: "text-white", icon: Users },
           { label: "Total", value: counts.total, tone: "text-white", icon: Users },
         ].map((s) => (
@@ -326,7 +338,7 @@ export default function EventScanningPage() {
         <div className="col-span-3">
           <div className="flex items-center justify-between text-xs text-white/60"><span>Checked in</span><span>{percent}%</span></div>
           <div role="progressbar" aria-label="Share of tickets checked in" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100} className="mt-1 h-2.5 overflow-hidden rounded-full bg-white/10">
-            <div className="h-full rounded-full bg-[#36f4a4] transition-all duration-500" style={{ width: `${percent}%` }} />
+            <div className="h-full rounded-full bg-signal transition-all duration-500" style={{ width: `${percent}%` }} />
           </div>
         </div>
       </section>
@@ -340,7 +352,7 @@ export default function EventScanningPage() {
             ) : (
               <ul aria-live="polite" className="space-y-2">
                 {recent.map((a) => (
-                  <li key={a.code} className={`flex items-center justify-between gap-3 rounded-xl px-3 py-2 transition-colors duration-1000 ${isFlashed(a.code) ? "bg-[#36f4a4]/20" : "bg-white/5"}`}>
+                  <li key={a.code} className={`flex items-center justify-between gap-3 rounded-xl px-3 py-2 transition-colors duration-1000 ${isFlashed(a.code) ? "bg-signal/20" : "bg-white/5"}`}>
                     <div className="min-w-0">
                       <p dir="auto" className="truncate font-semibold text-white">{who(a)}</p>
                       <p className="truncate text-xs text-white/50">{a.code} · {a.label}</p>
@@ -363,14 +375,14 @@ export default function EventScanningPage() {
               {!feed.link ? (
                 <>
                   <p className="text-sm text-white/60">Share one link with your door staff. They create an account, you approve them, and they can scan this event&apos;s tickets only.</p>
-                  <Button disabled={busy === "create"} onClick={() => act("create", `/api/events/${eventId}/scanner-link`, { action: "create" })} className="rounded-full bg-[#36f4a4] font-bold text-black hover:bg-[#36f4a4]/90">
+                  <Button variant="signal" disabled={busy === "create"} onClick={() => act("create", `/api/events/${eventId}/scanner-link`, { action: "create" })}>
                     {busy === "create" ? <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" /> : null} Create scanner link
                   </Button>
                 </>
               ) : (
                 <>
                   <div className="flex items-center gap-2">
-                    <input readOnly aria-label="Scanner link" value={linkUrl} onFocus={(e) => e.currentTarget.select()} className="min-w-0 flex-1 rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-white" />
+                    <Input readOnly aria-label="Scanner link" value={linkUrl} onFocus={(e) => e.currentTarget.select()} className="min-w-0 flex-1 max-sm:h-11 max-sm:text-base" />
                     <Button size="sm" variant="outline" onClick={copy} aria-label="Copy link" className="max-sm:size-11">{copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}</Button>
                     <Button size="sm" variant="outline" asChild aria-label="Open link" className="max-sm:size-11"><a href={linkUrl} target="_blank" rel="noreferrer"><ExternalLink className="h-4 w-4" /></a></Button>
                   </div>
@@ -379,7 +391,7 @@ export default function EventScanningPage() {
                     <Button size="sm" variant="outline" className="max-sm:min-h-11" disabled={!!busy} onClick={() => act("toggle", `/api/events/${eventId}/scanner-link`, { action: feed.link!.active ? "disable" : "enable" })}>
                       {feed.link.active ? "Switch off" : "Switch on"}
                     </Button>
-                    <Button size="sm" variant="outline" className="max-sm:min-h-11" disabled={!!busy} onClick={() => { if (window.confirm("Make a new link? The old link stops working and every scanner is signed out (their accounts are kept).")) void act("rotate", `/api/events/${eventId}/scanner-link`, { action: "rotate" }); }}>
+                    <Button size="sm" variant="outline" className="max-sm:min-h-11" disabled={!!busy} onClick={() => setConfirming({ title: "Make a new scanner link?", body: "The old link stops working and every scanner is signed out. Their accounts are kept, and they sign in again at the new link.", action: "Make new link", run: () => void act("rotate", `/api/events/${eventId}/scanner-link`, { action: "rotate" }) })}>
                       <RefreshCw aria-hidden="true" className="mr-1.5 h-3.5 w-3.5" /> New link
                     </Button>
                   </div>
@@ -408,9 +420,13 @@ export default function EventScanningPage() {
                       </div>
                       <div className="mt-2 flex flex-wrap gap-2">
                         {SCANNER_ACTIONS[s.status].map((a) => (
-                          <Button key={a.action} size="sm" variant={a.primary ? "default" : "outline"} disabled={busy === s.id + a.action}
-                            className={`max-sm:min-h-11 ${a.primary ? "bg-[#36f4a4] font-bold text-black hover:bg-[#36f4a4]/90" : ""}`}
-                            onClick={() => { if (a.action === "remove" && !window.confirm(`Remove ${s.name || s.loginId}?`)) return; void act(s.id + a.action, `/api/events/${eventId}/scanner-users/${s.id}`, { action: a.action }, "PATCH"); }}>
+                          <Button key={a.action} size="sm" variant={a.primary ? "signal" : "outline"} disabled={busy === s.id + a.action}
+                            className="max-sm:min-h-11"
+                            onClick={() => {
+                              const run = () => void act(s.id + a.action, `/api/events/${eventId}/scanner-users/${s.id}`, { action: a.action }, "PATCH");
+                              if (a.action === "remove") setConfirming({ title: `Remove ${s.name || s.loginId}?`, body: "This account can no longer sign in or scan. Tickets it already scanned stay scanned.", action: "Remove", destructive: true, run });
+                              else run();
+                            }}>
                             {a.label}
                           </Button>
                         ))}
@@ -431,11 +447,11 @@ export default function EventScanningPage() {
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative w-full sm:w-auto">
                 <Search aria-hidden="true" className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-white/40" />
-                <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search name, email, code" aria-label="Search attendees" className="w-full rounded-lg border border-white/10 bg-black/30 py-2 pl-8 pr-3 text-base text-white max-sm:min-h-11 sm:w-56 sm:text-sm" />
+                <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search name, email, code" aria-label="Search attendees" className="w-full pl-8 max-sm:h-11 max-sm:text-base sm:w-56" />
               </div>
               {(["all", "scanned", "not_yet"] as const).map((f) => (
                 <button key={f} type="button" onClick={() => setFilter(f)} aria-pressed={filter === f}
-                  className={`rounded-full border px-3 py-1.5 text-sm max-sm:min-h-11 max-sm:px-4 ${filter === f ? "border-[#36f4a4] bg-[#36f4a4]/15 text-[#36f4a4]" : "border-white/15 text-white/70 hover:text-white"}`}>
+                  className={`rounded-full border px-3 py-1.5 text-sm max-sm:min-h-11 max-sm:px-4 ${filter === f ? "border-signal bg-signal/15 text-signal" : "border-white/15 text-white/70 hover:text-white"}`}>
                   {f === "all" ? "All" : f === "scanned" ? "Scanned" : "Not yet"}
                 </button>
               ))}
@@ -466,6 +482,21 @@ export default function EventScanningPage() {
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog open={!!confirming} onOpenChange={(open) => { if (!open) setConfirming(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirming?.title}</AlertDialogTitle>
+            <AlertDialogDescription>{confirming?.body}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction className={confirming?.destructive ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""} onClick={() => confirming?.run()}>
+              {confirming?.action}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

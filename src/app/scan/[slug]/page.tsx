@@ -76,7 +76,7 @@ const TONE = {
 
 const newScanId = () => (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
 
-const INPUT = "h-12 w-full rounded-xl border border-white/15 bg-black/40 pl-10 pr-3 text-base text-white placeholder:text-white/30 outline-none transition-colors focus:border-[#36f4a4] focus:ring-2 focus:ring-[#36f4a4]/30";
+const INPUT = "h-12 w-full rounded-xl border border-white/15 bg-black/40 pl-10 pr-3 text-base text-white placeholder:text-white/55 outline-none transition-colors focus:border-signal focus:ring-2 focus:ring-signal/30";
 
 /** How strong a password looks: length and variety, shown while creating an account. */
 function passwordStrength(password: string): { score: number; label: string; bar: string; text: string } {
@@ -98,7 +98,7 @@ function Field({ label, icon: Icon, hint, error, children }: { label: string; ic
         <Icon aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-white/40" />
         {children}
       </span>
-      {error ? <span role="alert" className="mt-1.5 block text-xs text-red-300">{error}</span> : hint ? <span className="mt-1.5 block text-xs text-white/45">{hint}</span> : null}
+      {error ? <span role="alert" className="mt-1.5 block text-xs text-red-300">{error}</span> : hint ? <span className="mt-1.5 block text-xs text-white/60">{hint}</span> : null}
     </label>
   );
 }
@@ -370,7 +370,7 @@ export default function ScannerPage() {
   // ── screens ────────────────────────────────────────────────────────────────
 
   const shell = (children: React.ReactNode) => (
-    <div onPointerDown={armSound} className="min-h-dvh bg-[#0a0a0a] text-white">
+    <div onPointerDown={armSound} className="min-h-dvh bg-desk text-white">
       <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-5 pb-28 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[max(1.5rem,env(safe-area-inset-top))] short-landscape:max-w-4xl short-landscape:pb-6 short-landscape:pt-3">{children}</main>
     </div>
   );
@@ -399,8 +399,8 @@ export default function ScannerPage() {
     return shell(
       <>
         <header className="flex flex-col items-center gap-3 pt-4 text-center">
-          <span className="grid size-16 place-content-center rounded-2xl bg-gradient-to-br from-[#36f4a4]/30 to-[#36f4a4]/5 ring-1 ring-[#36f4a4]/40 short-landscape:hidden">
-            <ScanLine aria-hidden="true" className="h-8 w-8 text-[#36f4a4]" />
+          <span className="grid size-16 place-content-center rounded-2xl bg-gradient-to-br from-signal/30 to-signal/5 ring-1 ring-signal/40 short-landscape:hidden">
+            <ScanLine aria-hidden="true" className="h-8 w-8 text-signal" />
           </span>
           <div>
             <h1 className="text-3xl font-black tracking-tight">Ticket scanner</h1>
@@ -408,7 +408,7 @@ export default function ScannerPage() {
           </div>
           {me.event?.name && (
             <div className="max-w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5">
-              <p className="flex items-center justify-center gap-2 text-sm font-semibold text-white"><CalendarDays aria-hidden="true" className="h-4 w-4 shrink-0 text-[#36f4a4]" /><span className="truncate">{me.event.name}</span></p>
+              <p className="flex items-center justify-center gap-2 text-sm font-semibold text-white"><CalendarDays aria-hidden="true" className="h-4 w-4 shrink-0 text-signal" /><span className="truncate">{me.event.name}</span></p>
               {eventLine && <p className="mt-0.5 flex items-center justify-center gap-1.5 text-xs text-white/50"><MapPin aria-hidden="true" className="h-3 w-3 shrink-0" /><span className="truncate">{eventLine}</span></p>}
             </div>
           )}
@@ -426,7 +426,7 @@ export default function ScannerPage() {
             <div role="group" aria-label="Sign in or create an account" className="grid grid-cols-2 gap-1 rounded-2xl bg-black/40 p-1 text-sm font-semibold">
               {(["login", "register"] as const).map((m) => (
                 <button key={m} type="button" aria-pressed={mode === m} onClick={() => { setMode(m); setFormError(""); setConfirm(""); }}
-                  className={`min-h-11 rounded-xl transition-colors ${mode === m ? "bg-[#36f4a4] text-black shadow" : "text-white/70 hover:text-white"}`}>
+                  className={`min-h-11 rounded-xl transition-colors ${mode === m ? "bg-signal text-black shadow" : "text-white/70 hover:text-white"}`}>
                   {m === "login" ? "Sign in" : "Create account"}
                 </button>
               ))}
@@ -473,7 +473,7 @@ export default function ScannerPage() {
               </button>
             )}
 
-            <button type="submit" disabled={submitting} className="flex h-13 w-full items-center justify-center gap-2 rounded-2xl bg-[#36f4a4] py-3.5 text-base font-bold text-black transition-opacity hover:opacity-90 disabled:opacity-60">
+            <button type="submit" disabled={submitting} className="flex h-13 w-full items-center justify-center gap-2 rounded-2xl bg-signal py-3.5 text-base font-bold text-black transition-opacity hover:opacity-90 disabled:opacity-60">
               {submitting && <Loader2 aria-hidden="true" className="h-4 w-4 motion-safe:animate-spin" />}
               {registering ? "Create account" : "Sign in"}
             </button>
@@ -545,9 +545,9 @@ export default function ScannerPage() {
           <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-black">
             <video ref={videoRef} playsInline muted aria-label="Camera view for scanning tickets" className="aspect-[4/3] w-full object-cover short-landscape:aspect-auto short-landscape:h-[calc(100dvh-10rem)]" />
             {/* A square, because the reader decodes the centre square of the frame (80% of its height). */}
-            <div aria-hidden="true" className="pointer-events-none absolute left-1/2 top-1/2 aspect-square h-4/5 -translate-x-1/2 -translate-y-1/2 rounded-2xl border-2 border-[#36f4a4]/70" />
+            <div aria-hidden="true" className="pointer-events-none absolute left-1/2 top-1/2 aspect-square h-4/5 -translate-x-1/2 -translate-y-1/2 rounded-2xl border-2 border-signal/70" />
             {torchSupported && (
-              <button type="button" onClick={toggleTorch} aria-pressed={torchOn} className={`absolute bottom-3 left-3 flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm ${torchOn ? "bg-[#36f4a4] text-black" : "bg-black/70"}`}>
+              <button type="button" onClick={toggleTorch} aria-pressed={torchOn} className={`absolute bottom-3 left-3 flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm ${torchOn ? "bg-signal text-black" : "bg-black/70"}`}>
                 <Flashlight aria-hidden="true" className="h-4 w-4" /> Light
               </button>
             )}
@@ -556,7 +556,7 @@ export default function ScannerPage() {
             </button>
           </div>
         ) : (
-          <button type="button" onClick={startCamera} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#36f4a4] py-4 text-lg font-bold text-black">
+          <button type="button" onClick={startCamera} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-signal py-4 text-lg font-bold text-black">
             <Camera aria-hidden="true" className="h-6 w-6" /> Start camera
           </button>
         )}

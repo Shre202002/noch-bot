@@ -10,6 +10,8 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "bg-primary text-primary-foreground shadow-sm shadow-black/5 hover:bg-primary/90",
+        signal:
+          "rounded-full bg-signal font-bold text-black hover:bg-signal/90",
         destructive:
           "bg-destructive text-destructive-foreground shadow-sm shadow-black/5 hover:bg-destructive/90",
         outline:
@@ -26,6 +28,8 @@ const buttonVariants = cva(
         icon: "h-9 w-9",
       },
     },
+    // The signal button is a pill at every size (the size variants set their own corner radius).
+    compoundVariants: [{ variant: "signal", class: "rounded-full" }],
     defaultVariants: {
       variant: "default",
       size: "default",

@@ -47,6 +47,9 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-primary-glow: var(--primary-glow);
+  /* The one signal colour and the solid surface of standalone public pages (see DESIGN.md): bg-signal, text-signal, bg-desk. */
+  --color-signal: #36f4a4;
+  --color-desk: #0a0a0a;
   --font-display: var(--font-display);
 }
 

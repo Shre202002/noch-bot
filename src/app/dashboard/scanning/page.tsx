@@ -62,7 +62,7 @@ export default function ScanningOverviewPage() {
               <p className="text-lg font-bold">No events yet</p>
               <p className="text-sm text-muted-foreground">Create and publish an event, then come back to set up scanning.</p>
             </div>
-            <Button asChild className="cursor-pointer rounded-full bg-[#36f4a4] font-bold text-black hover:bg-[#36f4a4]/90">
+            <Button asChild variant="signal" className="cursor-pointer">
               <Link href="/dashboard/events/new"><Plus aria-hidden="true" className="mr-2 h-4 w-4" /> Create event</Link>
             </Button>
           </CardContent>
@@ -71,7 +71,7 @@ export default function ScanningOverviewPage() {
         <ul className="grid gap-4 md:grid-cols-2">
           {events?.map((e) => (
             <li key={e.id}>
-              <Link href={`/dashboard/scanning/${e.id}`} className="group block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#36f4a4]">
+              <Link href={`/dashboard/scanning/${e.id}`} className="group block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal">
                 <Card className="h-full border-white/10 bg-card/40 transition-colors group-hover:border-white/25">
                   <CardContent className="space-y-4 p-5">
                     <div className="flex items-start justify-between gap-3">
@@ -88,7 +88,7 @@ export default function ScanningOverviewPage() {
                         <UserCheck aria-hidden="true" className="h-4 w-4" />
                         <span><b className="text-white">{e.checked_in}</b> of {e.confirmed_tickets} scanned</span>
                       </p>
-                      <span className="inline-flex items-center gap-1 text-sm font-semibold text-[#36f4a4]">
+                      <span className="inline-flex items-center gap-1 text-sm font-semibold text-signal">
                         <ScanLine aria-hidden="true" className="h-4 w-4" /> Open scanning <ChevronRight aria-hidden="true" className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                       </span>
                     </div>
