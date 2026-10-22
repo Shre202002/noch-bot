@@ -19,7 +19,7 @@ type Attendee = {
   scannedAt: string | null;
   scannedBy: string | null;
 };
-type Scanner = { id: string; loginId: string; status: "pending" | "approved" | "rejected" | "blocked"; createdAt: string; lastLoginAt: string | null; signedIn: boolean };
+type Scanner = { id: string; loginId: string; name?: string; status: "pending" | "approved" | "rejected" | "blocked"; createdAt: string; lastLoginAt: string | null; signedIn: boolean };
 type Feed = {
   eventName: string;
   counts: { total: number; scanned: number; remaining: number };
@@ -317,7 +317,7 @@ export default function EventScanningPage() {
                   {[...feed.scanners].sort((a, b) => (a.status === "pending" ? 0 : 1) - (b.status === "pending" ? 0 : 1)).map((s) => (
                     <li key={s.id} className="rounded-xl bg-white/5 p-3">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="truncate font-semibold text-white">{s.loginId}</p>
+                        <p className="truncate font-semibold text-white">{s.name || s.loginId}{s.name && <span className="ml-2 text-xs font-normal text-white/50">{s.loginId}</span>}</p>
                         <span className="shrink-0 text-xs font-semibold" style={{ color: SCANNER_STATUS[s.status].color }}>
                           {SCANNER_STATUS[s.status].label}{s.status === "approved" && s.signedIn ? " · signed in" : ""}
                         </span>
@@ -326,7 +326,7 @@ export default function EventScanningPage() {
                         {SCANNER_ACTIONS[s.status].map((a) => (
                           <Button key={a.action} size="sm" variant={a.primary ? "default" : "outline"} disabled={busy === s.id + a.action}
                             className={a.primary ? "bg-[#36f4a4] font-bold text-black hover:bg-[#36f4a4]/90" : ""}
-                            onClick={() => { if (a.action === "remove" && !window.confirm(`Remove ${s.loginId}?`)) return; void act(s.id + a.action, `/api/events/${eventId}/scanner-users/${s.id}`, { action: a.action }, "PATCH"); }}>
+                            onClick={() => { if (a.action === "remove" && !window.confirm(`Remove ${s.name || s.loginId}?`)) return; void act(s.id + a.action, `/api/events/${eventId}/scanner-users/${s.id}`, { action: a.action }, "PATCH"); }}>
                             {a.label}
                           </Button>
                         ))}

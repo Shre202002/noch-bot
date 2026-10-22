@@ -34,6 +34,7 @@ export const SCANNER_AUTH_MESSAGES = {
   rejected: 'The organizer declined access for this account.',
   blocked: 'This account was blocked by the organizer.',
   none: 'Sign in to scan tickets.',
+  invalid_name: 'Enter your name (2 to 60 characters).',
   taken: 'That Login ID is already taken for this event.',
 } as const;
 
@@ -100,8 +101,24 @@ export async function rotateScannerLink(db: Db, orgId: string, eventId: ObjectId
   return { ...current, slug };
 }
 
-export const registerScanner = (db: Db, link: ScannerLink, loginId: unknown, password: unknown) =>
-  core.register(db, { slug: link.slug, userId: link.org_id, extra: { event_id: link.event_id } }, loginId, password);
+/** A person's name as typed, tidied: single spaces, 2 to 60 characters; otherwise null. */
+export function cleanScannerName(name: unknown): string | null {
+  const tidy = typeof name === 'string' ? name.replace(/\s+/g, ' ').trim() : '';
+  return tidy.length >= 2 && tidy.length <= 60 ? tidy : null;
+}
+
+export async function registerScanner(db: Db, link: ScannerLink, loginId: unknown, password: unknown, name: unknown) {
+  const cleaned = cleanScannerName(name);
+  if (!cleaned) return { error: 'invalid_name' as const };
+  return core.register(
+    db,
+    { slug: link.slug, userId: link.org_id, extra: { event_id: link.event_id } },
+    loginId,
+    password,
+    new Date(),
+    { name: cleaned }
+  );
+}
 
 export const loginScanner = core.login;
 export const signScannerToken = core.signToken;

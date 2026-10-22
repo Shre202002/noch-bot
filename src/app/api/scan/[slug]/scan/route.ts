@@ -24,7 +24,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
       ticketCode,
       eventScope: link.event_id,
       scannerId: user._id,
-      scannerName: user.loginId,
+      scannerName: (typeof user.name === 'string' && user.name) || user.loginId,
       deviceInfo: { source: 'scanner_link' },
       clientScanId: typeof body.clientScanId === 'string' ? body.clientScanId.slice(0, 64) : null,
     });

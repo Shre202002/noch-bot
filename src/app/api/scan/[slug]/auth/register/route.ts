@@ -11,7 +11,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     if (found instanceof NextResponse) return found;
 
     const body = await req.json().catch(() => ({}));
-    const result = await registerScanner(found.db, found.link, body.loginId, body.password);
+    const result = await registerScanner(found.db, found.link, body.loginId, body.password, body.name);
     if ('error' in result) {
       return NextResponse.json(
         { code: result.error, error: SCANNER_AUTH_MESSAGES[result.error] },

@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
-import { AlertTriangle, Camera, CameraOff, CheckCircle2, Loader2, LogOut, ScanLine, XCircle } from "lucide-react";
+import { AlertTriangle, AtSign, CalendarDays, Camera, CameraOff, CheckCircle2, Eye, EyeOff, Loader2, Lock, LogOut, MapPin, ScanLine, UserRound, XCircle } from "lucide-react";
 
 type Counts = { total: number; scanned: number; remaining: number };
-type Me = { signedIn: boolean; loginId?: string; event?: { name: string; startAt: string | null; venue: string | null } | null; counts?: Counts; code?: string; message?: string };
+type Me = { signedIn: boolean; loginId?: string; name?: string | null; event?: { name: string; startAt: string | null; venue: string | null } | null; counts?: Counts; code?: string; message?: string };
 type Result = {
   result: string;
   code?: string;
@@ -53,6 +53,48 @@ const TONE = {
 
 const newScanId = () => (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
 
+const INPUT = "h-12 w-full rounded-xl border border-white/15 bg-black/40 pl-10 pr-3 text-base text-white placeholder:text-white/30 outline-none transition-colors focus:border-[#36f4a4] focus:ring-2 focus:ring-[#36f4a4]/30";
+
+/** How strong a password looks: length and variety, shown while creating an account. */
+function passwordStrength(password: string): { score: number; label: string; bar: string; text: string } {
+  const variety = [/[a-z]/, /[A-Z]/, /\d/, /[^A-Za-z0-9]/].filter((re) => re.test(password)).length;
+  const score = password.length < 8 ? 1 : password.length >= 12 && variety >= 3 ? 3 : variety >= 2 ? 2 : 1;
+  if (password.length < 8) return { score: 1, label: "Too short", bar: "bg-red-400", text: "text-red-300" };
+  return score === 3
+    ? { score, label: "Strong", bar: "bg-emerald-400", text: "text-emerald-300" }
+    : score === 2
+      ? { score, label: "Okay", bar: "bg-amber-400", text: "text-amber-300" }
+      : { score, label: "Weak: add numbers or capitals", bar: "bg-orange-400", text: "text-orange-300" };
+}
+
+function Field({ label, icon: Icon, hint, error, children }: { label: string; icon: typeof Lock; hint?: string; error?: string; children: React.ReactNode }) {
+  return (
+    <label className="block">
+      <span className="mb-1.5 block text-sm font-medium text-white/80">{label}</span>
+      <span className="relative block">
+        <Icon aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-white/40" />
+        {children}
+      </span>
+      {error ? <span role="alert" className="mt-1.5 block text-xs text-red-300">{error}</span> : hint ? <span className="mt-1.5 block text-xs text-white/45">{hint}</span> : null}
+    </label>
+  );
+}
+
+/** A password box with an eye button to show or hide what is typed. */
+function PasswordInput({ value, onChange, autoComplete, placeholder, invalid }: { value: string; onChange: (v: string) => void; autoComplete: string; placeholder: string; invalid?: boolean }) {
+  const [shown, setShown] = useState(false);
+  return (
+    <>
+      <input type={shown ? "text" : "password"} value={value} onChange={(e) => onChange(e.target.value)} autoComplete={autoComplete} autoCapitalize="none" required placeholder={placeholder}
+        aria-invalid={invalid || undefined} className={`${INPUT} pr-12 ${invalid ? "border-red-400/70 focus:border-red-400 focus:ring-red-400/30" : ""}`} />
+      <button type="button" onClick={() => setShown((v) => !v)} aria-label={shown ? "Hide password" : "Show password"} aria-pressed={shown}
+        className="absolute right-1.5 top-1/2 grid size-9 -translate-y-1/2 place-content-center rounded-lg text-white/50 hover:bg-white/10 hover:text-white">
+        {shown ? <EyeOff aria-hidden="true" className="h-5 w-5" /> : <Eye aria-hidden="true" className="h-5 w-5" />}
+      </button>
+    </>
+  );
+}
+
 export default function ScannerPage() {
   const { slug } = useParams<{ slug: string }>();
   const api = `/api/scan/${slug}`;
@@ -64,7 +106,9 @@ export default function ScannerPage() {
   // sign-in form
   const [mode, setMode] = useState<"login" | "register">("login");
   const [loginId, setLoginId] = useState("");
+  const [fullName, setFullName] = useState("");
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [formError, setFormError] = useState("");
   const [waiting, setWaiting] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -117,13 +161,18 @@ export default function ScannerPage() {
     return () => clearInterval(t);
   }, [waiting, loginId, password, signIn]);
 
+  // An error is about what was typed, so it goes away as soon as the person edits a field.
+  useEffect(() => setFormError(""), [fullName, loginId, password, confirm]);
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     setFormError("");
     try {
       if (mode === "register") {
-        const res = await fetch(`${api}/auth/register`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ loginId, password }) });
+        if (fullName.trim().length < 2) { setFormError("Enter your name."); return; }
+        if (password !== confirm) { setFormError("Passwords do not match."); return; }
+        const res = await fetch(`${api}/auth/register`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: fullName, loginId, password }) });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) { setFormError(data.error || "Could not create the account."); return; }
         setWaiting(true);
@@ -232,7 +281,9 @@ export default function ScannerPage() {
   // ── screens ────────────────────────────────────────────────────────────────
 
   const shell = (children: React.ReactNode) => (
-    <main className="mx-auto flex min-h-screen w-full max-w-md flex-col gap-5 bg-[#0a0a0a] px-4 py-6 text-white">{children}</main>
+    <div className="min-h-screen bg-[#0a0a0a] text-white">
+      <main className="mx-auto flex min-h-screen w-full max-w-md flex-col gap-5 px-4 pb-28 pt-6">{children}</main>
+    </div>
   );
 
   if (unavailable) {
@@ -250,47 +301,89 @@ export default function ScannerPage() {
 
   if (!me.signedIn) {
     const note = formError || (me.code && me.code !== "none" ? me.message : "");
+    const when = me.event?.startAt ? new Date(me.event.startAt).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) : "";
+    const eventLine = [when, me.event?.venue].filter(Boolean).join(" · ");
+    const registering = mode === "register";
+    const strength = passwordStrength(password);
+    const mismatch = registering && confirm.length > 0 && confirm !== password;
+
     return shell(
       <>
-        <header className="space-y-1 pt-6 text-center">
-          <ScanLine aria-hidden="true" className="mx-auto h-10 w-10 text-[#36f4a4]" />
-          <h1 className="text-2xl font-black">Ticket scanner</h1>
-          <p className="text-sm text-white/60">Sign in to scan tickets at the door.</p>
+        <header className="flex flex-col items-center gap-3 pt-4 text-center">
+          <span className="grid size-16 place-content-center rounded-2xl bg-gradient-to-br from-[#36f4a4]/30 to-[#36f4a4]/5 ring-1 ring-[#36f4a4]/40">
+            <ScanLine aria-hidden="true" className="h-8 w-8 text-[#36f4a4]" />
+          </span>
+          <div>
+            <h1 className="text-3xl font-black tracking-tight">Ticket scanner</h1>
+            <p className="mt-1 text-sm text-white/60">Sign in to scan tickets at the door.</p>
+          </div>
+          {me.event?.name && (
+            <div className="max-w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5">
+              <p className="flex items-center justify-center gap-2 text-sm font-semibold text-white"><CalendarDays aria-hidden="true" className="h-4 w-4 shrink-0 text-[#36f4a4]" /><span className="truncate">{me.event.name}</span></p>
+              {eventLine && <p className="mt-0.5 flex items-center justify-center gap-1.5 text-xs text-white/50"><MapPin aria-hidden="true" className="h-3 w-3 shrink-0" /><span className="truncate">{eventLine}</span></p>}
+            </div>
+          )}
         </header>
 
         {waiting ? (
-          <div role="status" className="space-y-3 rounded-2xl border border-amber-400/40 bg-amber-500/10 p-5 text-center">
-            <Loader2 aria-hidden="true" className="mx-auto h-6 w-6 animate-spin text-amber-300" />
-            <p className="font-semibold text-amber-100">Waiting for the organizer to approve your account</p>
-            <p className="text-sm text-amber-100/70">Keep this page open. It signs you in automatically as soon as you are approved.</p>
-            <button type="button" onClick={() => { setWaiting(false); setMode("login"); }} className="text-sm text-white/60 underline">Back</button>
+          <div role="status" className="space-y-3 rounded-3xl border border-amber-400/40 bg-amber-500/10 p-6 text-center">
+            <Loader2 aria-hidden="true" className="mx-auto h-7 w-7 animate-spin text-amber-300" />
+            <p className="text-lg font-bold text-amber-100">Waiting for approval{fullName.trim() ? `, ${fullName.trim().split(" ")[0]}` : ""}</p>
+            <p className="text-sm text-amber-100/70">The organizer has to approve your account. Keep this page open: it signs you in automatically as soon as you are approved.</p>
+            <button type="button" onClick={() => { setWaiting(false); setMode("login"); }} className="text-sm text-white/60 underline underline-offset-4">Back to sign in</button>
           </div>
         ) : (
-          <form onSubmit={submit} className="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-5">
-            <div role="tablist" className="grid grid-cols-2 gap-1 rounded-xl bg-black/30 p-1 text-sm font-semibold">
+          <form onSubmit={submit} noValidate className="space-y-5 rounded-3xl border border-white/10 bg-white/[0.04] p-5 shadow-2xl shadow-black/40">
+            <div role="tablist" aria-label="Sign in or create an account" className="grid grid-cols-2 gap-1 rounded-2xl bg-black/40 p-1 text-sm font-semibold">
               {(["login", "register"] as const).map((m) => (
-                <button key={m} type="button" role="tab" aria-selected={mode === m} onClick={() => { setMode(m); setFormError(""); }}
-                  className={`rounded-lg py-2 ${mode === m ? "bg-[#36f4a4] text-black" : "text-white/70"}`}>
+                <button key={m} type="button" role="tab" aria-selected={mode === m} onClick={() => { setMode(m); setFormError(""); setConfirm(""); }}
+                  className={`rounded-xl py-2.5 transition-colors ${mode === m ? "bg-[#36f4a4] text-black shadow" : "text-white/70 hover:text-white"}`}>
                   {m === "login" ? "Sign in" : "Create account"}
                 </button>
               ))}
             </div>
-            <label className="block text-sm">
-              <span className="mb-1 block text-white/70">Login ID</span>
-              <input value={loginId} onChange={(e) => setLoginId(e.target.value)} autoComplete="username" autoCapitalize="none" required
-                className="w-full rounded-lg border border-white/15 bg-black/40 px-3 py-3 text-base text-white" />
-            </label>
-            <label className="block text-sm">
-              <span className="mb-1 block text-white/70">Password</span>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={mode === "login" ? "current-password" : "new-password"} required minLength={mode === "register" ? 8 : undefined}
-                className="w-full rounded-lg border border-white/15 bg-black/40 px-3 py-3 text-base text-white" />
-              {mode === "register" && <span className="mt-1 block text-xs text-white/50">At least 8 characters. The organizer must approve your account before you can scan.</span>}
-            </label>
-            {note && <p role="alert" className="text-sm text-amber-300">{note}</p>}
-            <button type="submit" disabled={submitting} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#36f4a4] py-3 text-base font-bold text-black disabled:opacity-60">
+
+            {registering && (
+              <Field label="Full name" icon={UserRound}>
+                <input value={fullName} onChange={(e) => setFullName(e.target.value)} autoComplete="name" required maxLength={60} placeholder="e.g. Asha Rao" className={INPUT} />
+              </Field>
+            )}
+
+            <Field label="Login ID" icon={AtSign} hint={registering ? "Letters, numbers, dots, dashes or underscores (3 to 32 characters)." : undefined}>
+              <input value={loginId} onChange={(e) => setLoginId(e.target.value)} autoComplete="username" autoCapitalize="none" autoCorrect="off" spellCheck={false} required placeholder="e.g. gate.1" className={INPUT} />
+            </Field>
+
+            <Field label="Password" icon={Lock}>
+              <PasswordInput value={password} onChange={setPassword} autoComplete={registering ? "new-password" : "current-password"} placeholder={registering ? "At least 8 characters" : "Your password"} />
+            </Field>
+            {registering && password.length > 0 && (
+              <div aria-live="polite" className="-mt-2 flex items-center gap-3">
+                <div className="flex flex-1 gap-1" aria-hidden="true">
+                  {[0, 1, 2].map((i) => (
+                    <span key={i} className={`h-1.5 flex-1 rounded-full ${i < strength.score ? strength.bar : "bg-white/10"}`} />
+                  ))}
+                </div>
+                <span className={`text-xs font-semibold ${strength.text}`}>{strength.label}</span>
+              </div>
+            )}
+
+            {registering && (
+              <Field label="Confirm password" icon={Lock} error={mismatch ? "Passwords do not match." : undefined}>
+                <PasswordInput value={confirm} onChange={setConfirm} autoComplete="new-password" placeholder="Type it again" invalid={mismatch} />
+              </Field>
+            )}
+
+            {note && (
+              <p role="alert" className="flex items-start gap-2 rounded-xl border border-amber-400/40 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-200">
+                <AlertTriangle aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" /> {note}
+              </p>
+            )}
+
+            <button type="submit" disabled={submitting} className="flex h-13 w-full items-center justify-center gap-2 rounded-2xl bg-[#36f4a4] py-3.5 text-base font-bold text-black transition-opacity hover:opacity-90 disabled:opacity-60">
               {submitting && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}
-              {mode === "login" ? "Sign in" : "Create account"}
+              {registering ? "Create account" : "Sign in"}
             </button>
+            {registering && <p className="text-center text-xs text-white/50">The organizer must approve your account before you can scan.</p>}
           </form>
         )}
       </>
@@ -303,7 +396,7 @@ export default function ScannerPage() {
       <header className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="truncate text-xl font-black">{me.event?.name ?? "Ticket scanner"}</h1>
-          <p className="truncate text-xs text-white/50">Signed in as {me.loginId}</p>
+          <p className="truncate text-xs text-white/50">Signed in as {me.name || me.loginId}</p>
         </div>
         <button type="button" onClick={signOut} className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/15 px-3 py-2 text-sm text-white/80">
           <LogOut aria-hidden="true" className="h-4 w-4" /> Sign out

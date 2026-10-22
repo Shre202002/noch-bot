@@ -84,7 +84,9 @@ export function createLinkAuth(config: LinkAuthConfig) {
     link: LinkRef,
     rawLoginId: unknown,
     password: unknown,
-    now: Date = new Date()
+    now: Date = new Date(),
+    /** Extra fields for this account (e.g. the person's name). */
+    fields: Record<string, unknown> = {}
   ): Promise<{ ok: true } | { error: 'invalid_login_id' | 'weak_password' | 'taken' }> {
     const loginId = normalizeLoginId(rawLoginId);
     if (!LOGIN_ID_PATTERN.test(loginId)) return { error: 'invalid_login_id' };
@@ -93,6 +95,7 @@ export function createLinkAuth(config: LinkAuthConfig) {
     try {
       await users(db).insertOne({
         ...link.extra,
+        ...fields,
         _id: new ObjectId(),
         userId: link.userId,
         slug: link.slug,
@@ -263,6 +266,7 @@ export function createLinkAuth(config: LinkAuthConfig) {
     return docs.map((u) => ({
       id: u._id.toHexString(),
       loginId: u.loginId,
+      ...(typeof u.name === 'string' ? { name: u.name } : {}),
       status: u.status,
       createdAt: u.createdAt,
       approvedAt: u.approvedAt ?? null,

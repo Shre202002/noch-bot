@@ -82,9 +82,9 @@ const getLink = async (eventId: ObjectId) => {
   const { GET } = await import("@/app/api/events/[id]/scanner-link/route");
   return GET(req(`/api/events/${eventId}/scanner-link`), params({ id: eventId.toString() }));
 };
-const register = async (slug: string, loginId: string, password = "password123") => {
+const register = async (slug: string, loginId: string, password = "password123", name: unknown = "Gate One") => {
   const { POST } = await import("@/app/api/scan/[slug]/auth/register/route");
-  return POST(req(`/api/scan/${slug}/auth/register`, "POST", { loginId, password }), params({ slug }));
+  return POST(req(`/api/scan/${slug}/auth/register`, "POST", { loginId, password, name }), params({ slug }));
 };
 const login = async (slug: string, loginId: string, password = "password123") => {
   const { POST } = await import("@/app/api/scan/[slug]/auth/login/route");
@@ -202,6 +202,20 @@ describe("scanner accounts", () => {
     expect((await scan(l.slug, "EVT-AAAAAAAA")).status).toBe(401);
   });
 
+  it("asks for a name, tidies it, and shows it to the organizer", async () => {
+    const eventId = await makeEvent();
+    const { link: l } = await (await link(eventId, "create")).json();
+
+    for (const bad of [null, "", " ", "A", "x".repeat(61), 42]) {
+      const res = await register(l.slug, "gate-9", "password123", bad);
+      expect(res.status, String(bad)).toBe(400);
+      expect((await res.json()).code).toBe("invalid_name");
+    }
+    expect((await register(l.slug, "gate-9", "password123", "  Asha    Rao ")).status).toBe(200);
+    const [account] = (await feed(eventId)).body.scanners;
+    expect(account).toMatchObject({ loginId: "gate-9", name: "Asha Rao", status: "pending" });
+  });
+
   it("can sign in once the organizer approves; only that organizer can decide", async () => {
     const eventId = await makeEvent();
     const { link: l } = await (await link(eventId, "create")).json();
@@ -219,7 +233,9 @@ describe("scanner accounts", () => {
     expect(signedIn.res.status).toBe(200);
     expect(signedIn.cookie).toMatch(/^nbs_/);
     const status = await me(l.slug, signedIn.cookie);
-    expect(status).toMatchObject({ signedIn: true, loginId: "gate-1", event: { name: "Launch Party" } });
+    expect(status).toMatchObject({ signedIn: true, loginId: "gate-1", name: "Gate One", event: { name: "Launch Party", venue: "Hall B" } });
+    // The sign-in screen can show which event the link is for before anyone signs in.
+    expect(await me(l.slug)).toMatchObject({ signedIn: false, event: { name: "Launch Party" } });
   });
 
   it("stay on one device, but are never locked out for signing in often", async () => {
@@ -274,11 +290,11 @@ describe("scanning", () => {
     expect(first.body).toMatchObject({ result: "admitted", code: codes[0], attendee: "Asha Rao", counts: { total: 2, scanned: 1, remaining: 1 } });
 
     const second = await scan(slug, codes[0], cookie);
-    expect(second.body).toMatchObject({ result: "already_scanned", attendee: "Asha Rao", scannedBy: "gate-1" });
+    expect(second.body).toMatchObject({ result: "already_scanned", attendee: "Asha Rao", scannedBy: "Gate One" });
     expect(new Date(second.body.scannedAt).getTime()).toBeGreaterThan(0);
 
     const stored = await db.collection("tickets").findOne({ ticket_code: codes[0] });
-    expect(stored).toMatchObject({ status: "scanned", scanned_by_name: "gate-1" });
+    expect(stored).toMatchObject({ status: "scanned", scanned_by_name: "Gate One" });
   });
 
   it("accepts the same scan retried by the same device, and a link that holds the code", async () => {
@@ -367,7 +383,7 @@ describe("the organizer's live feed", () => {
     expect(poll.attendees).toBeNull();
     // The cursor itself is inclusive (so scans in the same millisecond are never lost); the client merges by code.
     expect(poll.scans.map((s: { code: string }) => s.code)).toEqual([codes[0], codes[1]]);
-    expect(poll.scans[1]).toMatchObject({ status: "scanned", scannedBy: "gate-1", label: "Ticket 2 of 3" });
+    expect(poll.scans[1]).toMatchObject({ status: "scanned", scannedBy: "Gate One", label: "Ticket 2 of 3" });
 
     const quiet = (await feed(eventId, `?since=${encodeURIComponent(poll.cursor)}`)).body;
     expect(quiet.scans.map((s: { code: string }) => s.code)).toEqual([codes[1]]);
