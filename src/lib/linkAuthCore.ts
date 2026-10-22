@@ -16,6 +16,8 @@ export const MAX_LOGIN_ATTEMPTS = 2;
 
 const LOGIN_ID_PATTERN = /^[a-z0-9._-]{3,32}$/;
 const MIN_PASSWORD_LENGTH = 8;
+// bcrypt only ever uses the first 72 bytes, so a longer input changes nothing and only costs time; it is cut here.
+const MAX_PASSWORD_INPUT = 256;
 const SECRET = process.env.JWT_SECRET || 'fallback_dev_secret';
 // Compared against when the Login ID does not exist, so a missing account costs the same time as a wrong password.
 const DUMMY_HASH = bcrypt.hashSync('nochbot-link-user-placeholder', 10);
@@ -91,6 +93,7 @@ export function createLinkAuth(config: LinkAuthConfig) {
     const loginId = normalizeLoginId(rawLoginId);
     if (!LOGIN_ID_PATTERN.test(loginId)) return { error: 'invalid_login_id' };
     if (typeof password !== 'string' || password.length < MIN_PASSWORD_LENGTH) return { error: 'weak_password' };
+    const secret = password.slice(0, MAX_PASSWORD_INPUT);
 
     try {
       await users(db).insertOne({
@@ -100,7 +103,7 @@ export function createLinkAuth(config: LinkAuthConfig) {
         userId: link.userId,
         slug: link.slug,
         loginId,
-        passwordHash: await bcrypt.hash(password, 10),
+        passwordHash: await bcrypt.hash(secret, 10),
         status: 'pending',
         loginAttempts: [],
         createdAt: now,
@@ -128,7 +131,7 @@ export function createLinkAuth(config: LinkAuthConfig) {
     | { error: 'invalid' | 'pending' | 'rejected' | 'blocked' }
   > {
     const loginId = normalizeLoginId(rawLoginId);
-    const pass = typeof password === 'string' ? password : '';
+    const pass = typeof password === 'string' ? password.slice(0, MAX_PASSWORD_INPUT) : '';
     const user = loginId ? await users(db).findOne({ slug, loginId }) : null;
 
     if (!user) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { AlertCircle, ArrowLeft, Check, Copy, ExternalLink, Link2, Loader2, RefreshCw, Search, UserCheck, Users } from "lucide-react";
@@ -32,6 +32,9 @@ type Feed = {
 };
 
 const POLL_MS = 1000;
+const POLL_TIMEOUT_MS = 8000;
+// This many failed polls in a row with nothing yet loaded: stop showing a spinner and say what is wrong.
+const GIVE_UP_AFTER = 3;
 const EPOCH = "1970-01-01T00:00:00.000Z";
 // A count mismatch reloads the whole list, but never more often than this (tickets can lag behind a booking for a moment).
 const FULL_RELOAD_MIN_MS = 5000;
@@ -73,8 +76,8 @@ function useMinWidth(px: number): boolean {
 const AttendeeRow = memo(function AttendeeRow({ a, flashed }: { a: Attendee; flashed: boolean }) {
   return (
     <tr className={`border-t border-white/5 transition-colors duration-1000 ${flashed ? "bg-[#36f4a4]/15" : ""}`}>
-      <td className="py-2 pr-3 font-semibold text-white">{a.name || "—"}</td>
-      <td className="py-2 pr-3 text-white/70">{[a.email, a.phone].filter(Boolean).join(" · ") || "—"}</td>
+      <td dir="auto" className="max-w-[16rem] truncate py-2 pr-3 font-semibold text-white">{a.name || "—"}</td>
+      <td className="max-w-[18rem] break-words py-2 pr-3 text-white/70">{[a.email, a.phone].filter(Boolean).join(" · ") || "—"}</td>
       <td className="py-2 pr-3 text-white/70"><span className="font-mono text-xs">{a.code}</span><br /><span className="text-xs text-white/60">{a.label}</span></td>
       <td className="py-2 pr-3">{a.status === "scanned" ? <Badge className="bg-[#36f4a4] text-black">Scanned</Badge> : <Badge variant="secondary">{a.status === "active" ? "Not yet" : a.status}</Badge>}</td>
       <td className="py-2 pr-3 tabular-nums text-white/70">{time(a.scannedAt) || "—"}</td>
@@ -87,7 +90,7 @@ const AttendeeCard = memo(function AttendeeCard({ a, flashed }: { a: Attendee; f
   return (
     <li className={`rounded-xl border border-white/10 p-3 transition-colors duration-1000 ${flashed ? "bg-[#36f4a4]/15" : "bg-white/[0.03]"}`}>
       <div className="flex items-start justify-between gap-2">
-        <p className="min-w-0 truncate font-semibold text-white">{a.name || "—"}</p>
+        <p dir="auto" className="min-w-0 truncate font-semibold text-white">{a.name || "—"}</p>
         {a.status === "scanned" ? <Badge className="shrink-0 bg-[#36f4a4] text-black">Scanned</Badge> : <Badge variant="secondary" className="shrink-0">{a.status === "active" ? "Not yet" : a.status}</Badge>}
       </div>
       {(a.email || a.phone) && <p className="mt-0.5 break-words text-sm text-white/70">{[a.email, a.phone].filter(Boolean).join(" · ")}</p>}
@@ -108,6 +111,7 @@ export default function EventScanningPage() {
   const [flash, setFlash] = useState<Map<string, number>>(new Map());
   const [error, setError] = useState("");
   const [reconnecting, setReconnecting] = useState(false);
+  const [failedCount, setFailedCount] = useState(0);
   const isWide = useMinWidth(768);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "scanned" | "not_yet">("all");
@@ -138,7 +142,14 @@ export default function EventScanningPage() {
       try {
         const full = needFull.current;
         const qs = full ? "?full=1" : `?since=${encodeURIComponent(cursor.current ?? EPOCH)}`;
-        const res = await fetch(`/api/events/${eventId}/scan-feed${qs}`, { cache: "no-store" });
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), POLL_TIMEOUT_MS);
+        let res: Response;
+        try {
+          res = await fetch(`/api/events/${eventId}/scan-feed${qs}`, { cache: "no-store", signal: controller.signal });
+        } finally {
+          clearTimeout(timeout);
+        }
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw Object.assign(new Error(data.error || "Could not load scanning data."), { status: res.status });
         if (stopped) return;
@@ -187,6 +198,7 @@ export default function EventScanningPage() {
           (localScanned.current !== data.counts.scanned || known.current.size !== data.counts.total) &&
           Date.now() - lastFull.current > FULL_RELOAD_MIN_MS;
         failures.current = 0;
+        setFailedCount(0);
         setReconnecting(false);
         setError("");
       } catch (e) {
@@ -198,6 +210,7 @@ export default function EventScanningPage() {
           return;
         }
         if (failures.current >= 2) setReconnecting(true);
+        setFailedCount(failures.current);
         delay = Math.min(MAX_BACKOFF_MS, POLL_MS * 2 ** failures.current);
       } finally {
         inFlight = false;
@@ -241,13 +254,14 @@ export default function EventScanningPage() {
     try { await navigator.clipboard.writeText(linkUrl); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch { setNotice("Copy failed. Select the link and copy it."); }
   };
 
+  const deferredQuery = useDeferredValue(query);
   const rows = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = deferredQuery.trim().toLowerCase();
     return [...attendees.values()]
       .filter((a) => (filter === "all" ? true : filter === "scanned" ? a.status === "scanned" : a.status !== "scanned"))
       .filter((a) => !q || [a.name, a.email, a.phone, a.code, a.bookingCode].some((v) => v?.toLowerCase().includes(q)))
       .sort((a, b) => (a.status === "scanned" ? 0 : 1) - (b.status === "scanned" ? 0 : 1) || String(b.scannedAt).localeCompare(String(a.scannedAt)) || (a.name ?? "").localeCompare(b.name ?? ""));
-  }, [attendees, query, filter]);
+  }, [attendees, deferredQuery, filter]);
 
   if (error && !feed) {
     return (
@@ -257,8 +271,16 @@ export default function EventScanningPage() {
       </div>
     );
   }
+  if (!feed && failedCount >= GIVE_UP_AFTER) {
+    return (
+      <div className="mx-auto max-w-3xl space-y-4 py-16 text-center">
+        <p role="alert" className="flex items-center justify-center gap-2 text-amber-300"><AlertCircle aria-hidden="true" className="h-5 w-5" /> Could not load the scanning data. Check your connection.</p>
+        <Button variant="outline" onClick={() => { setFailedCount(0); refreshNow.current(); }}>Try again</Button>
+      </div>
+    );
+  }
   if (!feed) {
-    return <div className="flex h-64 items-center justify-center"><Loader2 aria-label="Loading scanning data" className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
+    return <div className="flex h-64 items-center justify-center"><Loader2 aria-label="Loading scanning data" className="h-8 w-8 motion-safe:animate-spin text-muted-foreground" /></div>;
   }
 
   const { counts } = feed;
@@ -271,15 +293,21 @@ export default function EventScanningPage() {
           <Link href="/dashboard/scanning" className="mb-2 inline-flex items-center gap-1 text-sm text-white/60 hover:text-white">
             <ArrowLeft aria-hidden="true" className="h-4 w-4" /> All events
           </Link>
-          <h1 className="text-3xl font-black tracking-tight">{feed.eventName}</h1>
+          <h1 dir="auto" className="break-words text-3xl font-black tracking-tight">{feed.eventName}</h1>
           <p className="text-sm text-muted-foreground">Ticket scanning and visitor data, updating live.</p>
         </div>
-        <span role="status" className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-semibold ${reconnecting ? "border-amber-500/50 text-amber-300" : "border-[#36f4a4]/40 text-[#36f4a4]"}`}>
-          <span aria-hidden="true" className={`h-2.5 w-2.5 rounded-full ${reconnecting ? "bg-amber-400" : "animate-pulse bg-[#36f4a4]"}`} />
-          {reconnecting ? "Reconnecting…" : "Live"}
+        <span role="status" className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-semibold ${error ? "border-red-500/50 text-red-300" : reconnecting ? "border-amber-500/50 text-amber-300" : "border-[#36f4a4]/40 text-[#36f4a4]"}`}>
+          <span aria-hidden="true" className={`h-2.5 w-2.5 rounded-full ${error ? "bg-red-400" : reconnecting ? "bg-amber-400" : "motion-safe:animate-pulse bg-[#36f4a4]"}`} />
+          {error ? "Stopped" : reconnecting ? "Reconnecting…" : "Live"}
         </span>
       </div>
 
+      {error && (
+        <p role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          <AlertCircle aria-hidden="true" className="h-4 w-4 shrink-0" /> {error} The numbers below are no longer updating.
+          <Button size="sm" variant="outline" onClick={() => window.location.reload()}>Reload</Button>
+        </p>
+      )}
       {notice && <p role="alert" className="text-sm text-amber-300">{notice}</p>}
 
       <section aria-label="Door counts" className="grid grid-cols-3 gap-2 sm:gap-4">
@@ -303,8 +331,8 @@ export default function EventScanningPage() {
         </div>
       </section>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card className="border-white/10 bg-card/40">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-2">
+        <Card className="min-w-0 border-white/10 bg-card/40">
           <CardContent className="space-y-3 p-5">
             <h2 className="text-lg font-bold">Live scans</h2>
             {recent.length === 0 ? (
@@ -314,12 +342,12 @@ export default function EventScanningPage() {
                 {recent.map((a) => (
                   <li key={a.code} className={`flex items-center justify-between gap-3 rounded-xl px-3 py-2 transition-colors duration-1000 ${isFlashed(a.code) ? "bg-[#36f4a4]/20" : "bg-white/5"}`}>
                     <div className="min-w-0">
-                      <p className="truncate font-semibold text-white">{who(a)}</p>
+                      <p dir="auto" className="truncate font-semibold text-white">{who(a)}</p>
                       <p className="truncate text-xs text-white/50">{a.code} · {a.label}</p>
                     </div>
-                    <div className="shrink-0 text-right text-xs text-white/60">
+                    <div className="min-w-0 max-w-[45%] shrink-0 text-right text-xs text-white/60">
                       <p className="tabular-nums">{time(a.scannedAt)}</p>
-                      {a.scannedBy && <p>by {a.scannedBy}</p>}
+                      {a.scannedBy && <p dir="auto" className="truncate">by {a.scannedBy}</p>}
                     </div>
                   </li>
                 ))}
@@ -328,7 +356,7 @@ export default function EventScanningPage() {
           </CardContent>
         </Card>
 
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <Card className="border-white/10 bg-card/40">
             <CardContent className="space-y-3 p-5">
               <h2 className="flex items-center gap-2 text-lg font-bold"><Link2 aria-hidden="true" className="h-5 w-5" /> Scanner link</h2>
@@ -336,7 +364,7 @@ export default function EventScanningPage() {
                 <>
                   <p className="text-sm text-white/60">Share one link with your door staff. They create an account, you approve them, and they can scan this event&apos;s tickets only.</p>
                   <Button disabled={busy === "create"} onClick={() => act("create", `/api/events/${eventId}/scanner-link`, { action: "create" })} className="rounded-full bg-[#36f4a4] font-bold text-black hover:bg-[#36f4a4]/90">
-                    {busy === "create" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Create scanner link
+                    {busy === "create" ? <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" /> : null} Create scanner link
                   </Button>
                 </>
               ) : (
@@ -373,7 +401,7 @@ export default function EventScanningPage() {
                   {[...feed.scanners].sort((a, b) => (a.status === "pending" ? 0 : 1) - (b.status === "pending" ? 0 : 1)).map((s) => (
                     <li key={s.id} className="rounded-xl bg-white/5 p-3">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="truncate font-semibold text-white">{s.name || s.loginId}{s.name && <span className="ml-2 text-xs font-normal text-white/50">{s.loginId}</span>}</p>
+                        <p dir="auto" className="min-w-0 truncate font-semibold text-white">{s.name || s.loginId}{s.name && <span className="ml-2 text-xs font-normal text-white/50">{s.loginId}</span>}</p>
                         <span className="shrink-0 text-xs font-semibold" style={{ color: SCANNER_STATUS[s.status].color }}>
                           {SCANNER_STATUS[s.status].label}{s.status === "approved" && s.signedIn ? " · signed in" : ""}
                         </span>

@@ -12,6 +12,7 @@ import { LINK_AUTH_MESSAGES, linkCookieOptions } from './linkUserAuth';
 
 export const SCANNER_LINKS_COLLECTION = 'scanner_links';
 export const SCANNER_USERS_COLLECTION = 'scanner_users';
+export const SCANNER_THROTTLE_COLLECTION = 'scanner_throttle';
 
 export interface ScannerLink {
   _id: ObjectId;
@@ -35,6 +36,7 @@ export const SCANNER_AUTH_MESSAGES = {
   blocked: 'This account was blocked by the organizer.',
   none: 'Sign in to scan tickets.',
   invalid_name: 'Enter your name (2 to 60 characters).',
+  too_many: 'Too many attempts. Wait a few minutes and try again.',
   taken: 'That Login ID is already taken for this event.',
 } as const;
 
@@ -48,6 +50,7 @@ export function ensureScannerIndexes(db: Db): Promise<void> {
       links(db).createIndex({ slug: 1 }, { unique: true }),
       links(db).createIndex({ event_id: 1 }, { unique: true }),
       db.collection('tickets').createIndex({ event_id: 1, scanned_at: 1 }),
+      db.collection(SCANNER_THROTTLE_COLLECTION).createIndex({ expireAt: 1 }, { expireAfterSeconds: 0 }),
       core.ensureIndexes(db),
     ])
       .then(() => undefined)

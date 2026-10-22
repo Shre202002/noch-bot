@@ -6,6 +6,7 @@ import {
   findActiveScannerLink,
   scannerCookieName,
   SCANNER_AUTH_MESSAGES,
+  SCANNER_THROTTLE_COLLECTION,
   verifyScannerSession,
   type ScannerLink,
 } from './scannerLinkAuth';
@@ -44,3 +45,43 @@ export async function requireScannerSession(
   }
   return { ...found, user: session.user };
 }
+
+/** The caller's address as the hosting platform reports it, or "unknown". Used only to count attempts, never to trust anyone. */
+export function clientIp(req: NextRequest): string {
+  const forwarded = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
+  return (forwarded || req.headers.get('x-real-ip') || 'unknown').slice(0, 64);
+}
+
+/**
+ * Counts one attempt against `key` in a fixed time window and says whether it is still allowed. Counters live in the
+ * database (so every server instance shares them) and expire on their own.
+ */
+export async function allowAttempt(db: Db, key: string, limit: number, windowMs: number, now: Date = new Date()): Promise<boolean> {
+  const windowStart = Math.floor(now.getTime() / windowMs) * windowMs;
+  const id = `${key}:${windowStart}`;
+  const update = { $inc: { count: 1 }, $setOnInsert: { expireAt: new Date(windowStart + windowMs * 2) } };
+  const collection = db.collection<{ _id: string; count: number; expireAt: Date }>(SCANNER_THROTTLE_COLLECTION);
+  try {
+    const doc = await collection.findOneAndUpdate({ _id: id }, update, { upsert: true, returnDocument: 'after' });
+    return (doc?.count ?? 1) <= limit;
+  } catch (err) {
+    // Two first attempts at the same instant can both try to create the counter: the loser just counts on the winner's.
+    if ((err as { code?: number }).code === 11000) {
+      const doc = await collection.findOneAndUpdate({ _id: id }, { $inc: { count: 1 } }, { returnDocument: 'after' });
+      return (doc?.count ?? 1) <= limit;
+    }
+    throw err;
+  }
+}
+
+/** Whether `key` has already used up its `limit` in the current window. Reads only; nothing is counted. */
+export async function isThrottled(db: Db, key: string, limit: number, windowMs: number, now: Date = new Date()): Promise<boolean> {
+  const windowStart = Math.floor(now.getTime() / windowMs) * windowMs;
+  const doc = await db.collection<{ _id: string; count: number }>(SCANNER_THROTTLE_COLLECTION).findOne({ _id: `${key}:${windowStart}` });
+  return (doc?.count ?? 0) >= limit;
+}
+
+/** Sign-in and sign-up limits: per address on one link, and per account, over ten minutes. */
+export const ATTEMPT_WINDOW_MS = 10 * 60 * 1000;
+export const MAX_ATTEMPTS_PER_ADDRESS = 30;
+export const MAX_ATTEMPTS_PER_ACCOUNT = 8;

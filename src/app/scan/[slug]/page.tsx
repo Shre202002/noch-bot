@@ -17,10 +17,29 @@ type Result = {
   retry?: boolean;
   counts?: Counts;
 };
-type Banner = { tone: "ok" | "warn" | "bad"; title: string; detail?: string; code?: string };
+type Banner = {
+  tone: "ok" | "warn" | "bad";
+  title: string;
+  detail?: string;
+  code?: string;
+  /** The check did not reach the server: the same scan (same id, so it can never count twice) can be sent again. */
+  retry?: { code: string; id: string };
+};
+
+/** fetch that gives up after a while, so a stalled connection ends in an error the person can act on instead of a spinner. */
+async function request(url: string, init: RequestInit = {}, timeoutMs = REQUEST_TIMEOUT_MS): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 // How long a result stays on screen before the page is ready-looking again, and how often the door counts are re-checked.
-const RESULT_SHOWN_MS = 4000;
+const RESULT_SHOWN_MS = 6000;
+const REQUEST_TIMEOUT_MS = 10_000;
 const COUNTS_SYNC_MS = 15000;
 
 /** How each server outcome is shown to the person at the door. */
@@ -125,6 +144,7 @@ export default function ScannerPage() {
   const [cameraNote, setCameraNote] = useState("");
   const [torchSupported, setTorchSupported] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
+  const [online, setOnline] = useState(true);
   const [history, setHistory] = useState<Array<Banner & { at: number }>>([]);
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -133,17 +153,32 @@ export default function ScannerPage() {
   const busy = useRef(false);
   const bannerTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const autoStarted = useRef(false);
+  const permissionDenied = useRef(false);
 
   const refreshMe = useCallback(async () => {
-    const res = await fetch(`${api}/auth/me`, { cache: "no-store" });
+    const res = await request(`${api}/auth/me`, { cache: "no-store" });
     if (res.status === 404) { setUnavailable(true); return null; }
+    if (res.status >= 500) throw new Error("server");
     const data: Me = await res.json().catch(() => ({ signedIn: false }));
     setMe(data);
     if (data.counts) setCounts(data.counts);
     return data;
   }, [api]);
 
-  useEffect(() => { void refreshMe().catch(() => setMe({ signedIn: false, message: "Could not reach the server. Check your connection." })); }, [refreshMe]);
+  const loadMe = useCallback(
+    () => refreshMe().catch(() => setMe({ signedIn: false, code: "network", message: "Could not reach the server. Check your connection and try again." })),
+    [refreshMe]
+  );
+  useEffect(() => { void loadMe(); }, [loadMe]);
+
+  // Without a connection a ticket cannot be checked, so say so instead of failing one scan at a time.
+  useEffect(() => {
+    const update = () => setOnline(navigator.onLine);
+    update();
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    return () => { window.removeEventListener("online", update); window.removeEventListener("offline", update); };
+  }, []);
 
   const stopCamera = useCallback(() => {
     cameraRef.current?.stream.getTracks().forEach((t) => t.stop());
@@ -154,7 +189,7 @@ export default function ScannerPage() {
   useEffect(() => stopCamera, [stopCamera]);
 
   const signIn = useCallback(async (id: string, pass: string, quiet = false) => {
-    const res = await fetch(`${api}/auth/login`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ loginId: id, password: pass }) });
+    const res = await request(`${api}/auth/login`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ loginId: id, password: pass }) });
     const data = await res.json().catch(() => ({}));
     if (res.ok) { setWaiting(false); setPassword(""); setFormError(""); await refreshMe(); return true; }
     if (data.code === "pending") { setWaiting(true); setFormError(""); return false; }
@@ -166,7 +201,7 @@ export default function ScannerPage() {
   // While waiting for approval, try again every few seconds so the screen moves on by itself.
   useEffect(() => {
     if (!waiting) return;
-    const t = setInterval(() => { void signIn(loginId.trim(), password, true); }, 4000);
+    const t = setInterval(() => { void signIn(loginId.trim(), password, true).catch(() => {}); }, 4000);
     return () => clearInterval(t);
   }, [waiting, loginId, password, signIn]);
 
@@ -181,7 +216,7 @@ export default function ScannerPage() {
       if (mode === "register") {
         if (fullName.trim().length < 2) { setFormError("Enter your name."); return; }
         if (password !== confirm) { setFormError("Passwords do not match."); return; }
-        const res = await fetch(`${api}/auth/register`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: fullName, loginId, password }) });
+        const res = await request(`${api}/auth/register`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: fullName, loginId, password }) });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) { setFormError(data.error || "Could not create the account."); return; }
         setWaiting(true);
@@ -197,26 +232,32 @@ export default function ScannerPage() {
 
   const signOut = async () => {
     stopCamera();
-    await fetch(`${api}/auth/logout`, { method: "POST" }).catch(() => {});
+    await request(`${api}/auth/logout`, { method: "POST" }).catch(() => {});
     setBanner(null);
     setHistory([]);
     await refreshMe();
   };
 
-  const check = useCallback(async (raw: string) => {
+  /** Sends one ticket code to be checked. Returns whether a check was started (false when empty or one is already running). */
+  const check = useCallback(async (raw: string, scanId: string = newScanId()): Promise<boolean> => {
     const text = raw.trim();
-    if (!text || busy.current) return;
+    if (!text || busy.current) return false;
     busy.current = true;
     setChecking(true);
+    clearTimeout(bannerTimer.current);
+    // A failed attempt keeps the same scan id, so pressing Try again can never admit the same ticket twice.
+    const failed = (title: string, detail: string) =>
+      setBanner({ tone: "bad", title, detail, retry: { code: text, id: scanId } });
     try {
-      const res = await fetch(`${api}/scan`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ticketCode: text, clientScanId: newScanId() }) });
+      if (!navigator.onLine) { failed("You are offline", "Nothing was checked. Reconnect, then try again."); return true; }
+      const res = await request(`${api}/scan`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ticketCode: text, clientScanId: scanId }) });
       if (res.status === 401 || res.status === 403) {
         stopCamera();
         await refreshMe();
-        return;
+        return true;
       }
       const data: Result & { error?: string } = await res.json().catch(() => ({ result: "error" }));
-      if (!res.ok) { setBanner({ tone: "bad", title: "Could not check the ticket", detail: data.error || "Try again." }); return; }
+      if (!res.ok) { failed(res.status === 429 ? "Too many requests" : "Could not check the ticket", data.error || "Try again in a moment."); return true; }
       const b = bannerFor(data);
       setBanner(b);
       setHistory((h) => [{ ...b, at: Date.now() }, ...h].slice(0, 8));
@@ -224,14 +265,15 @@ export default function ScannerPage() {
       // The count moves the instant someone is admitted; the server's numbers are re-checked every few seconds.
       if (data.result === "admitted" && !data.retry) setCounts((c) => (c ? { total: c.total, scanned: c.scanned + 1, remaining: Math.max(0, c.remaining - 1) } : c));
       else if (data.counts) setCounts(data.counts);
-      clearTimeout(bannerTimer.current);
       bannerTimer.current = setTimeout(() => setBanner(null), RESULT_SHOWN_MS);
     } catch {
-      setBanner({ tone: "bad", title: "Connection problem", detail: "Nothing was checked. Try again." });
+      failed("Connection problem", "Nothing was checked. Check your signal, then try again.");
+      signalResult(false);
     } finally {
       busy.current = false;
       setChecking(false);
     }
+    return true;
   }, [api, refreshMe, stopCamera]);
 
   const startCamera = useCallback(async () => {
@@ -240,12 +282,25 @@ export default function ScannerPage() {
     try {
       const camera = await openCamera();
       cameraRef.current = camera;
+      permissionDenied.current = false;
       setTorchSupported(camera.torchSupported);
       setCameraOn(true);
-    } catch {
-      setCameraNote("Camera permission was blocked. Allow it in your browser, or type the ticket code instead.");
+      // Another app taking the camera, or the phone sleeping, ends the stream: say so and offer to restart.
+      camera.stream.getVideoTracks()[0]?.addEventListener("ended", () => {
+        if (cameraRef.current !== camera) return;
+        stopCamera();
+        setCameraNote("The camera stopped (another app may have taken it). Tap Start camera to continue.");
+      });
+    } catch (error) {
+      const name = (error as { name?: string } | null)?.name;
+      permissionDenied.current = name === "NotAllowedError" || name === "SecurityError";
+      setCameraNote(
+        name === "NotFoundError" || name === "OverconstrainedError" ? "No camera was found on this device. Type the ticket code instead."
+        : name === "NotReadableError" || name === "AbortError" ? "The camera is busy in another app. Close it, then tap Start camera."
+        : "Camera permission was blocked. Allow it in your browser, or type the ticket code instead."
+      );
     }
-  }, []);
+  }, [stopCamera]);
 
   // The camera starts by itself once signed in, so the first ticket can be scanned without touching anything.
   useEffect(() => {
@@ -268,6 +323,37 @@ export default function ScannerPage() {
     });
   }, [cameraOn, check]);
 
+  // Keep the screen awake while scanning (a dimmed screen ends the camera), and bring the camera back when the page returns
+  // to the front after the phone slept or another app was used.
+  useEffect(() => {
+    if (!cameraOn) return;
+    let sentinel: WakeLockSentinel | null = null;
+    let cancelled = false;
+    const hold = async () => {
+      try {
+        sentinel = (await navigator.wakeLock?.request("screen")) ?? null;
+        if (cancelled) void sentinel?.release().catch(() => {});
+      } catch { /* not supported, or the battery saver said no */ }
+    };
+    void hold();
+    const onVisible = () => { if (!document.hidden) void hold(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", onVisible);
+      void sentinel?.release().catch(() => {});
+    };
+  }, [cameraOn]);
+
+  useEffect(() => {
+    if (!me?.signedIn) return;
+    const onVisible = () => {
+      if (!document.hidden && autoStarted.current && !cameraRef.current && !permissionDenied.current) void startCamera();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [me?.signedIn, startCamera]);
+
   // Door counts also change from other phones and the dashboard, so they are re-read every few seconds.
   useEffect(() => {
     if (!me?.signedIn) return;
@@ -277,8 +363,8 @@ export default function ScannerPage() {
 
   const toggleTorch = async () => {
     const next = !torchOn;
-    await cameraRef.current?.setTorch(next);
-    setTorchOn(next);
+    // The light switch only changes when the camera really accepted it.
+    if (await cameraRef.current?.setTorch(next)) setTorchOn(next);
   };
 
   // ── screens ────────────────────────────────────────────────────────────────
@@ -299,7 +385,7 @@ export default function ScannerPage() {
     );
   }
   if (!me) {
-    return shell(<div className="my-auto flex justify-center"><Loader2 aria-label="Loading" className="h-8 w-8 animate-spin text-white/60" /></div>);
+    return shell(<div className="my-auto flex justify-center"><Loader2 aria-label="Loading" className="h-8 w-8 motion-safe:animate-spin text-white/60" /></div>);
   }
 
   if (!me.signedIn) {
@@ -330,16 +416,16 @@ export default function ScannerPage() {
 
         {waiting ? (
           <div role="status" className="space-y-3 rounded-3xl border border-amber-400/40 bg-amber-500/10 p-6 text-center">
-            <Loader2 aria-hidden="true" className="mx-auto h-7 w-7 animate-spin text-amber-300" />
+            <Loader2 aria-hidden="true" className="mx-auto h-7 w-7 motion-safe:animate-spin text-amber-300" />
             <p className="text-lg font-bold text-amber-100">Waiting for approval{fullName.trim() ? `, ${fullName.trim().split(" ")[0]}` : ""}</p>
             <p className="text-sm text-amber-100/70">The organizer has to approve your account. Keep this page open: it signs you in automatically as soon as you are approved.</p>
             <button type="button" onClick={() => { setWaiting(false); setMode("login"); }} className="inline-flex min-h-11 items-center px-4 text-sm text-white/60 underline underline-offset-4">Back to sign in</button>
           </div>
         ) : (
           <form onSubmit={submit} noValidate className="space-y-5 rounded-3xl border border-white/10 bg-white/[0.04] p-5 shadow-2xl shadow-black/40">
-            <div role="tablist" aria-label="Sign in or create an account" className="grid grid-cols-2 gap-1 rounded-2xl bg-black/40 p-1 text-sm font-semibold">
+            <div role="group" aria-label="Sign in or create an account" className="grid grid-cols-2 gap-1 rounded-2xl bg-black/40 p-1 text-sm font-semibold">
               {(["login", "register"] as const).map((m) => (
-                <button key={m} type="button" role="tab" aria-selected={mode === m} onClick={() => { setMode(m); setFormError(""); setConfirm(""); }}
+                <button key={m} type="button" aria-pressed={mode === m} onClick={() => { setMode(m); setFormError(""); setConfirm(""); }}
                   className={`min-h-11 rounded-xl transition-colors ${mode === m ? "bg-[#36f4a4] text-black shadow" : "text-white/70 hover:text-white"}`}>
                   {m === "login" ? "Sign in" : "Create account"}
                 </button>
@@ -381,9 +467,14 @@ export default function ScannerPage() {
                 <AlertTriangle aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" /> {note}
               </p>
             )}
+            {me.code === "network" && !formError && (
+              <button type="button" onClick={() => { setMe(null); void loadMe(); }} className="min-h-11 w-full rounded-xl border border-white/20 text-sm font-semibold text-white/90">
+                Try again
+              </button>
+            )}
 
             <button type="submit" disabled={submitting} className="flex h-13 w-full items-center justify-center gap-2 rounded-2xl bg-[#36f4a4] py-3.5 text-base font-bold text-black transition-opacity hover:opacity-90 disabled:opacity-60">
-              {submitting && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}
+              {submitting && <Loader2 aria-hidden="true" className="h-4 w-4 motion-safe:animate-spin" />}
               {registering ? "Create account" : "Sign in"}
             </button>
             {registering && <p className="text-center text-xs text-white/50">The organizer must approve your account before you can scan.</p>}
@@ -398,8 +489,8 @@ export default function ScannerPage() {
     <div className="flex flex-col gap-5 short-landscape:grid short-landscape:grid-cols-2 short-landscape:items-start short-landscape:gap-x-5 short-landscape:gap-y-3">
       <header className="flex items-start justify-between gap-3 short-landscape:col-span-2">
         <div className="min-w-0">
-          <h1 className="truncate text-xl font-black">{me.event?.name ?? "Ticket scanner"}</h1>
-          <p className="truncate text-xs text-white/50">Signed in as {me.name || me.loginId}</p>
+          <h1 dir="auto" className="truncate text-xl font-black">{me.event?.name ?? "Ticket scanner"}</h1>
+          <p dir="auto" className="truncate text-xs text-white/50">Signed in as {me.name || me.loginId}</p>
         </div>
         <button type="button" onClick={signOut} className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg border border-white/15 px-3 text-sm text-white/80">
           <LogOut aria-hidden="true" className="h-4 w-4" /> Sign out
@@ -417,18 +508,29 @@ export default function ScannerPage() {
         </div>
       )}
 
+      {!online && (
+        <p role="status" className="rounded-xl border border-amber-400/40 bg-amber-500/10 px-3 py-2.5 text-center text-sm font-semibold text-amber-200 short-landscape:col-span-2">
+          You are offline. Tickets cannot be checked until you reconnect.
+        </p>
+      )}
+
       <div aria-live="assertive" className="min-h-[8.5rem] short-landscape:col-start-2 short-landscape:row-start-3 short-landscape:min-h-24">
         {checking ? (
           <div className="flex h-full min-h-[8.5rem] items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 text-white/70 short-landscape:min-h-24">
-            <Loader2 aria-hidden="true" className="h-5 w-5 animate-spin" /> Checking…
+            <Loader2 aria-hidden="true" className="h-5 w-5 motion-safe:animate-spin" /> Checking…
           </div>
         ) : banner && Tone ? (
           <div className={`flex min-h-[8.5rem] items-center gap-4 rounded-2xl border-2 p-5 short-landscape:min-h-24 short-landscape:p-3 ${Tone.box}`}>
             <Tone.Icon aria-hidden="true" className="h-12 w-12 shrink-0" />
             <div className="min-w-0">
               <p className="text-2xl font-black">{banner.title}</p>
-              {banner.detail && <p className="break-words text-base">{banner.detail}</p>}
+              {banner.detail && <p dir="auto" className="break-words text-base">{banner.detail}</p>}
               {banner.code && <p className="mt-1 font-mono text-xs opacity-70">{banner.code}</p>}
+              {banner.retry && (
+                <button type="button" onClick={() => void check(banner.retry!.code, banner.retry!.id)} className="mt-2 min-h-11 rounded-xl bg-white px-5 text-base font-bold text-black">
+                  Try again
+                </button>
+              )}
             </div>
           </div>
         ) : (
@@ -460,8 +562,8 @@ export default function ScannerPage() {
         )}
         {cameraNote && <p role="alert" className="text-sm text-amber-300">{cameraNote}</p>}
 
-        <form onSubmit={(e) => { e.preventDefault(); void check(manual); setManual(""); }} className="flex gap-2">
-          <input value={manual} onChange={(e) => setManual(e.target.value)} placeholder="Type ticket code (EVT-…)" aria-label="Ticket code" autoCapitalize="characters" autoComplete="off"
+        <form onSubmit={(e) => { e.preventDefault(); const typed = manual; if (typed.trim() && !busy.current) { setManual(""); void check(typed); } }} className="flex gap-2">
+          <input value={manual} onChange={(e) => setManual(e.target.value)} placeholder="Type ticket code (EVT-…)" aria-label="Ticket code" maxLength={120} autoCapitalize="characters" autoComplete="off"
             className="min-w-0 flex-1 rounded-xl border border-white/15 bg-black/40 px-3 py-3 font-mono text-base text-white" />
           <button type="submit" disabled={checking || !manual.trim()} className="rounded-xl bg-white px-5 py-3 font-bold text-black disabled:opacity-50">Check</button>
         </form>
@@ -473,7 +575,7 @@ export default function ScannerPage() {
           <ul className="space-y-1.5">
             {history.map((h, i) => (
               <li key={h.at + String(i)} className="flex items-center justify-between gap-2 rounded-lg bg-white/5 px-3 py-2 text-sm">
-                <span className="min-w-0 truncate">{h.detail || h.title}</span>
+                <span dir="auto" className="min-w-0 truncate">{h.detail || h.title}</span>
                 <span className={`shrink-0 text-xs font-semibold ${h.tone === "ok" ? "text-emerald-300" : h.tone === "warn" ? "text-amber-300" : "text-red-300"}`}>{h.title}</span>
               </li>
             ))}

@@ -133,7 +133,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  for (const name of ["events", "bookings", "tickets", "scanner_links", "scanner_users"]) {
+  for (const name of ["events", "bookings", "tickets", "scanner_links", "scanner_users", "scanner_throttle"]) {
     await db.collection(name).deleteMany({});
   }
   signedInAs = ORG;
@@ -427,5 +427,91 @@ describe("the organizer's live feed", () => {
     expect((await feed(eventId)).status).toBe(401);
     signedInAs = ORG;
     expect((await feed(new ObjectId())).status).toBe(404);
+  });
+});
+
+describe("hardening: floods, guessing and oversized input", () => {
+  it("turns away repeated guesses at one account, without affecting other accounts", async () => {
+    const eventId = await makeEvent();
+    const { link: l } = await (await link(eventId, "create")).json();
+    await register(l.slug, "gate-1");
+    await register(l.slug, "gate-2");
+
+    const statuses: number[] = [];
+    for (let i = 0; i < 9; i++) statuses.push((await login(l.slug, "gate-1", "wrong-password")).res.status);
+    expect(statuses.slice(0, 8).every((s) => s !== 429)).toBe(true);
+    const blocked = await login(l.slug, "gate-1", "password123");
+    expect(statuses[8]).toBe(429);
+    expect(blocked.res.status).toBe(429);
+    expect((await blocked.res.json()).code).toBe("too_many");
+    expect(blocked.res.headers.get("retry-after")).toBe("600");
+
+    // Another account on the same link still gets through to the real check.
+    expect([200, 403]).toContain((await login(l.slug, "gate-2")).res.status);
+  });
+
+  it("never counts a waiting account's retries, so approval is not lost to the limit", async () => {
+    const eventId = await makeEvent();
+    const { link: l } = await (await link(eventId, "create")).json();
+    await register(l.slug, "gate-1");
+    for (let i = 0; i < 12; i++) expect((await login(l.slug, "gate-1")).res.status).toBe(403); // pending, correct password
+    const [account] = (await feed(eventId)).body.scanners;
+    await decide(eventId, account.id, "approve");
+    expect((await login(l.slug, "gate-1")).res.status).toBe(200);
+  });
+
+  it("limits sign-ups from one address, so a link cannot be flooded with pending accounts", async () => {
+    const eventId = await makeEvent();
+    const { link: l } = await (await link(eventId, "create")).json();
+    const results: number[] = [];
+    for (let i = 0; i < 12; i++) results.push((await register(l.slug, `flood-${i}`)).status);
+    expect(results.filter((s) => s === 200)).toHaveLength(10);
+    expect(results.slice(10)).toEqual([429, 429]);
+    expect((await feed(eventId)).body.scanners).toHaveLength(10);
+  });
+
+  it("starts counting again in the next time window, and keeps separate counts per key", async () => {
+    const { allowAttempt } = await import("@/lib/scannerSession");
+    const t0 = new Date("2026-01-01T10:00:00Z");
+    const later = new Date(t0.getTime() + 11 * 60 * 1000);
+    const results = [];
+    for (let i = 0; i < 4; i++) results.push(await allowAttempt(db, "k1", 3, 600_000, t0));
+    expect(results).toEqual([true, true, true, false]);
+    expect(await allowAttempt(db, "k2", 3, 600_000, t0)).toBe(true);
+    expect(await allowAttempt(db, "k1", 3, 600_000, later)).toBe(true);
+  });
+
+  it("counts correctly when many attempts arrive at the same moment", async () => {
+    const { allowAttempt } = await import("@/lib/scannerSession");
+    const now = new Date("2026-01-01T10:00:00Z");
+    const results = await Promise.all(Array.from({ length: 20 }, () => allowAttempt(db, "burst", 5, 600_000, now)));
+    expect(results.filter(Boolean)).toHaveLength(5);
+  });
+
+  it("is not slowed or broken by a huge password or a huge pasted ticket code", async () => {
+    const eventId = await makeEvent();
+    const { slug, cookie } = await readyScanner(eventId);
+    const { codes } = await makeBooking(eventId);
+
+    const started = Date.now();
+    const huge = await login(slug, "gate-1", "x".repeat(2_000_000));
+    expect(huge.res.status).toBe(401);
+    expect(Date.now() - started).toBeLessThan(5000);
+
+    // A real code at the start of a long paste still works; a code buried past the first 300 characters is not looked for.
+    expect((await scan(slug, `${codes[0]} ${"junk ".repeat(100000)}`, cookie)).body.result).toBe("admitted");
+    const buried = await scan(slug, `${"x".repeat(400)}${codes[0]}`, cookie);
+    expect(buried.body.result).toBe("invalid");
+  });
+
+  it("copes with odd names and login IDs: emoji, right-to-left text and very long input", async () => {
+    const eventId = await makeEvent();
+    const { link: l } = await (await link(eventId, "create")).json();
+    expect((await register(l.slug, "gate-emoji", "password123", "Zoë 🎉 Ünal")).status).toBe(200);
+    expect((await register(l.slug, "gate-rtl", "password123", "محمد علي")).status).toBe(200);
+    expect((await register(l.slug, "gate-long", "password123", "A".repeat(61))).status).toBe(400);
+    expect((await register(l.slug, "x".repeat(5000), "password123", "Valid Name")).status).toBe(400);
+    const names = (await feed(eventId)).body.scanners.map((s: { name: string }) => s.name).sort();
+    expect(names).toEqual(["Zoë 🎉 Ünal", "محمد علي"].sort());
   });
 });

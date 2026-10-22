@@ -47,7 +47,8 @@ export type CameraHandle = {
   stream: MediaStream;
   /** True when this camera has a torch (flashlight) that can be switched. */
   torchSupported: boolean;
-  setTorch: (on: boolean) => Promise<void>;
+  /** Switches the light; true when the camera accepted it. */
+  setTorch: (on: boolean) => Promise<boolean>;
 };
 
 /** Opens the rear camera at 720p and 30 fps with continuous autofocus where the browser allows it. */
@@ -66,7 +67,12 @@ export async function openCamera(): Promise<CameraHandle> {
     stream,
     torchSupported: Boolean(capabilities.torch),
     setTorch: async (on) => {
-      await track?.applyConstraints({ advanced: [{ torch: on } as MediaTrackConstraintSet] }).catch(() => {});
+      try {
+        await track?.applyConstraints({ advanced: [{ torch: on } as MediaTrackConstraintSet] });
+        return Boolean(track);
+      } catch {
+        return false;
+      }
     },
   };
 }

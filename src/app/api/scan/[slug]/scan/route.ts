@@ -21,7 +21,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     if (session instanceof NextResponse) return session;
 
     const body = await req.json().catch(() => ({}));
-    const ticketCode = CODE_RE.exec(String(body.ticketCode ?? '').trim().toUpperCase())?.[0];
+    // Only the start of the input is looked at: a ticket code is 12 characters, so nothing useful is lost by cutting a huge paste.
+    const ticketCode = CODE_RE.exec(String(body.ticketCode ?? '').slice(0, 300).trim().toUpperCase())?.[0];
     if (!ticketCode) return reply({ result: 'invalid', message: 'That is not a ticket code.' });
 
     const { db, link, user } = session;
