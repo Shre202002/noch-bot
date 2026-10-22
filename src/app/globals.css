@@ -2,6 +2,8 @@
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
+/* A phone held sideways: wide but very short, where stacked layouts push the main control off screen. */
+@custom-variant short-landscape (@media (orientation: landscape) and (max-height: 520px));
 
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);

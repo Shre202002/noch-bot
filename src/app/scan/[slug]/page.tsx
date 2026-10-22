@@ -92,7 +92,7 @@ function PasswordInput({ value, onChange, autoComplete, placeholder, invalid }: 
       <input type={shown ? "text" : "password"} value={value} onChange={(e) => onChange(e.target.value)} autoComplete={autoComplete} autoCapitalize="none" required placeholder={placeholder}
         aria-invalid={invalid || undefined} className={`${INPUT} pr-12 ${invalid ? "border-red-400/70 focus:border-red-400 focus:ring-red-400/30" : ""}`} />
       <button type="button" onClick={() => setShown((v) => !v)} aria-label={shown ? "Hide password" : "Show password"} aria-pressed={shown}
-        className="absolute right-1.5 top-1/2 grid size-9 -translate-y-1/2 place-content-center rounded-lg text-white/50 hover:bg-white/10 hover:text-white">
+        className="absolute right-0.5 top-1/2 grid size-11 -translate-y-1/2 place-content-center rounded-lg text-white/50 hover:bg-white/10 hover:text-white">
         {shown ? <EyeOff aria-hidden="true" className="h-5 w-5" /> : <Eye aria-hidden="true" className="h-5 w-5" />}
       </button>
     </>
@@ -284,8 +284,8 @@ export default function ScannerPage() {
   // ── screens ────────────────────────────────────────────────────────────────
 
   const shell = (children: React.ReactNode) => (
-    <div onPointerDown={armSound} className="min-h-screen bg-[#0a0a0a] text-white">
-      <main className="mx-auto flex min-h-screen w-full max-w-md flex-col gap-5 px-4 pb-28 pt-6">{children}</main>
+    <div onPointerDown={armSound} className="min-h-dvh bg-[#0a0a0a] text-white">
+      <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-5 pb-28 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[max(1.5rem,env(safe-area-inset-top))] short-landscape:max-w-4xl short-landscape:pb-6 short-landscape:pt-3">{children}</main>
     </div>
   );
 
@@ -313,7 +313,7 @@ export default function ScannerPage() {
     return shell(
       <>
         <header className="flex flex-col items-center gap-3 pt-4 text-center">
-          <span className="grid size-16 place-content-center rounded-2xl bg-gradient-to-br from-[#36f4a4]/30 to-[#36f4a4]/5 ring-1 ring-[#36f4a4]/40">
+          <span className="grid size-16 place-content-center rounded-2xl bg-gradient-to-br from-[#36f4a4]/30 to-[#36f4a4]/5 ring-1 ring-[#36f4a4]/40 short-landscape:hidden">
             <ScanLine aria-hidden="true" className="h-8 w-8 text-[#36f4a4]" />
           </span>
           <div>
@@ -333,14 +333,14 @@ export default function ScannerPage() {
             <Loader2 aria-hidden="true" className="mx-auto h-7 w-7 animate-spin text-amber-300" />
             <p className="text-lg font-bold text-amber-100">Waiting for approval{fullName.trim() ? `, ${fullName.trim().split(" ")[0]}` : ""}</p>
             <p className="text-sm text-amber-100/70">The organizer has to approve your account. Keep this page open: it signs you in automatically as soon as you are approved.</p>
-            <button type="button" onClick={() => { setWaiting(false); setMode("login"); }} className="text-sm text-white/60 underline underline-offset-4">Back to sign in</button>
+            <button type="button" onClick={() => { setWaiting(false); setMode("login"); }} className="inline-flex min-h-11 items-center px-4 text-sm text-white/60 underline underline-offset-4">Back to sign in</button>
           </div>
         ) : (
           <form onSubmit={submit} noValidate className="space-y-5 rounded-3xl border border-white/10 bg-white/[0.04] p-5 shadow-2xl shadow-black/40">
             <div role="tablist" aria-label="Sign in or create an account" className="grid grid-cols-2 gap-1 rounded-2xl bg-black/40 p-1 text-sm font-semibold">
               {(["login", "register"] as const).map((m) => (
                 <button key={m} type="button" role="tab" aria-selected={mode === m} onClick={() => { setMode(m); setFormError(""); setConfirm(""); }}
-                  className={`rounded-xl py-2.5 transition-colors ${mode === m ? "bg-[#36f4a4] text-black shadow" : "text-white/70 hover:text-white"}`}>
+                  className={`min-h-11 rounded-xl transition-colors ${mode === m ? "bg-[#36f4a4] text-black shadow" : "text-white/70 hover:text-white"}`}>
                   {m === "login" ? "Sign in" : "Create account"}
                 </button>
               ))}
@@ -395,19 +395,19 @@ export default function ScannerPage() {
 
   const Tone = banner ? TONE[banner.tone] : null;
   return shell(
-    <>
-      <header className="flex items-start justify-between gap-3">
+    <div className="flex flex-col gap-5 short-landscape:grid short-landscape:grid-cols-2 short-landscape:items-start short-landscape:gap-x-5 short-landscape:gap-y-3">
+      <header className="flex items-start justify-between gap-3 short-landscape:col-span-2">
         <div className="min-w-0">
           <h1 className="truncate text-xl font-black">{me.event?.name ?? "Ticket scanner"}</h1>
           <p className="truncate text-xs text-white/50">Signed in as {me.name || me.loginId}</p>
         </div>
-        <button type="button" onClick={signOut} className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/15 px-3 py-2 text-sm text-white/80">
+        <button type="button" onClick={signOut} className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg border border-white/15 px-3 text-sm text-white/80">
           <LogOut aria-hidden="true" className="h-4 w-4" /> Sign out
         </button>
       </header>
 
       {counts && (
-        <div className="grid grid-cols-3 gap-2 text-center" aria-label="Door counts">
+        <div role="group" className="grid grid-cols-3 gap-2 text-center short-landscape:col-start-2 short-landscape:row-start-2" aria-label="Door counts">
           {[["Scanned", counts.scanned], ["Left", counts.remaining], ["Total", counts.total]].map(([label, value]) => (
             <div key={String(label)} className="rounded-xl bg-white/5 py-2">
               <p className="text-2xl font-black tabular-nums">{value}</p>
@@ -417,13 +417,13 @@ export default function ScannerPage() {
         </div>
       )}
 
-      <div aria-live="assertive" className="min-h-[8.5rem]">
+      <div aria-live="assertive" className="min-h-[8.5rem] short-landscape:col-start-2 short-landscape:row-start-3 short-landscape:min-h-24">
         {checking ? (
-          <div className="flex h-full min-h-[8.5rem] items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 text-white/70">
+          <div className="flex h-full min-h-[8.5rem] items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 text-white/70 short-landscape:min-h-24">
             <Loader2 aria-hidden="true" className="h-5 w-5 animate-spin" /> Checking…
           </div>
         ) : banner && Tone ? (
-          <div className={`flex min-h-[8.5rem] items-center gap-4 rounded-2xl border-2 p-5 ${Tone.box}`}>
+          <div className={`flex min-h-[8.5rem] items-center gap-4 rounded-2xl border-2 p-5 short-landscape:min-h-24 short-landscape:p-3 ${Tone.box}`}>
             <Tone.Icon aria-hidden="true" className="h-12 w-12 shrink-0" />
             <div className="min-w-0">
               <p className="text-2xl font-black">{banner.title}</p>
@@ -432,23 +432,24 @@ export default function ScannerPage() {
             </div>
           </div>
         ) : (
-          <div className="flex min-h-[8.5rem] items-center justify-center rounded-2xl border border-dashed border-white/15 p-5 text-center text-white/50">
+          <div className="flex min-h-[8.5rem] items-center justify-center rounded-2xl border border-dashed border-white/15 p-5 text-center text-white/50 short-landscape:min-h-24 short-landscape:p-3">
             Ready. Hold a ticket QR in the box, or type the code below.
           </div>
         )}
       </div>
 
-      <section className="space-y-3">
+      <section className="space-y-3 short-landscape:col-start-1 short-landscape:row-span-4 short-landscape:row-start-2">
         {cameraOn ? (
           <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-black">
-            <video ref={videoRef} playsInline muted className="aspect-square w-full object-cover" />
-            <div aria-hidden="true" className="pointer-events-none absolute inset-[10%] rounded-2xl border-2 border-[#36f4a4]/70" />
+            <video ref={videoRef} playsInline muted aria-label="Camera view for scanning tickets" className="aspect-[4/3] w-full object-cover short-landscape:aspect-auto short-landscape:h-[calc(100dvh-10rem)]" />
+            {/* A square, because the reader decodes the centre square of the frame (80% of its height). */}
+            <div aria-hidden="true" className="pointer-events-none absolute left-1/2 top-1/2 aspect-square h-4/5 -translate-x-1/2 -translate-y-1/2 rounded-2xl border-2 border-[#36f4a4]/70" />
             {torchSupported && (
-              <button type="button" onClick={toggleTorch} aria-pressed={torchOn} className={`absolute bottom-3 left-3 flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm ${torchOn ? "bg-[#36f4a4] text-black" : "bg-black/70"}`}>
+              <button type="button" onClick={toggleTorch} aria-pressed={torchOn} className={`absolute bottom-3 left-3 flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm ${torchOn ? "bg-[#36f4a4] text-black" : "bg-black/70"}`}>
                 <Flashlight aria-hidden="true" className="h-4 w-4" /> Light
               </button>
             )}
-            <button type="button" onClick={stopCamera} className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-lg bg-black/70 px-3 py-2 text-sm">
+            <button type="button" onClick={stopCamera} className="absolute bottom-3 right-3 flex min-h-11 items-center gap-1.5 rounded-lg bg-black/70 px-3 text-sm">
               <CameraOff aria-hidden="true" className="h-4 w-4" /> Stop camera
             </button>
           </div>
@@ -467,7 +468,7 @@ export default function ScannerPage() {
       </section>
 
       {history.length > 0 && (
-        <section aria-label="Recent scans" className="space-y-2">
+        <section aria-label="Recent scans" className="space-y-2 short-landscape:col-start-2 short-landscape:row-start-5">
           <h2 className="text-xs uppercase tracking-wide text-white/50">This session</h2>
           <ul className="space-y-1.5">
             {history.map((h, i) => (
@@ -479,6 +480,6 @@ export default function ScannerPage() {
           </ul>
         </section>
       )}
-    </>
+    </div>
   );
 }

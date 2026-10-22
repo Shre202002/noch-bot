@@ -226,22 +226,22 @@ export default function EventScanningPage() {
 
       {notice && <p role="alert" className="text-sm text-amber-300">{notice}</p>}
 
-      <section aria-label="Door counts" className="grid gap-4 sm:grid-cols-3">
+      <section aria-label="Door counts" className="grid grid-cols-3 gap-2 sm:gap-4">
         {[
           { label: "Scanned", value: counts.scanned, tone: "text-[#36f4a4]", icon: UserCheck },
           { label: "Not yet", value: counts.remaining, tone: "text-white", icon: Users },
-          { label: "Total tickets", value: counts.total, tone: "text-white", icon: Users },
+          { label: "Total", value: counts.total, tone: "text-white", icon: Users },
         ].map((s) => (
           <Card key={s.label} className="border-white/10 bg-card/40">
-            <CardContent className="p-5">
+            <CardContent className="p-3 sm:p-5">
               <p className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-white/50"><s.icon aria-hidden="true" className="h-3.5 w-3.5" /> {s.label}</p>
-              <p className={`mt-1 text-4xl font-black tabular-nums ${s.tone}`}>{s.value}</p>
+              <p className={`mt-1 text-3xl font-black tabular-nums sm:text-4xl ${s.tone}`}>{s.value}</p>
             </CardContent>
           </Card>
         ))}
-        <div className="sm:col-span-3">
+        <div className="col-span-3">
           <div className="flex items-center justify-between text-xs text-white/60"><span>Checked in</span><span>{percent}%</span></div>
-          <div role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100} className="mt-1 h-2.5 overflow-hidden rounded-full bg-white/10">
+          <div role="progressbar" aria-label="Share of tickets checked in" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100} className="mt-1 h-2.5 overflow-hidden rounded-full bg-white/10">
             <div className="h-full rounded-full bg-[#36f4a4] transition-all duration-500" style={{ width: `${percent}%` }} />
           </div>
         </div>
@@ -287,15 +287,15 @@ export default function EventScanningPage() {
                 <>
                   <div className="flex items-center gap-2">
                     <input readOnly aria-label="Scanner link" value={linkUrl} onFocus={(e) => e.currentTarget.select()} className="min-w-0 flex-1 rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-white" />
-                    <Button size="sm" variant="outline" onClick={copy} aria-label="Copy link">{copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}</Button>
-                    <Button size="sm" variant="outline" asChild aria-label="Open link"><a href={linkUrl} target="_blank" rel="noreferrer"><ExternalLink className="h-4 w-4" /></a></Button>
+                    <Button size="sm" variant="outline" onClick={copy} aria-label="Copy link" className="max-sm:size-11">{copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}</Button>
+                    <Button size="sm" variant="outline" asChild aria-label="Open link" className="max-sm:size-11"><a href={linkUrl} target="_blank" rel="noreferrer"><ExternalLink className="h-4 w-4" /></a></Button>
                   </div>
                   {!feed.link.active && <p className="text-sm text-amber-300">This link is switched off: nobody can sign in or scan with it.</p>}
                   <div className="flex flex-wrap gap-2">
-                    <Button size="sm" variant="outline" disabled={!!busy} onClick={() => act("toggle", `/api/events/${eventId}/scanner-link`, { action: feed.link!.active ? "disable" : "enable" })}>
+                    <Button size="sm" variant="outline" className="max-sm:min-h-11" disabled={!!busy} onClick={() => act("toggle", `/api/events/${eventId}/scanner-link`, { action: feed.link!.active ? "disable" : "enable" })}>
                       {feed.link.active ? "Switch off" : "Switch on"}
                     </Button>
-                    <Button size="sm" variant="outline" disabled={!!busy} onClick={() => { if (window.confirm("Make a new link? The old link stops working and every scanner is signed out (their accounts are kept).")) void act("rotate", `/api/events/${eventId}/scanner-link`, { action: "rotate" }); }}>
+                    <Button size="sm" variant="outline" className="max-sm:min-h-11" disabled={!!busy} onClick={() => { if (window.confirm("Make a new link? The old link stops working and every scanner is signed out (their accounts are kept).")) void act("rotate", `/api/events/${eventId}/scanner-link`, { action: "rotate" }); }}>
                       <RefreshCw aria-hidden="true" className="mr-1.5 h-3.5 w-3.5" /> New link
                     </Button>
                   </div>
@@ -325,7 +325,7 @@ export default function EventScanningPage() {
                       <div className="mt-2 flex flex-wrap gap-2">
                         {SCANNER_ACTIONS[s.status].map((a) => (
                           <Button key={a.action} size="sm" variant={a.primary ? "default" : "outline"} disabled={busy === s.id + a.action}
-                            className={a.primary ? "bg-[#36f4a4] font-bold text-black hover:bg-[#36f4a4]/90" : ""}
+                            className={`max-sm:min-h-11 ${a.primary ? "bg-[#36f4a4] font-bold text-black hover:bg-[#36f4a4]/90" : ""}`}
                             onClick={() => { if (a.action === "remove" && !window.confirm(`Remove ${s.name || s.loginId}?`)) return; void act(s.id + a.action, `/api/events/${eventId}/scanner-users/${s.id}`, { action: a.action }, "PATCH"); }}>
                             {a.label}
                           </Button>
@@ -345,13 +345,13 @@ export default function EventScanningPage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-lg font-bold">Attendees <span className="text-sm font-normal text-white/50">({rows.length})</span></h2>
             <div className="flex flex-wrap items-center gap-2">
-              <div className="relative">
+              <div className="relative w-full sm:w-auto">
                 <Search aria-hidden="true" className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-white/40" />
-                <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search name, email, code" aria-label="Search attendees" className="w-56 rounded-lg border border-white/10 bg-black/30 py-2 pl-8 pr-3 text-sm text-white" />
+                <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search name, email, code" aria-label="Search attendees" className="w-full rounded-lg border border-white/10 bg-black/30 py-2 pl-8 pr-3 text-base text-white max-sm:min-h-11 sm:w-56 sm:text-sm" />
               </div>
               {(["all", "scanned", "not_yet"] as const).map((f) => (
                 <button key={f} type="button" onClick={() => setFilter(f)} aria-pressed={filter === f}
-                  className={`rounded-full border px-3 py-1.5 text-sm ${filter === f ? "border-[#36f4a4] bg-[#36f4a4]/15 text-[#36f4a4]" : "border-white/15 text-white/70 hover:text-white"}`}>
+                  className={`rounded-full border px-3 py-1.5 text-sm max-sm:min-h-11 max-sm:px-4 ${filter === f ? "border-[#36f4a4] bg-[#36f4a4]/15 text-[#36f4a4]" : "border-white/15 text-white/70 hover:text-white"}`}>
                   {f === "all" ? "All" : f === "scanned" ? "Scanned" : "Not yet"}
                 </button>
               ))}
@@ -360,7 +360,24 @@ export default function EventScanningPage() {
           {rows.length === 0 ? (
             <p className="py-8 text-center text-sm text-white/50">{attendees.size === 0 ? "No confirmed tickets yet." : "No one matches."}</p>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+            <ul className="space-y-2 md:hidden">
+              {rows.slice(0, MAX_ROWS).map((a) => (
+                <li key={a.code} className={`rounded-xl border border-white/10 p-3 transition-colors duration-1000 ${flash.has(a.code) && now - (flash.get(a.code) ?? 0) < FLASH_MS ? "bg-[#36f4a4]/15" : "bg-white/[0.03]"}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="min-w-0 truncate font-semibold text-white">{a.name || "—"}</p>
+                    {a.status === "scanned" ? <Badge className="shrink-0 bg-[#36f4a4] text-black">Scanned</Badge> : <Badge variant="secondary" className="shrink-0">{a.status === "active" ? "Not yet" : a.status}</Badge>}
+                  </div>
+                  {(a.email || a.phone) && <p className="mt-0.5 break-words text-sm text-white/70">{[a.email, a.phone].filter(Boolean).join(" · ")}</p>}
+                  <p className="mt-1.5 flex flex-wrap items-center gap-x-3 text-xs text-white/60">
+                    <span className="font-mono">{a.code}</span>
+                    <span>{a.label}</span>
+                    {a.scannedAt && <span className="tabular-nums">{time(a.scannedAt)}{a.scannedBy ? ` · ${a.scannedBy}` : ""}</span>}
+                  </p>
+                </li>
+              ))}
+            </ul>
+            <div className="hidden overflow-x-auto md:block">
               <table className="w-full text-left text-sm">
                 <thead className="text-xs uppercase tracking-wide text-white/50">
                   <tr><th className="py-2 pr-3">Attendee</th><th className="py-2 pr-3">Contact</th><th className="py-2 pr-3">Ticket</th><th className="py-2 pr-3">Status</th><th className="py-2 pr-3">Scanned</th><th className="py-2">By</th></tr>
@@ -370,7 +387,7 @@ export default function EventScanningPage() {
                     <tr key={a.code} className={`border-t border-white/5 transition-colors duration-1000 ${flash.has(a.code) && now - (flash.get(a.code) ?? 0) < FLASH_MS ? "bg-[#36f4a4]/15" : ""}`}>
                       <td className="py-2 pr-3 font-semibold text-white">{a.name || "—"}</td>
                       <td className="py-2 pr-3 text-white/70">{[a.email, a.phone].filter(Boolean).join(" · ") || "—"}</td>
-                      <td className="py-2 pr-3 text-white/70"><span className="font-mono text-xs">{a.code}</span><br /><span className="text-xs text-white/40">{a.label}</span></td>
+                      <td className="py-2 pr-3 text-white/70"><span className="font-mono text-xs">{a.code}</span><br /><span className="text-xs text-white/60">{a.label}</span></td>
                       <td className="py-2 pr-3">{a.status === "scanned" ? <Badge className="bg-[#36f4a4] text-black">Scanned</Badge> : <Badge variant="secondary">{a.status === "active" ? "Not yet" : a.status}</Badge>}</td>
                       <td className="py-2 pr-3 tabular-nums text-white/70">{time(a.scannedAt) || "—"}</td>
                       <td className="py-2 text-white/70">{a.scannedBy || "—"}</td>
@@ -378,8 +395,9 @@ export default function EventScanningPage() {
                   ))}
                 </tbody>
               </table>
-              {rows.length > MAX_ROWS && <p className="pt-3 text-center text-xs text-white/50">Showing the first {MAX_ROWS}. Use search to find the rest.</p>}
             </div>
+            {rows.length > MAX_ROWS && <p className="pt-3 text-center text-xs text-white/50">Showing the first {MAX_ROWS}. Use search to find the rest.</p>}
+            </>
           )}
         </CardContent>
       </Card>
