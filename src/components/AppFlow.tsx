@@ -36,6 +36,7 @@ export function AppFlow() {
             src="/figures/app-flow.html"
             title="NochBot request path: a sorting desk where a visitor's message is guarded, then answered from your content or booked, paid, ticketed and scanned"
             loading="lazy"
+            scrolling="no"
             style={{ height }}
             className="block w-full border-0"
           />

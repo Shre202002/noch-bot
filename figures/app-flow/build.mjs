@@ -416,6 +416,44 @@ const BOOK_STOPS = [
 const ASK_PATH = [[ENTRY_X, MAIN_Y], DIV, ASK_START, [END_X - 12, ASK_Y]];
 const BOOK_PATH = [[ENTRY_X, MAIN_Y], DIV, BOOK_START, [END_X - 12, BOOK_Y]];
 
+
+// ---- station name labels (above each machine, ending on a dot on its top face) -----------------------------
+
+// id, text, stop it lights for (if any), the point on the station's top, and a screen-px nudge for the text.
+const LABELS = [
+  { text: "Widget", stop: "widget", at: [-254, -17, 42], nudge: [0, 0] },
+  { text: "Guard", stop: "guard", at: [GATE_X, 0, 39.4], nudge: [0, 0] },
+  { text: "Router", stop: "router", at: [DIV[0], DIV[1], 9], nudge: [0, 0] },
+  { text: "Crawler", stop: null, at: [-32, -15, 54], nudge: [-34, -16] },
+  { text: "Knowledge", stop: "recall", at: [CAB.x + 10, CAB.y + 8, 41.5], nudge: [-50, 48] },
+  { text: "Model", stop: "compose", at: [62, 36, 47], nudge: [0, 0] },
+  { text: "Verifier", stop: "verify", at: [VER_X, 35, 45], nudge: [0, 0] },
+  { text: "Reply", stop: "reply", at: [221, 28, 15], nudge: [0, 0] },
+  { text: "Seats", stop: "seats", at: [SEAT_X, -104, 50.4], nudge: [0, 0] },
+  { text: "Payment", stop: "pay", at: [PAY_X, -102, 29], nudge: [0, 0] },
+  { text: "Ticket", stop: "ticket", at: [TIX_X, -96, 21.4], nudge: [0, -12] },
+  { text: "Scanner", stop: "scan", at: [SCAN_X, BOOK_Y, 36], nudge: [16, -4] },
+];
+const LABEL_RISE = 14;
+
+function labels() {
+  const out = [
+    `<style>[data-label]{font:8.5px var(--anatomy-mono);letter-spacing:.1em;text-transform:uppercase;fill:var(--anatomy-muted);paint-order:stroke;stroke:var(--anatomy-card);stroke-width:3.2px;stroke-linejoin:round;transition:fill .25s}[data-label][data-on]{fill:var(--anatomy-text)}@media (max-width:560px){[data-layer=labels]{display:none}}</style>`,
+  ];
+  for (const label of LABELS) {
+    const [x, y, z] = label.at;
+    const top = at([x, y, z]);
+    const head = at([x, y, z + LABEL_RISE]);
+    const tx = head[0] + label.nudge[0];
+    const ty = head[1] + label.nudge[1] - 3;
+    // leader from the text down to a dot on the station's top face
+    out.push(k.lineSvg(`M${tx.toFixed(1)} ${(ty + 2).toFixed(1)}L${top[0].toFixed(1)} ${top[1].toFixed(1)}`, { tone: "lo", free: "start" }));
+    out.push(k.dotsSvg([top], { size: 0.55, tone: "mid" }));
+    out.push(`<text data-label${label.stop ? ` data-stop="${label.stop}"` : ""} x="${tx.toFixed(1)}" y="${ty.toFixed(1)}" text-anchor="middle">${label.text}</text>`);
+  }
+  return out.join("");
+}
+
 // ---- assemble ----------------------------------------------------------------------------------------------
 
 const staticItems = items.map((item, index) => `<g data-item="${index}" data-key="${item.key.toFixed(3)}">${item.svg}</g>`);
@@ -430,6 +468,7 @@ const svg = k.figureSvg({
     track(),
     `<g data-layer="items">${staticItems.join("")}<g data-part="capsule" data-key="0" transform="${k.translateAlong(P, [ENTRY_X + 14, MAIN_Y, 0])}">${capsule()}</g></g>`,
     `<path data-part="tongue" class="iso-line" data-tone="lit" data-free="start" d="${tongueAt(0)}" style="stroke-width:1.4"/>`,
+    `<g data-layer="labels">${labels()}</g>`,
   ],
 });
 
@@ -474,7 +513,8 @@ function place(x, y) {
 }
 let frame = 0, last = 0, visible = false, auto = true, autoTimer = 0;
 const saysEl = document.querySelector("[data-says]");
-const say = () => { const stop = line.stops[stopIndex]; const text = (stopIndex + 1) + "/" + line.stops.length + " · " + stop.name; if (readout.textContent !== text) { readout.textContent = text; saysEl.textContent = stop.says; } };
+const labelEls = [...svg.querySelectorAll("[data-label][data-stop]")];
+const say = () => { const stop = line.stops[stopIndex]; const text = (stopIndex + 1) + "/" + line.stops.length + " · " + stop.name; if (readout.textContent !== text) { readout.textContent = text; saysEl.textContent = stop.says; for (const el of labelEls) el.toggleAttribute("data-on", el.dataset.stop === stop.name); } };
 function send(next) { which = next; line = lines[which]; stopIndex = 0; s = stopS(line, line.stops[0]); target = s; dwell = 0.9; run(); }
 function tick(now) {
   const dt = last ? Math.min((now - last) / 1000, 1 / 30) : 1 / 60; last = now;
@@ -508,6 +548,7 @@ stage.addEventListener("keydown", (event) => {
 });
 // When embedded, tell the host page how tall the figure is so its frame fits exactly.
 if (parent !== window) {
+  document.documentElement.style.overflow = "hidden";
   const fig = document.querySelector(".iso-figure") || document.body;
   const post = () => {
     const style = getComputedStyle(fig), pad = parseFloat(getComputedStyle(document.body).paddingBottom) || 0;
@@ -525,13 +566,6 @@ const html = k.plateHtml({
   title: "The sorting desk",
   hint: "Click the front to ask, the back to book",
   readout: "1/7 · " + ASK_STOPS[0].name,
-  keys: [
-    { mark: "lit", label: "The capsule: one visitor message, and the gate lens and held seats it touches" },
-    { mark: "raised", label: "Answer line (front): recall, compose, verify, reply" },
-    { mark: "edge", label: "Booking line (back): seats, pay, ticket, scan" },
-  ],
-  caption:
-    "Every message enters at the widget and passes the guard. A turntable then sends it down the answer line, where passages from this owner's own pages and PDFs are recalled, written up and checked, or down the booking line, where seats are held, paid for, ticketed and scanned at the door.",
   body: `<div class="iso-stage" tabindex="0" role="img" aria-label="The NochBot request path as a sorting desk. Press A for the answer line, B for the booking line.">${svg}</div><p data-says aria-live="polite" style="margin:6px auto 0;max-width:62ch;min-height:2.9em;text-align:center;font:12px/1.5 var(--anatomy-mono);color:var(--anatomy-muted)">${ASK_STOPS[0].says}</p>`,
 });
 
