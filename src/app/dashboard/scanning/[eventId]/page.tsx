@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { AlertCircle, ArrowLeft, Check, Copy, ExternalLink, Link2, Loader2, RefreshCw, Search, UserCheck, Users } from "lucide-react";
@@ -55,6 +55,51 @@ const SCANNER_ACTIONS: Record<Scanner["status"], Array<{ action: string; label: 
 const time = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "");
 const who = (a: Attendee) => a.name || a.email || a.phone || a.label;
 
+/** True when the viewport is at least `px` wide; used to draw one attendee layout instead of both. */
+function useMinWidth(px: number): boolean {
+  const query = `(min-width: ${px}px)`;
+  return useSyncExternalStore(
+    (notify) => {
+      const list = window.matchMedia(query);
+      list.addEventListener("change", notify);
+      return () => list.removeEventListener("change", notify);
+    },
+    () => window.matchMedia(query).matches,
+    () => true
+  );
+}
+
+// A row only redraws when its own attendee changes or its highlight starts or ends, not on every poll.
+const AttendeeRow = memo(function AttendeeRow({ a, flashed }: { a: Attendee; flashed: boolean }) {
+  return (
+    <tr className={`border-t border-white/5 transition-colors duration-1000 ${flashed ? "bg-[#36f4a4]/15" : ""}`}>
+      <td className="py-2 pr-3 font-semibold text-white">{a.name || "—"}</td>
+      <td className="py-2 pr-3 text-white/70">{[a.email, a.phone].filter(Boolean).join(" · ") || "—"}</td>
+      <td className="py-2 pr-3 text-white/70"><span className="font-mono text-xs">{a.code}</span><br /><span className="text-xs text-white/60">{a.label}</span></td>
+      <td className="py-2 pr-3">{a.status === "scanned" ? <Badge className="bg-[#36f4a4] text-black">Scanned</Badge> : <Badge variant="secondary">{a.status === "active" ? "Not yet" : a.status}</Badge>}</td>
+      <td className="py-2 pr-3 tabular-nums text-white/70">{time(a.scannedAt) || "—"}</td>
+      <td className="py-2 text-white/70">{a.scannedBy || "—"}</td>
+    </tr>
+  );
+});
+
+const AttendeeCard = memo(function AttendeeCard({ a, flashed }: { a: Attendee; flashed: boolean }) {
+  return (
+    <li className={`rounded-xl border border-white/10 p-3 transition-colors duration-1000 ${flashed ? "bg-[#36f4a4]/15" : "bg-white/[0.03]"}`}>
+      <div className="flex items-start justify-between gap-2">
+        <p className="min-w-0 truncate font-semibold text-white">{a.name || "—"}</p>
+        {a.status === "scanned" ? <Badge className="shrink-0 bg-[#36f4a4] text-black">Scanned</Badge> : <Badge variant="secondary" className="shrink-0">{a.status === "active" ? "Not yet" : a.status}</Badge>}
+      </div>
+      {(a.email || a.phone) && <p className="mt-0.5 break-words text-sm text-white/70">{[a.email, a.phone].filter(Boolean).join(" · ")}</p>}
+      <p className="mt-1.5 flex flex-wrap items-center gap-x-3 text-xs text-white/60">
+        <span className="font-mono">{a.code}</span>
+        <span>{a.label}</span>
+        {a.scannedAt && <span className="tabular-nums">{time(a.scannedAt)}{a.scannedBy ? ` · ${a.scannedBy}` : ""}</span>}
+      </p>
+    </li>
+  );
+});
+
 export default function EventScanningPage() {
   const { eventId } = useParams<{ eventId: string }>();
   const [feed, setFeed] = useState<Feed | null>(null);
@@ -63,7 +108,7 @@ export default function EventScanningPage() {
   const [flash, setFlash] = useState<Map<string, number>>(new Map());
   const [error, setError] = useState("");
   const [reconnecting, setReconnecting] = useState(false);
-  const [now, setNow] = useState(() => Date.now());
+  const isWide = useMinWidth(768);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "scanned" | "not_yet">("all");
   const [busy, setBusy] = useState("");
@@ -76,6 +121,8 @@ export default function EventScanningPage() {
   const known = useRef<Map<string, Attendee>>(new Map());
   const failures = useRef(0);
   const lastFull = useRef(0);
+  const lastSignature = useRef("");
+  const localScanned = useRef(0);
   const refreshNow = useRef<() => void>(() => {});
 
   useEffect(() => {
@@ -96,6 +143,12 @@ export default function EventScanningPage() {
         if (!res.ok) throw Object.assign(new Error(data.error || "Could not load scanning data."), { status: res.status });
         if (stopped) return;
 
+        // Nothing new (no scans, same counts, link and accounts): there is nothing to redraw.
+        const signature = JSON.stringify([data.eventName, data.counts, data.link, data.scanners]);
+        const unchanged = !data.attendees && (data.scans as Attendee[]).length === 0 && signature === lastSignature.current;
+        lastSignature.current = signature;
+
+        if (!unchanged) {
         const next = new Map(known.current);
         const fresh: Attendee[] = [];
         if (data.attendees) {
@@ -108,16 +161,10 @@ export default function EventScanningPage() {
           next.set(s.code, { ...(before ?? s), ...s });
         }
         known.current = next;
+        localScanned.current = [...next.values()].filter((a) => a.status === "scanned").length;
         if (data.cursor) cursor.current = data.cursor;
         else if (data.attendees) cursor.current = null;
-
-        // The list is out of date when the counts disagree with it (a booking arrived, or a check-in was undone): reload it whole.
-        const localScanned = [...next.values()].filter((a) => a.status === "scanned").length;
         if (data.attendees) lastFull.current = Date.now();
-        needFull.current =
-          !data.attendees &&
-          (localScanned !== data.counts.scanned || next.size !== data.counts.total) &&
-          Date.now() - lastFull.current > FULL_RELOAD_MIN_MS;
 
         setAttendees(next);
         setFeed((prev) => ({ ...(prev ?? {}), ...data, attendees: null } as Feed));
@@ -128,10 +175,17 @@ export default function EventScanningPage() {
           setRecent((prev) => [...fresh.sort((a, b) => String(b.scannedAt).localeCompare(String(a.scannedAt))), ...prev].slice(0, 15));
           setFlash((prev) => {
             const m = new Map(prev);
-            for (const f of fresh) m.set(f.code, Date.now());
+            for (const f of fresh) m.set(f.code, Date.now() + FLASH_MS);
             return m;
           });
         }
+        }
+
+        // The list is out of date when the counts disagree with it (a booking arrived, or a check-in was undone): reload it whole.
+        needFull.current =
+          !data.attendees &&
+          (localScanned.current !== data.counts.scanned || known.current.size !== data.counts.total) &&
+          Date.now() - lastFull.current > FULL_RELOAD_MIN_MS;
         failures.current = 0;
         setReconnecting(false);
         setError("");
@@ -158,12 +212,14 @@ export default function EventScanningPage() {
     return () => { stopped = true; clearTimeout(timer); document.removeEventListener("visibilitychange", onVisible); };
   }, [eventId]);
 
-  // Lets the "just scanned" highlight fade without waiting for the next poll.
+  // Lets the "just scanned" highlight fade: one timer for the next expiry, and none once nothing is highlighted.
   useEffect(() => {
     if (flash.size === 0) return;
-    const t = setInterval(() => setNow(Date.now()), 500);
-    return () => clearInterval(t);
+    const next = Math.min(...flash.values());
+    const t = setTimeout(() => setFlash((prev) => new Map([...prev].filter(([, until]) => until > Date.now()))), Math.max(0, next - Date.now()) + 20);
+    return () => clearTimeout(t);
   }, [flash]);
+  const isFlashed = (code: string) => (flash.get(code) ?? 0) > Date.now();
 
   const act = useCallback(async (key: string, url: string, body: unknown, method = "POST") => {
     setBusy(key);
@@ -256,7 +312,7 @@ export default function EventScanningPage() {
             ) : (
               <ul aria-live="polite" className="space-y-2">
                 {recent.map((a) => (
-                  <li key={a.code} className={`flex items-center justify-between gap-3 rounded-xl px-3 py-2 transition-colors duration-1000 ${flash.has(a.code) && now - (flash.get(a.code) ?? 0) < FLASH_MS ? "bg-[#36f4a4]/20" : "bg-white/5"}`}>
+                  <li key={a.code} className={`flex items-center justify-between gap-3 rounded-xl px-3 py-2 transition-colors duration-1000 ${isFlashed(a.code) ? "bg-[#36f4a4]/20" : "bg-white/5"}`}>
                     <div className="min-w-0">
                       <p className="truncate font-semibold text-white">{who(a)}</p>
                       <p className="truncate text-xs text-white/50">{a.code} · {a.label}</p>
@@ -361,41 +417,22 @@ export default function EventScanningPage() {
             <p className="py-8 text-center text-sm text-white/50">{attendees.size === 0 ? "No confirmed tickets yet." : "No one matches."}</p>
           ) : (
             <>
-            <ul className="space-y-2 md:hidden">
-              {rows.slice(0, MAX_ROWS).map((a) => (
-                <li key={a.code} className={`rounded-xl border border-white/10 p-3 transition-colors duration-1000 ${flash.has(a.code) && now - (flash.get(a.code) ?? 0) < FLASH_MS ? "bg-[#36f4a4]/15" : "bg-white/[0.03]"}`}>
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="min-w-0 truncate font-semibold text-white">{a.name || "—"}</p>
-                    {a.status === "scanned" ? <Badge className="shrink-0 bg-[#36f4a4] text-black">Scanned</Badge> : <Badge variant="secondary" className="shrink-0">{a.status === "active" ? "Not yet" : a.status}</Badge>}
-                  </div>
-                  {(a.email || a.phone) && <p className="mt-0.5 break-words text-sm text-white/70">{[a.email, a.phone].filter(Boolean).join(" · ")}</p>}
-                  <p className="mt-1.5 flex flex-wrap items-center gap-x-3 text-xs text-white/60">
-                    <span className="font-mono">{a.code}</span>
-                    <span>{a.label}</span>
-                    {a.scannedAt && <span className="tabular-nums">{time(a.scannedAt)}{a.scannedBy ? ` · ${a.scannedBy}` : ""}</span>}
-                  </p>
-                </li>
-              ))}
-            </ul>
-            <div className="hidden overflow-x-auto md:block">
-              <table className="w-full text-left text-sm">
-                <thead className="text-xs uppercase tracking-wide text-white/50">
-                  <tr><th className="py-2 pr-3">Attendee</th><th className="py-2 pr-3">Contact</th><th className="py-2 pr-3">Ticket</th><th className="py-2 pr-3">Status</th><th className="py-2 pr-3">Scanned</th><th className="py-2">By</th></tr>
-                </thead>
-                <tbody>
-                  {rows.slice(0, MAX_ROWS).map((a) => (
-                    <tr key={a.code} className={`border-t border-white/5 transition-colors duration-1000 ${flash.has(a.code) && now - (flash.get(a.code) ?? 0) < FLASH_MS ? "bg-[#36f4a4]/15" : ""}`}>
-                      <td className="py-2 pr-3 font-semibold text-white">{a.name || "—"}</td>
-                      <td className="py-2 pr-3 text-white/70">{[a.email, a.phone].filter(Boolean).join(" · ") || "—"}</td>
-                      <td className="py-2 pr-3 text-white/70"><span className="font-mono text-xs">{a.code}</span><br /><span className="text-xs text-white/60">{a.label}</span></td>
-                      <td className="py-2 pr-3">{a.status === "scanned" ? <Badge className="bg-[#36f4a4] text-black">Scanned</Badge> : <Badge variant="secondary">{a.status === "active" ? "Not yet" : a.status}</Badge>}</td>
-                      <td className="py-2 pr-3 tabular-nums text-white/70">{time(a.scannedAt) || "—"}</td>
-                      <td className="py-2 text-white/70">{a.scannedBy || "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            {isWide ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="text-xs uppercase tracking-wide text-white/50">
+                    <tr><th className="py-2 pr-3">Attendee</th><th className="py-2 pr-3">Contact</th><th className="py-2 pr-3">Ticket</th><th className="py-2 pr-3">Status</th><th className="py-2 pr-3">Scanned</th><th className="py-2">By</th></tr>
+                  </thead>
+                  <tbody>
+                    {rows.slice(0, MAX_ROWS).map((a) => <AttendeeRow key={a.code} a={a} flashed={isFlashed(a.code)} />)}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <ul className="space-y-2">
+                {rows.slice(0, MAX_ROWS).map((a) => <AttendeeCard key={a.code} a={a} flashed={isFlashed(a.code)} />)}
+              </ul>
+            )}
             {rows.length > MAX_ROWS && <p className="pt-3 text-center text-xs text-white/50">Showing the first {MAX_ROWS}. Use search to find the rest.</p>}
             </>
           )}

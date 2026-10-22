@@ -257,10 +257,10 @@ export function createLinkAuth(config: LinkAuthConfig) {
     return result.matchedCount === 1;
   }
 
-  /** Accounts for the owner's dashboard, without secrets. */
-  async function list(db: Db, ownerId: string, slug: string) {
+  /** Accounts for the owner's dashboard, without secrets. `scope` is the link's slug, or another field the accounts carry. */
+  async function list(db: Db, ownerId: string, scope: string | Record<string, unknown>) {
     const docs = await users(db)
-      .find({ userId: ownerId, slug }, { projection: { passwordHash: 0, currentSessionId: 0, loginAttempts: 0 } })
+      .find({ userId: ownerId, ...(typeof scope === 'string' ? { slug: scope } : scope) }, { projection: { passwordHash: 0, currentSessionId: 0, loginAttempts: 0 } })
       .sort({ createdAt: -1 })
       .toArray();
     return docs.map((u) => ({

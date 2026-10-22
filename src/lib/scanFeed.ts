@@ -1,6 +1,6 @@
 import type { Db, ObjectId } from 'mongodb';
 import { attendeeSummary } from './organizerBookings';
-import { getScannerLinkForEvent, listScanners } from './scannerLinkAuth';
+import { getScannerLinkForEvent, listScannersForEvent } from './scannerLinkAuth';
 
 /**
  * What the organizer's Scanning tab polls once a second: door counts, the scanner accounts, the scans since the last poll,
@@ -28,7 +28,7 @@ export type FeedAttendee = {
 export type ScanFeed = {
   counts: { total: number; scanned: number; remaining: number };
   link: { slug: string; active: boolean } | null;
-  scanners: Awaited<ReturnType<typeof listScanners>>;
+  scanners: Awaited<ReturnType<typeof listScannersForEvent>>;
   pendingScanners: number;
   /** Latest scan time seen; send it back as `since` on the next poll. */
   cursor: string | null;
@@ -92,27 +92,33 @@ export async function buildScanFeed(
   const tickets = db.collection('tickets');
   const realTickets = { event_id: eventId, is_test: { $ne: true } };
 
-  const [counts, latest, link] = await Promise.all([
+  const sinceDate = options.since ? new Date(options.since) : new Date(0);
+  const validSince = Number.isNaN(sinceDate.getTime()) ? new Date(0) : sinceDate;
+
+  // Everything that does not depend on something else is asked at the same time, so a poll costs one database wait in a
+  // row (two when it needs booking details for new scans) instead of one wait per question.
+  const [counts, latest, link, scanners, scans, attendees] = await Promise.all([
     doorCounts(db, orgId, eventId),
     tickets.find({ ...realTickets, status: 'scanned' }).sort({ scanned_at: -1 }).limit(1).project({ scanned_at: 1 }).toArray(),
     getScannerLinkForEvent(db, orgId, eventId),
+    listScannersForEvent(db, orgId, eventId),
+    options.full
+      ? Promise.resolve([] as FeedAttendee[])
+      : tickets
+          .find({ ...realTickets, status: 'scanned', scanned_at: { $gte: validSince } })
+          .sort({ scanned_at: 1 })
+          .limit(MAX_SCANS_PER_POLL)
+          .toArray()
+          .then((recent) => rowsFor(db, recent)),
+    options.full
+      ? tickets
+          .find(realTickets)
+          .sort({ booking_id: 1, ticket_index: 1 })
+          .limit(MAX_ATTENDEES)
+          .toArray()
+          .then((all) => rowsFor(db, all))
+      : Promise.resolve(null),
   ]);
-
-  const sinceDate = options.since ? new Date(options.since) : new Date(0);
-  const validSince = Number.isNaN(sinceDate.getTime()) ? new Date(0) : sinceDate;
-  const recent = options.full
-    ? []
-    : await tickets
-        .find({ ...realTickets, status: 'scanned', scanned_at: { $gte: validSince } })
-        .sort({ scanned_at: 1 })
-        .limit(MAX_SCANS_PER_POLL)
-        .toArray();
-
-  const attendees = options.full
-    ? await rowsFor(db, await tickets.find(realTickets).sort({ booking_id: 1, ticket_index: 1 }).limit(MAX_ATTENDEES).toArray())
-    : null;
-
-  const scanners = link ? await listScanners(db, orgId, link.slug) : [];
 
   return {
     counts,
@@ -120,7 +126,7 @@ export async function buildScanFeed(
     scanners,
     pendingScanners: scanners.filter((s) => s.status === 'pending').length,
     cursor: latest[0]?.scanned_at instanceof Date ? latest[0].scanned_at.toISOString() : null,
-    scans: await rowsFor(db, recent),
+    scans,
     attendees,
   };
 }

@@ -126,3 +126,6 @@ export const verifyScannerSession = core.verifySession;
 export const endScannerSession = core.endSession;
 export const ownerScannerAction = core.ownerAction;
 export const listScanners = core.list;
+
+/** The event's accounts without first looking up its link (accounts carry the event id, and follow the link when it is rotated). */
+export const listScannersForEvent = (db: Db, orgId: string, eventId: ObjectId) => core.list(db, orgId, { event_id: eventId });
