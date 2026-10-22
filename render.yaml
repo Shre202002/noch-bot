@@ -1,0 +1,18 @@
+# Render Blueprint for the NochBot crawler service (the Python Scrapling service in scraper/).
+# Deploy: Render dashboard -> New -> Blueprint -> pick this repository.
+# Then copy CRAWLER_SERVICE_TOKEN from this service's Environment tab into Vercel (see scraper/README.md).
+services:
+  - type: web
+    name: nochbot-crawler
+    runtime: docker
+    dockerfilePath: ./scraper/Dockerfile
+    dockerContext: ./scraper
+    plan: free
+    healthCheckPath: /healthz
+    envVars:
+      # Shared secret with the Next.js app. Render generates a long random value; copy it to Vercel.
+      - key: CRAWLER_SERVICE_TOKEN
+        generateValue: true
+      # The free plan has 512 MB of memory: crawl one site at a time.
+      - key: CRAWLER_MAX_CONCURRENT
+        value: "1"
