@@ -43,9 +43,6 @@ export const metadata: Metadata = {
   authors: [{ name: "NochBot Team", url: "https://nochbot.space" }],
   creator: "NochBot",
   publisher: "NochBot",
-  alternates: {
-    canonical: "/",
-  },
   icons: {
     icon: [{ url: "/brand/favicon-64.png", sizes: "64x64", type: "image/png" }],
     shortcut: "/brand/favicon-64.png",

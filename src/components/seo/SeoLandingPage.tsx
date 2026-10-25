@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import SigninModal from '@/components/ui/signin-modal';
+import SignupModal from '@/components/ui/signup-modal';
 import { SEO_PAGES, SITE_URL, getSeoPage, type SeoPage } from '@/lib/seoPages';
 
 /** Builds the <head> for a landing page from its content entry. */
@@ -93,12 +95,12 @@ export function SeoLandingPage({ slug }: { slug: string }) {
             <Link href="/docs" className="hidden hover:text-white sm:inline">
               Docs
             </Link>
-            <Link href="/login" className="hover:text-white">
-              Sign in
-            </Link>
-            <Link href="/register" className="rounded-full bg-white px-4 py-1.5 font-medium text-[#080b10]">
-              Get started
-            </Link>
+            <SigninModal trigger={<button className="hover:text-white">Sign in</button>} />
+            <SignupModal
+              trigger={
+                <button className="rounded-full bg-white px-4 py-1.5 font-medium text-[#080b10]">Get started</button>
+              }
+            />
           </nav>
         </div>
       </header>
@@ -117,9 +119,7 @@ export function SeoLandingPage({ slug }: { slug: string }) {
           </h1>
           <p className="mt-6 max-w-[680px] text-base leading-relaxed text-white/60 sm:text-lg">{page.intro}</p>
           <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-            <Link href="/register" className={CTA_PRIMARY}>
-              Start free
-            </Link>
+            <SignupModal trigger={<button className={CTA_PRIMARY}>Start free</button>} />
             <Link href="/#pricing" className={CTA_SECONDARY}>
               See plans
             </Link>
@@ -211,9 +211,7 @@ export function SeoLandingPage({ slug }: { slug: string }) {
             Start on the free plan. Upgrade only when you need higher limits.
           </p>
           <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link href="/register" className={CTA_PRIMARY}>
-              Create a free account
-            </Link>
+            <SignupModal trigger={<button className={CTA_PRIMARY}>Create a free account</button>} />
             <Link href="/" className={CTA_SECONDARY}>
               Learn more about NochBot
             </Link>

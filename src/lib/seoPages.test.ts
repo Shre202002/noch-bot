@@ -10,6 +10,7 @@ const DEEP_PAGES = [
   "chatbot-for-small-business",
   "how-to-add-chatbot-to-website",
   "event-booking-chatbot",
+  "best-free-ai-chatbot-for-websites",
 ];
 
 describe("SEO landing pages", () => {

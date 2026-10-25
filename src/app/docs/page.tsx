@@ -1,4 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Documentation",
+  description:
+    "Guides for NochBot: create your account, crawl your website, upload documents, embed the chatbot with one script tag, and take event bookings.",
+  alternates: { canonical: "/docs" },
+};
 
 const docs = [
   {
