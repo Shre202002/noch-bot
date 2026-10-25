@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { SEO_PAGES } from '@/lib/seoPages';
+import { SECTIONS } from '@/lib/seo/siteMap';
 
 /** Crawlable links from the homepage to every landing page. */
 export function UseCaseLinks() {
@@ -18,6 +19,13 @@ export function UseCaseLinks() {
             </li>
           ))}
         </ul>
+        <div className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-white/45">
+          {SECTIONS.map((s) => (
+            <Link key={s.path} href={s.path} className="hover:text-white">
+              {s.label}
+            </Link>
+          ))}
+        </div>
       </div>
     </section>
   );

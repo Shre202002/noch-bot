@@ -3,6 +3,8 @@ import type { Metadata } from 'next';
 import SigninModal from '@/components/ui/signin-modal';
 import SignupModal from '@/components/ui/signup-modal';
 import { SEO_PAGES, SITE_URL, getSeoPage, type SeoPage } from '@/lib/seoPages';
+import { HUBS, SECTIONS } from '@/lib/seo/siteMap';
+import { MoreOnTopic } from '@/components/seo/blocks';
 
 /** Builds the <head> for a landing page from its content entry. */
 export function seoMetadata(slug: string): Metadata {
@@ -75,6 +77,7 @@ const CTA_SECONDARY =
 
 export function SeoLandingPage({ slug }: { slug: string }) {
   const page = getSeoPage(slug);
+  const hubKey = (Object.keys(HUBS) as Array<keyof typeof HUBS>).find((k) => HUBS[k].landing === slug) ?? null;
   const related = page.related.map((s) => SEO_PAGES.find((p) => p.slug === s)).filter((p): p is SeoPage => !!p);
 
   return (
@@ -234,10 +237,18 @@ export function SeoLandingPage({ slug }: { slug: string }) {
             </div>
           </section>
         )}
+        {hubKey && <MoreOnTopic hub={hubKey} />}
       </main>
 
       <footer className="border-t border-white/5 px-5 py-10 sm:px-6">
         <div className="mx-auto max-w-[1100px]">
+          <div className="mb-8 flex flex-wrap gap-x-6 gap-y-2 text-[13px] text-white/45">
+            {SECTIONS.map((s) => (
+              <Link key={s.path} href={s.path} className="hover:text-white">
+                {s.label}
+              </Link>
+            ))}
+          </div>
           <p className="text-[11px] uppercase tracking-widest text-white/25">Use cases</p>
           <ul className="mt-3 grid gap-x-8 gap-y-2 text-[13px] text-white/45 sm:grid-cols-2 lg:grid-cols-3">
             {SEO_PAGES.map((p) => (

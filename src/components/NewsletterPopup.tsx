@@ -22,18 +22,34 @@ export function NewsletterPopup({ isOpen, onClose }: NewsletterPopupProps) {
   const [subscribed, setSubscribed] = useState(false);
   const [error, setError] = useState("");
 
-  const handleSubscribe = () => {
+  const [sending, setSending] = useState(false);
+
+  const handleSubscribe = async () => {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       setError("Please enter a valid email address.");
       return;
     }
     setError("");
-    setSubscribed(true);
-    setTimeout(() => {
-      onClose();
-      // Reset state for next time it's opened
-      setTimeout(() => setSubscribed(false), 500);
-    }, 2000);
+    setSending(true);
+    try {
+      const res = await fetch("/api/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), source: "newsletter-popup" }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Could not subscribe. Please try again.");
+      setSubscribed(true);
+      setTimeout(() => {
+        onClose();
+        // Reset state for next time it's opened
+        setTimeout(() => setSubscribed(false), 500);
+      }, 2000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not subscribe. Please try again.");
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -80,6 +96,7 @@ export function NewsletterPopup({ isOpen, onClose }: NewsletterPopupProps) {
                   />
                   <Button
                     onClick={handleSubscribe}
+                    disabled={sending}
                     className="h-10 bg-white text-black hover:opacity-90"
                   >
                     <Send className="h-4 w-4" />
