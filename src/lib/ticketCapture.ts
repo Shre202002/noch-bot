@@ -1,4 +1,4 @@
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, rgb } from 'pdf-lib';
 
 /**
  * The ticket PDF is a capture of the tickets as the visitor sees them (one per page), so it can never differ from the
@@ -13,6 +13,18 @@ export function pageSizeFor(cardWidth: number, cardHeight: number): { width: num
   return {
     width: Math.max(1, Math.round(cardWidth * PT_PER_PX)),
     height: Math.max(1, Math.round(cardHeight * PT_PER_PX)),
+  };
+}
+
+type Box = { left: number; top: number; width: number; height: number };
+
+/** Where the card sits inside the captured wrapper image, in image pixels (the capture is scaled by `pixelRatio`). */
+export function cropRect(wrapper: Box, card: Box, pixelRatio: number): { x: number; y: number; width: number; height: number } {
+  return {
+    x: Math.max(0, Math.round((card.left - wrapper.left) * pixelRatio)),
+    y: Math.max(0, Math.round((card.top - wrapper.top) * pixelRatio)),
+    width: Math.max(1, Math.round(card.width * pixelRatio)),
+    height: Math.max(1, Math.round(card.height * pixelRatio)),
   };
 }
 
@@ -76,33 +88,31 @@ function drawTestStamp(context: CanvasRenderingContext2D, cardWidth: number): vo
   context.restore();
 }
 
-/** The ticket card inside a wrapper element (the wrapper only adds the test stamp and grid spacing). */
-function cardOf(wrapper: HTMLElement): HTMLElement {
-  return (wrapper.firstElementChild as HTMLElement | null) ?? wrapper;
-}
-
-/** The card drawn onto its own canvas with the test stamp on top, for test tickets only. */
-async function withTestStamp(png: string, cardWidth: number): Promise<string> {
+/** The captured wrapper cut down to the card inside it, so the page has no empty space or shadow around the ticket. */
+async function cropToCard(png: string, wrapper: HTMLElement): Promise<string> {
+  const card = wrapper.firstElementChild;
+  if (!card) return png;
+  const crop = cropRect(wrapper.getBoundingClientRect(), card.getBoundingClientRect(), PIXEL_RATIO);
   const image = await loadImage(png);
   const canvas = document.createElement('canvas');
-  canvas.width = image.width;
-  canvas.height = image.height;
+  canvas.width = crop.width;
+  canvas.height = crop.height;
   const context = canvas.getContext('2d');
   if (!context) return png;
-  context.drawImage(image, 0, 0);
-  drawTestStamp(context, cardWidth * PIXEL_RATIO);
+  context.drawImage(image, crop.x, crop.y, crop.width, crop.height, 0, 0, crop.width, crop.height);
+  // On the page the stamp sits at the wrapper's edge, which is outside a narrower card, so it is drawn on the card here.
+  if (wrapper.querySelector('[data-test-stamp]')) drawTestStamp(context, crop.width);
   return canvas.toDataURL('image/png');
 }
 
-/** One ticket exactly as shown, as a PNG (data URL). The card itself is captured, so there is nothing to crop. */
+/** One ticket exactly as shown, as a PNG (data URL), cut down to the card itself. */
 export async function ticketPngFromElement(el: HTMLElement): Promise<string> {
   // Loaded here so the capture code is only downloaded when a visitor asks for a file.
   const { toPng } = await import('html-to-image');
   if (document.fonts?.ready) await document.fonts.ready;
-  const card = cardOf(el);
-  // No background colour is set: the card's rounded corners stay transparent instead of getting a white fill.
-  const png = await toPng(card, { pixelRatio: PIXEL_RATIO, cacheBust: true });
-  return el.querySelector('[data-test-stamp]') ? withTestStamp(png, card.getBoundingClientRect().width) : png;
+  // The wrapper is captured (not just the card) so the "Test ticket" stamp that sits over a test ticket is included.
+  const wrapperPng = await toPng(el, { pixelRatio: PIXEL_RATIO, cacheBust: true });
+  return cropToCard(wrapperPng, el);
 }
 
 /** Capture each element as an image and put one per page. Throws if a card cannot be captured (the caller falls back). */
@@ -112,9 +122,11 @@ export async function ticketPdfFromElements(elements: HTMLElement[], title: stri
   pdf.setTitle(title);
   for (const el of elements) {
     const image = await pdf.embedPng(dataUrlToBytes(await ticketPngFromElement(el)));
-    const card = cardOf(el).getBoundingClientRect();
+    const card = (el.firstElementChild ?? el).getBoundingClientRect();
     const size = pageSizeFor(card.width, card.height);
     const page = pdf.addPage([size.width, size.height]);
+    // The card's rounded corners are transparent; paper white behind them.
+    page.drawRectangle({ x: 0, y: 0, width: size.width, height: size.height, color: rgb(1, 1, 1) });
     page.drawImage(image, { x: 0, y: 0, width: size.width, height: size.height });
   }
   return pdf.save();

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pageSizeFor, ticketPdfFileName, ticketPngFileName } from "@/lib/ticketCapture";
+import { cropRect, pageSizeFor, ticketPdfFileName, ticketPngFileName } from "@/lib/ticketCapture";
 import { ticketDownloadPageUrl, ticketPageUrl } from "@/lib/ticketLinks";
 
 describe("pageSizeFor", () => {
@@ -9,6 +9,20 @@ describe("pageSizeFor", () => {
 
   it("copes with an empty measurement", () => {
     expect(pageSizeFor(0, 0)).toEqual({ width: 1, height: 1 });
+  });
+});
+
+describe("cropRect", () => {
+  it("finds the card inside the wrapper, scaled by the capture ratio", () => {
+    const wrapper = { left: 100, top: 50, width: 900, height: 400 };
+    const card = { left: 290, top: 50, width: 520, height: 400 };
+    expect(cropRect(wrapper, card, 3)).toEqual({ x: 570, y: 0, width: 1560, height: 1200 });
+  });
+
+  it("never starts outside the image", () => {
+    const rect = cropRect({ left: 100, top: 100, width: 10, height: 10 }, { left: 90, top: 80, width: 5, height: 5 }, 2);
+    expect(rect.x).toBe(0);
+    expect(rect.y).toBe(0);
   });
 });
 
