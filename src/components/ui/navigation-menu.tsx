@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { motion, useScroll, useMotionValueEvent } from "framer-motion";
-import { Menu } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import SigninModal from "./signin-modal";
 import SignupModal from "./signup-modal";
@@ -101,7 +101,9 @@ export function AnimatedNavFramer() {
 
 
   return (
-    <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-full flex justify-center px-4">
+    <>
+    <MobileNav />
+    <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-full hidden sm:flex justify-center px-4">
       <motion.nav
         initial={{ y: -80, opacity: 0 }}
         animate={isExpanded ? "expanded" : "collapsed"}
@@ -120,7 +122,9 @@ export function AnimatedNavFramer() {
         >
           <div className="relative flex items-center justify-center">
             <div className="absolute inset-0 bg-[radial-gradient(circle,rgba(255,255,255,0.15)_0%,transparent_70%)] blur-md" />
-            <img src="/brand/nochbot-logo.webp" alt="NochBot" width={192} height={128} decoding="async" className="relative z-10 h-10 w-auto" />
+            <a href="/" aria-label="NochBot home" onClick={(e) => e.stopPropagation()} className="relative z-10">
+              <img src="/brand/nochbot-logo.webp" alt="NochBot" width={192} height={128} decoding="async" className="h-10 w-auto" />
+            </a>
           </div>
         </motion.div>
         
@@ -168,6 +172,52 @@ export function AnimatedNavFramer() {
           </motion.div>
         </div>
       </motion.nav>
+    </div>
+    </>
+  );
+}
+
+/** Phone header: logo plus a hamburger that opens the page links and sign-in / sign-up. */
+function MobileNav() {
+  const [open, setOpen] = React.useState(false);
+  const close = () => setOpen(false);
+
+  return (
+    <div className="sm:hidden fixed top-0 inset-x-0 z-50">
+      <div className="flex items-center justify-between h-14 px-4 bg-background/80 backdrop-blur-sm border-b">
+        <a href="/" aria-label="NochBot home">
+          <img src="/brand/nochbot-logo.webp" alt="NochBot" width={192} height={128} decoding="async" className="h-9 w-auto" />
+        </a>
+        <button
+          type="button"
+          aria-label={open ? "Close menu" : "Open menu"}
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
+          className="h-10 w-10 flex items-center justify-center rounded-md"
+        >
+          {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+        </button>
+      </div>
+      {open && (
+        <div className="flex flex-col gap-1 px-4 py-3 bg-background/95 backdrop-blur-sm border-b shadow-lg">
+          {navItems.map((item) => (
+            <a key={item.name} href={item.href} onClick={close} className="py-3 text-base font-medium text-muted-foreground hover:text-foreground">
+              {item.name}
+            </a>
+          ))}
+          <a href="/docs" onClick={close} className="py-3 text-base font-medium text-muted-foreground hover:text-foreground">
+            Docs
+          </a>
+          <div className="flex gap-3 pt-2">
+            <SigninModal trigger={
+              <button type="button" className="flex-1 py-2.5 text-sm font-medium border rounded-full cursor-pointer">Sign in</button>
+            } />
+            <SignupModal trigger={
+              <button type="button" className="flex-1 py-2.5 text-sm font-bold text-white bg-primary/30 border border-primary/20 rounded-full cursor-pointer">Try NochBot</button>
+            } />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

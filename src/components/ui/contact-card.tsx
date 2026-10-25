@@ -9,6 +9,7 @@ type ContactInfoProps = React.ComponentProps<'div'> & {
 	icon: LucideIcon;
 	label: string;
 	value: string;
+	href?: string;
 };
 
 type ContactCardProps = React.ComponentProps<'div'> & {
@@ -71,6 +72,7 @@ function ContactInfo({
 	icon: Icon,
 	label,
 	value,
+	href,
 	className,
 	...props
 }: ContactInfoProps) {
@@ -81,7 +83,11 @@ function ContactInfo({
 			</div>
 			<div>
 				<p className="font-medium text-white">{label}</p>
-				<p className="text-muted-foreground text-xs">{value}</p>
+				{href ? (
+					<a href={href} className="text-muted-foreground text-xs hover:text-white underline-offset-2 hover:underline">{value}</a>
+				) : (
+					<p className="text-muted-foreground text-xs">{value}</p>
+				)}
 			</div>
 		</div>
 	);

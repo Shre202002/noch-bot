@@ -88,17 +88,17 @@ export function SeoLandingPage({ slug }: { slug: string }) {
           <Link href="/" className="text-[17px] font-bold uppercase tracking-[-0.03em]">
             NochBot
           </Link>
-          <nav aria-label="Primary" className="flex items-center gap-5 text-[13px] text-white/50">
-            <Link href="/#pricing" className="hidden hover:text-white sm:inline">
+          <nav aria-label="Primary" className="flex items-center gap-3 text-[13px] text-white/50 sm:gap-5">
+            <Link href="/#pricing" className="hover:text-white">
               Pricing
             </Link>
-            <Link href="/docs" className="hidden hover:text-white sm:inline">
+            <Link href="/docs" className="hover:text-white">
               Docs
             </Link>
             <SigninModal trigger={<button className="hover:text-white">Sign in</button>} />
             <SignupModal
               trigger={
-                <button className="rounded-full bg-white px-4 py-1.5 font-medium text-[#080b10]">Get started</button>
+                <button className="whitespace-nowrap rounded-full bg-white px-3 py-1.5 font-medium text-[#080b10] sm:px-4">Get started</button>
               }
             />
           </nav>

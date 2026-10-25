@@ -119,7 +119,7 @@ export default function PrivacyPage() {
               </p>
   
               <p className="mt-3 text-white">
-                support@nochbot.space
+                <a href="mailto:support@nochbot.space" className="underline underline-offset-2">support@nochbot.space</a>
               </p>
             </section>
   

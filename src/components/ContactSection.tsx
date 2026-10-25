@@ -62,11 +62,13 @@ export function ContactSection() {
               icon: MailIcon,
               label: 'Email',
               value: 'sriyanshgupta24@gmail.com',
+              href: 'mailto:sriyanshgupta24@gmail.com',
             },
             {
               icon: PhoneIcon,
               label: 'Phone',
               value: '+91 6387562920',
+              href: 'tel:+916387562920',
             },
             {
               icon: MapPinIcon,

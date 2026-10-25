@@ -20,16 +20,20 @@ interface NewsletterPopupProps {
 export function NewsletterPopup({ isOpen, onClose }: NewsletterPopupProps) {
   const [email, setEmail] = useState("");
   const [subscribed, setSubscribed] = useState(false);
+  const [error, setError] = useState("");
 
   const handleSubscribe = () => {
-    if (email && email.includes("@")) {
-      setSubscribed(true);
-      setTimeout(() => {
-        onClose();
-        // Reset state for next time it's opened
-        setTimeout(() => setSubscribed(false), 500);
-      }, 2000);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError("Please enter a valid email address.");
+      return;
     }
+    setError("");
+    setSubscribed(true);
+    setTimeout(() => {
+      onClose();
+      // Reset state for next time it's opened
+      setTimeout(() => setSubscribed(false), 500);
+    }, 2000);
   };
 
   return (
@@ -70,7 +74,8 @@ export function NewsletterPopup({ isOpen, onClose }: NewsletterPopupProps) {
                     type="email"
                     placeholder="name@company.com"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => { setEmail(e.target.value); setError(""); }}
+                    aria-invalid={!!error}
                     className="h-10 border-white/5 bg-black/20 text-sm focus-visible:ring-primary"
                   />
                   <Button
@@ -80,6 +85,8 @@ export function NewsletterPopup({ isOpen, onClose }: NewsletterPopupProps) {
                     <Send className="h-4 w-4" />
                   </Button>
                 </div>
+
+                {error && <p role="alert" className="text-xs text-red-400">{error}</p>}
 
                 <p className="text-[10px] text-center text-white/20">
                   No spam. Just engineering excellence. Unsubscribe any time.
@@ -95,7 +102,7 @@ export function NewsletterPopup({ isOpen, onClose }: NewsletterPopupProps) {
                   <Send className="h-8 w-8" />
                 </div>
                 <h3 className="text-xl font-medium text-white">You're in.</h3>
-                <p className="mt-2 text-sm text-white/40">Check your inbox for a welcome gift.</p>
+                <p className="mt-2 text-sm text-white/40">Thanks for subscribing. We'll be in touch.</p>
               </motion.div>
             )}
           </motion.div>
