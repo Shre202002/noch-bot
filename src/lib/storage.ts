@@ -51,7 +51,8 @@ export type Account = {
   email: string;
   passwordHash: string;
   createdAt: string;
-  plan: "free" | "starter" | "pro";
+  /** Key of a plan in the `plans` collection (src/lib/plans.ts). */
+  plan: string;
   crawlCount: number;
   googleId?: string;
   name?: string;
@@ -62,6 +63,25 @@ export type Account = {
   otpExpiry?: string;
   otpEmail?: string;
   notificationsSeenAt?: string;
+  /**
+   * Email/password signups start as `false` and must confirm a code before they can set up a bot.
+   * Absent on accounts that predate verification (allowed); Google sign-ins are stored as `true`.
+   */
+  emailVerified?: boolean;
+  emailVerifiedAt?: string;
+  emailOtpHash?: string;
+  emailOtpExpiry?: string;
+  emailOtpSentAt?: string;
+  emailOtpAttempts?: number;
+  /** Platform operator role. Granted in the DB or by SUPER_ADMIN_EMAILS (src/lib/superAdmin.ts). */
+  role?: "superadmin";
+  /** Deactivated accounts cannot sign in and their existing sessions stop working. */
+  disabled?: boolean;
+  disabledReason?: string;
+  disabledAt?: string;
+  /** When set and in the past, the account falls back to the free plan. */
+  planExpiresAt?: string;
+  planSource?: "admin" | "payment" | "default";
   subscription?: {
     provider: "razorpay" | "stripe";
     subscriptionId: string;

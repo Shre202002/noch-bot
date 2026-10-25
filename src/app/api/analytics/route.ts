@@ -3,6 +3,7 @@ import { getUserIdFromCookie } from "@/lib/auth";
 import { getAnalytics } from "@/lib/conversations";
 import { readKnowledge, findAccountById } from "@/lib/storage";
 import { checkMessageLimit, checkCrawlLimit } from "@/lib/ratelimit";
+import { resolvePlanKey } from "@/lib/plans";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +25,7 @@ export async function GET() {
       topEvents?: unknown[];
       funnel?: Record<string, number>;
     };
-    const plan = account?.plan || "free";
+    const plan = await resolvePlanKey(account);
 
     const [messageQuota, crawlQuota] = await Promise.all([
       checkMessageLimit(userId, plan),

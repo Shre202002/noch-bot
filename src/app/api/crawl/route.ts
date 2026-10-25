@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { findAccountById, readKnowledge, writeKnowledge } from '@/lib/storage';
 import { getUserIdFromCookie } from '@/lib/auth';
+import { requireVerifiedEmail } from '@/lib/emailVerification';
+import { resolvePlanKey } from '@/lib/plans';
 import { checkCrawlLimit, logCrawl, sameSite } from '@/lib/ratelimit';
 import { runCrawl, CrawlPolicyError } from '@/lib/crawler';
 import { canUpgradeCrawlPages, getCrawlBudget, normalizePlan } from '@/lib/crawler/budget';
@@ -45,6 +47,8 @@ export async function POST(req: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: 'Not authenticated.' }, { status: 401, headers: corsHeaders });
     }
+    const unverified = await requireVerifiedEmail(userId, corsHeaders);
+    if (unverified) return unverified;
 
     const body = await req.json().catch(() => ({}));
     let siteUrl: string;
@@ -62,7 +66,7 @@ export async function POST(req: NextRequest) {
 
     // ── Check crawl rate limit ────────────────────────────────
     const account = await findAccountById(userId);
-    const plan = normalizePlan(account?.plan);
+    const plan = normalizePlan(await resolvePlanKey(account));
 
     // Re-crawling the site this account already has is unlimited; only a different website counts toward the limit.
     const current = await readKnowledge(userId);
@@ -113,7 +117,7 @@ async function crawlAndPublish({
 }: {
   userId: string;
   siteUrl: string;
-  plan: ReturnType<typeof normalizePlan>;
+  plan: string;
   crawlCheck: { used: number; limit: number };
   correlationId: string;
   recrawl: boolean;

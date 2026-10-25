@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { findAccount, writeAccount } from "@/lib/storage";
+import { findAccount, updateAccount, writeAccount } from "@/lib/storage";
 import { signToken } from "@/lib/auth";
+import { ensureBootstrapAdmin } from "@/lib/superAdmin";
 import { v4 as uuid } from "uuid";
 
 export async function GET(req: NextRequest) {
@@ -58,9 +59,22 @@ export async function GET(req: NextRequest) {
                 googleId: googleUser.id,
                 name: googleUser.name,
                 avatar: googleUser.picture,
+                emailVerified: true,
+                emailVerifiedAt: new Date().toISOString(),
             };
             await writeAccount(account);
+        } else if (account.emailVerified === false) {
+            // Signing in with Google proves the mailbox belongs to this person.
+            await updateAccount(account.id, { emailVerified: true, emailVerifiedAt: new Date().toISOString() });
         }
+
+        if (account.disabled) {
+            return NextResponse.redirect(
+                `${process.env.NEXTAUTH_URL}/login?error=account_disabled`
+            );
+        }
+
+        await ensureBootstrapAdmin(account);
 
         // Create JWT and set cookie
         const token = signToken(account.id);

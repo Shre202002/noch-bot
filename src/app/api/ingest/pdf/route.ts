@@ -6,6 +6,7 @@ import { ensureLibraryIndexes } from '@/lib/tabularLibrary';
 import { numericId } from '@/lib/pdfParser';
 import { pdfToPoints } from '@/lib/pdfIngest';
 import { additionLimitFor } from '@/lib/documentAdditions';
+import { pdfLimitFor, resolvePlanKey } from '@/lib/plans';
 import { getDb } from '@/lib/db';
 import { findAccountById } from '@/lib/storage';
 import {
@@ -20,7 +21,6 @@ import { TABULAR_ROWS_COLLECTION, type StoredSheet } from '@/lib/tabularQuery';
 import {
   ensurePdfRetentionIndexes,
   NOT_DELETED,
-  PDF_LIMITS,
   PDF_RETENTION_DAYS,
   softDeletePdf,
 } from '@/lib/pdfRetention';
@@ -32,6 +32,7 @@ import {
   safeFailureMessage,
 } from '@/lib/pdfStatus';
 import type { Db } from 'mongodb';
+import { requireVerifiedEmail } from '@/lib/emailVerification';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -82,8 +83,8 @@ export async function GET() {
 
     // Also return plan info so frontend can show upgrade prompt
     const account = await findAccountById(userId);
-    const plan = account?.plan || 'free';
-    const limit = PDF_LIMITS[plan] ?? 1;
+    const plan = await resolvePlanKey(account);
+    const limit = pdfLimitFor(plan);
 
     const statuses = files.map((f) => deriveStatus(f as never));
     return json({
@@ -135,6 +136,8 @@ export async function POST(req: NextRequest) {
   try {
     const userId = await getUserIdFromCookie();
     if (!userId) return json({ error: 'Not authenticated.' }, { status: 401 });
+    const unverified = await requireVerifiedEmail(userId);
+    if (unverified) return unverified;
 
     const formData   = await req.formData();
     const file       = formData.get('file');
@@ -146,8 +149,8 @@ export async function POST(req: NextRequest) {
 
     // ── Plan limit check ──────────────────────────────────────
     const account = await findAccountById(userId);
-    const plan    = account?.plan || 'free';
-    const limit   = PDF_LIMITS[plan] ?? 1;
+    const plan    = await resolvePlanKey(account);
+    const limit   = pdfLimitFor(plan);
 
     const db = await getDb();
     if (retryFileId) {

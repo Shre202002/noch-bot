@@ -1,14 +1,7 @@
 import { getDb } from '@/lib/db';
+import { loadPlans, planLimits } from '@/lib/plans';
 
-// ── Plan limits ───────────────────────────────────────────────────
-// crawlPagesPerCrawl is capped again by CRAWL_PAGE_HARD_MAX in src/lib/crawler/budget.ts.
-export const PLAN_LIMITS = {
-  free:    { messagesPerMonth: 100,   crawlsPerMonth: 1,   crawlPagesPerCrawl: 15 },
-  starter: { messagesPerMonth: 5000,  crawlsPerMonth: 10,  crawlPagesPerCrawl: 30 },
-  pro:     { messagesPerMonth: 50000, crawlsPerMonth: 999, crawlPagesPerCrawl: 50 },
-} as const;
-
-type Plan = keyof typeof PLAN_LIMITS;
+// Plan limits are edited in the admin panel and live in src/lib/plans.ts.
 
 // ── Get current month's message count from messages collection ────
 export async function getMonthlyMessageCount(userId: string): Promise<number> {
@@ -71,8 +64,8 @@ export async function checkMessageLimit(
   userId: string,
   plan: string
 ): Promise<{ allowed: boolean; used: number; limit: number; resetDate: string }> {
-  const userPlan = (plan as Plan) in PLAN_LIMITS ? (plan as Plan) : 'free';
-  const limit = PLAN_LIMITS[userPlan].messagesPerMonth;
+  await loadPlans();
+  const limit = planLimits(plan).messagesPerMonth;
   const used = await getMonthlyMessageCount(userId);
 
   // Reset date = 1st of next month
@@ -94,8 +87,8 @@ export async function checkCrawlLimit(
   userId: string,
   plan: string
 ): Promise<{ allowed: boolean; used: number; limit: number }> {
-  const userPlan = (plan as Plan) in PLAN_LIMITS ? (plan as Plan) : 'free';
-  const limit = PLAN_LIMITS[userPlan].crawlsPerMonth;
+  await loadPlans();
+  const limit = planLimits(plan).crawlsPerMonth;
   const used = await getMonthlyCrawlCount(userId);
 
   return {

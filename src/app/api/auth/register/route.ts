@@ -136,6 +136,7 @@ export async function POST(req: NextRequest) {
       createdAt,
       plan: 'free',
       crawlCount: 0,
+      emailVerified: false,
     });
 
     const token = signToken(id);

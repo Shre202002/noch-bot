@@ -10,6 +10,7 @@ import { getDb } from '@/lib/db';
 import { NOT_DELETED } from '@/lib/pdfRetention';
 import { deriveStatus, isRetrievable } from '@/lib/pdfStatus';
 import { randomBytes } from 'crypto';
+import { requireVerifiedEmail } from '@/lib/emailVerification';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -59,6 +60,8 @@ export async function POST(req: NextRequest) {
   try {
     const userId = await getUserIdFromCookie();
     if (!userId) return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
+    const unverified = await requireVerifiedEmail(userId);
+    if (unverified) return unverified;
 
     const { fileId, filename, label, requireLogin } = await req.json();
     if (!fileId || !filename) {

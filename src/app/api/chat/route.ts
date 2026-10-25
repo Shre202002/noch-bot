@@ -3,6 +3,7 @@ import { getDb } from "@/lib/db";
 import { formatEventsSource, loadUpcomingEvents } from "@/lib/eventsForChat";
 import { isBookingIntent } from "@/lib/bookingIntent";
 import { findAccountById } from "@/lib/storage";
+import { needsEmailVerification } from "@/lib/emailVerification";
 import { embedText } from "@/lib/embeddings";
 import { searchKnowledgeChunks } from "@/lib/vectorStore";
 import { siteNameFrom } from "@/lib/widgetGreeting";
@@ -12,6 +13,7 @@ import {
   updateConversationStats,
 } from "@/lib/conversations";
 import { checkMessageLimit } from "@/lib/ratelimit";
+import { resolvePlanKey } from "@/lib/plans";
 import { GroqUnavailableError, GROQ_UNAVAILABLE_REPLY } from "@/lib/groq";
 import {
   answerWithGuards,
@@ -128,7 +130,11 @@ export async function POST(req: NextRequest) {
 
     // Rate Limit Check
     const account = await findAccountById(userId);
-    const plan = account?.plan || "free";
+    // Visitors get the same reply as for a deactivated owner and are never told why.
+    if (account?.disabled || needsEmailVerification(account)) {
+      return NextResponse.json({ error: "This assistant is currently unavailable." }, { status: 403, headers: corsHeaders });
+    }
+    const plan = await resolvePlanKey(account);
     const rateCheck = await checkMessageLimit(userId, plan);
 
     if (!rateCheck.allowed) {

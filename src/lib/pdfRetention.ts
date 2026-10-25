@@ -16,12 +16,7 @@ import { TABULAR_ROWS_COLLECTION } from './tabularQuery';
 
 export const PDF_RETENTION_DAYS = 7;
 
-/** Documents a plan may hold at once. Soft-deleted documents do not count. */
-export const PDF_LIMITS: Record<string, number> = {
-  free:    1,
-  starter: 10,
-  pro:     Infinity,
-};
+// Documents a plan may hold at once (soft-deleted ones do not count): see pdfLimitFor() in ./plans.
 
 export const PDF_FILES_COLLECTION = 'pdf_files';
 export const PDF_LINKS_COLLECTION = 'pdf_links';

@@ -1,5 +1,6 @@
 import type { DocumentKind, TabularColumn } from './tabularParser';
 import { headerKey } from './tabularLibrary';
+import { planLimits } from './plans';
 
 /**
  * Rules for adding files to an existing PDF RAG document ("Add more data").
@@ -9,19 +10,14 @@ import { headerKey } from './tabularLibrary';
  * an added spreadsheet must look like the document it joins, so an unrelated sheet cannot be merged by mistake.
  */
 
-export const ADDITIONAL_FILE_LIMITS: Record<string, number> = {
-  free: 1,
-  starter: 3,
-  pro: 5,
-};
-
 export const MAX_ADDITION_MB = 10;
 
 /** Share of the incoming file's headers that must already exist in the document. */
 const MIN_HEADER_MATCH = 0.5;
 
+/** Per-plan allowance from src/lib/plans.ts. Callers should `await loadPlans()` first. */
 export function additionLimitFor(plan: string | undefined): number {
-  return ADDITIONAL_FILE_LIMITS[plan ?? 'free'] ?? ADDITIONAL_FILE_LIMITS.free;
+  return planLimits(plan).additionalFiles;
 }
 
 const isSheet = (kind: string | undefined) => kind === 'csv' || kind === 'xlsx';

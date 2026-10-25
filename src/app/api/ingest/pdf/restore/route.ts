@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getUserIdFromCookie } from '@/lib/auth';
 import { getDb } from '@/lib/db';
 import { findAccountById } from '@/lib/storage';
-import { NOT_DELETED, PDF_FILES_COLLECTION, PDF_LIMITS, restorePdf } from '@/lib/pdfRetention';
+import { NOT_DELETED, PDF_FILES_COLLECTION, restorePdf } from '@/lib/pdfRetention';
+import { pdfLimitFor, resolvePlanKey } from '@/lib/plans';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -22,8 +23,8 @@ export async function POST(req: NextRequest) {
 
     // A restored document counts against the plan again, so it must fit.
     const account = await findAccountById(userId);
-    const plan = account?.plan || 'free';
-    const limit = PDF_LIMITS[plan] ?? 1;
+    const plan = await resolvePlanKey(account);
+    const limit = pdfLimitFor(plan);
     const liveCount = await db.collection(PDF_FILES_COLLECTION).countDocuments({ userId, ...NOT_DELETED });
     if (liveCount >= limit) {
       return NextResponse.json(

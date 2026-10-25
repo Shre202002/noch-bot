@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserIdFromCookie } from "@/lib/auth";
+import { requireVerifiedEmail } from "@/lib/emailVerification";
 import { readKnowledge, writeKnowledge } from "@/lib/storage";
 import { isKnownLauncherIcon, launcherIconUrl } from "@/lib/launcherIcons";
 
@@ -62,6 +63,8 @@ export async function POST(req: NextRequest) {
       { error: "Unauthorized" },
       { status: 401, headers: corsHeaders }
     );
+  const unverified = await requireVerifiedEmail(userId, corsHeaders);
+  if (unverified) return unverified;
 
   const { theme } = await req.json();
 

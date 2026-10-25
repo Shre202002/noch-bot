@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { findAccount } from '@/lib/storage';
 import { signToken } from '@/lib/auth';
+import { ensureBootstrapAdmin } from '@/lib/superAdmin';
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,6 +22,15 @@ export async function POST(req: NextRequest) {
     if (!isMatch) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
     }
+
+    if (account.disabled) {
+      return NextResponse.json(
+        { error: 'This account has been deactivated. Please contact support.' },
+        { status: 403 },
+      );
+    }
+
+    await ensureBootstrapAdmin(account);
 
     const token = signToken(account.id);
     const response = NextResponse.json({ success: true });

@@ -10,25 +10,33 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { EmailVerificationCard } from "@/components/ui/email-verification-card";
 import { useRouter } from "next/navigation";
 
 interface AccountData {
   id: string;
   email: string;
   name: string | null;
-  plan: "free" | "starter" | "pro";
+  plan: string;
+  planExpiresAt?: string | null;
   crawlCount: number;
+  emailVerified?: boolean;
 }
 
-const PLAN_CONFIG = {
-  free:    { label: "Free",    color: "bg-muted text-muted-foreground border-border",         limit: "100 messages/mo"  },
-  starter: { label: "Starter", color: "bg-blue-500/10 text-blue-400 border-blue-400/20",      limit: "5,000 messages/mo" },
-  pro:     { label: "Pro",     color: "bg-signal/10 text-signal border-signal/20",  limit: "50,000 messages/mo" },
+// Colours are presentation only; names and limits come from the plans the admin edits (GET /api/plans).
+const PLAN_COLORS: Record<string, string> = {
+  free: "bg-muted text-muted-foreground border-border",
+  starter: "bg-blue-500/10 text-blue-400 border-blue-400/20",
+  pro: "bg-signal/10 text-signal border-signal/20",
 };
+const DEFAULT_PLAN_COLOR = "bg-signal/10 text-signal border-signal/20";
+
+type PublicPlan = { key: string; name: string; limits: { messagesPerMonth: number } };
 
 export default function AccountPage() {
   const router = useRouter();
   const [account, setAccount] = useState<AccountData | null>(null);
+  const [plans, setPlans] = useState<PublicPlan[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Name edit state
@@ -43,6 +51,13 @@ export default function AccountPage() {
   const [confirmPw, setConfirmPw] = useState("");
   const [pwLoading, setPwLoading] = useState(false);
   const [pwMsg, setPwMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/plans")
+      .then((r) => r.json())
+      .then((d) => setPlans(d.plans ?? []))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetch("/api/auth/me")
@@ -126,7 +141,13 @@ export default function AccountPage() {
     );
   }
 
-  const plan = PLAN_CONFIG[account?.plan || "free"];
+  const planKey = account?.plan || "free";
+  const found = plans.find((p) => p.key === planKey);
+  const plan = {
+    label: found?.name ?? planKey.charAt(0).toUpperCase() + planKey.slice(1),
+    color: PLAN_COLORS[planKey] ?? DEFAULT_PLAN_COLOR,
+    limit: found ? `${found.limits.messagesPerMonth.toLocaleString()} messages/mo` : "",
+  };
 
   return (
     <div className="space-y-8 pb-20 max-w-2xl mx-auto">
@@ -140,6 +161,13 @@ export default function AccountPage() {
           Manage your profile, password, and subscription
         </motion.p>
       </div>
+
+      {account && account.emailVerified === false && (
+        <EmailVerificationCard
+          email={account.email}
+          onVerified={() => setAccount((prev) => (prev ? { ...prev, emailVerified: true } : prev))}
+        />
+      )}
 
       {/* Profile Card */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>

@@ -1,4 +1,4 @@
-import { PLAN_LIMITS } from '@/lib/ratelimit';
+import { FREE_PLAN_KEY, hasHigherPlan, planExists, planLimits } from '@/lib/plans';
 import type { CrawlBudget } from './types';
 
 /** Absolute ceiling for any plan; the crawler service enforces the same value. */
@@ -8,15 +8,13 @@ export const CRAWL_MAX_DEPTH = 3;
 export const CRAWL_TIMEOUT_SECONDS = 35;
 export const CRAWL_MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 
-type Plan = keyof typeof PLAN_LIMITS;
-
-export function normalizePlan(plan: string | undefined): Plan {
-  return plan && plan in PLAN_LIMITS ? (plan as Plan) : 'free';
+export function normalizePlan(plan: string | undefined): string {
+  return plan && planExists(plan) ? plan : FREE_PLAN_KEY;
 }
 
-/** Server-owned crawl budget for a plan. */
+/** Server-owned crawl budget for a plan. Callers should `await loadPlans()` first. */
 export function getCrawlBudget(plan: string | undefined): CrawlBudget {
-  const pages = PLAN_LIMITS[normalizePlan(plan)].crawlPagesPerCrawl;
+  const pages = planLimits(normalizePlan(plan)).crawlPagesPerCrawl;
   return {
     maxPages: Math.min(pages, CRAWL_PAGE_HARD_MAX),
     maxDepth: CRAWL_MAX_DEPTH,
@@ -27,5 +25,5 @@ export function getCrawlBudget(plan: string | undefined): CrawlBudget {
 
 /** Plans for which a page-cap notice should suggest upgrading. */
 export function canUpgradeCrawlPages(plan: string | undefined): boolean {
-  return normalizePlan(plan) !== 'pro';
+  return hasHigherPlan(normalizePlan(plan));
 }

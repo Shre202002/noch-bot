@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { Db } from 'mongodb';
 import { getUserIdFromCookie } from '@/lib/auth';
 import { getDb } from '@/lib/db';
+import { resolvePlanKey } from '@/lib/plans';
 import {
   additionKindError,
   additionLimitError,
@@ -13,6 +14,7 @@ import { pdfToPoints } from '@/lib/pdfIngest';
 import { NOT_DELETED } from '@/lib/pdfRetention';
 import { deriveStatus } from '@/lib/pdfStatus';
 import { findAccountById } from '@/lib/storage';
+import { requireVerifiedEmail } from '@/lib/emailVerification';
 import { appendRows, backfillRowKeys, ensureLibraryIndexes, refreshColumnStats, type AppendSummary } from '@/lib/tabularLibrary';
 import { describeSheet, detectDocumentKind, parseTabular, TabularParseError, type TabularSheet } from '@/lib/tabularParser';
 import type { StoredSheet } from '@/lib/tabularQuery';
@@ -53,6 +55,8 @@ export async function POST(req: NextRequest) {
   try {
     const userId = await getUserIdFromCookie();
     if (!userId) return fail('Not authenticated.', 401);
+    const unverified = await requireVerifiedEmail(userId);
+    if (unverified) return unverified;
 
     const form = await req.formData();
     const file = form.get('file');
@@ -69,7 +73,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Cheap checks first: plan limit, size, kind. Nothing is parsed or embedded for a file that will be refused.
-    const plan = (await findAccountById(userId))?.plan || 'free';
+    const plan = await resolvePlanKey(await findAccountById(userId));
     const limit = additionLimitFor(plan);
     const used = Array.isArray(doc.additions) ? doc.additions.length : 0;
     const limitError = additionLimitError(plan, used);
