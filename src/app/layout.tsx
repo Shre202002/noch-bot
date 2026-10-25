@@ -26,10 +26,10 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL("https://nochbot.space"),
   title: {
-    default: "NochBot | AI Chatbot Platform",
+    default: "AI Chatbot for Your Website, Trained on Your Data | NochBot",
     template: "%s | NochBot",
   },
-  description: "NochBot — Deploy your own branded AI chatbot, trained on your data. Multi-tenant. Instant. Powered by Groq LLaMA.",
+  description: "Add an AI chatbot to your website in minutes. NochBot answers from your pages, PDFs and spreadsheets, and takes event bookings with payments and QR tickets. Start free.",
   keywords: [
     "AI chatbot",
     "SaaS chatbot",

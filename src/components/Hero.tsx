@@ -51,7 +51,8 @@ export function Hero() {
           transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
           className={`${showComplexEffects ? 'hero-wordmark' : 'hero-wordmark-static'} select-none text-[clamp(4rem,18vw,16rem)] font-bold leading-[0.85] tracking-[-0.04em]`}
         >
-          NOCHBOT
+          <span aria-hidden="true">NOCHBOT</span>
+          <span className="sr-only">NochBot: an AI chatbot for your website, trained on your own content</span>
         </motion.h1>
 
         <motion.p

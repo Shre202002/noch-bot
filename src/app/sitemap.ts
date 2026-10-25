@@ -1,9 +1,18 @@
 import { MetadataRoute } from "next";
+import { SEO_PAGES } from "@/lib/seoPages";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = "https://nochbot.space";
 
+  const landingPages: MetadataRoute.Sitemap = SEO_PAGES.map((p) => ({
+    url: `${baseUrl}/${p.slug}`,
+    lastModified: new Date(),
+    changeFrequency: "monthly",
+    priority: 0.9,
+  }));
+
   return [
+    ...landingPages,
     {
       url: baseUrl,
       lastModified: new Date(),
@@ -38,36 +47,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
       url: `${baseUrl}/register`,
       lastModified: new Date(),
       changeFrequency: "monthly",
-      priority: 0.5,
-    },
-    {
-      url: `${baseUrl}/dashboard`,
-      lastModified: new Date(),
-      changeFrequency: "daily",
-      priority: 0.7,
-    },
-    {
-      url: `${baseUrl}/dashboard/analytics`,
-      lastModified: new Date(),
-      changeFrequency: "daily",
-      priority: 0.6,
-    },
-    {
-      url: `${baseUrl}/dashboard/history`,
-      lastModified: new Date(),
-      changeFrequency: "daily",
-      priority: 0.6,
-    },
-    {
-      url: `${baseUrl}/dashboard/configure`,
-      lastModified: new Date(),
-      changeFrequency: "weekly",
-      priority: 0.6,
-    },
-    {
-      url: `${baseUrl}/dashboard/embed`,
-      lastModified: new Date(),
-      changeFrequency: "weekly",
       priority: 0.5,
     },
   ];
