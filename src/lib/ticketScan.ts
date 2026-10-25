@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import type { Db, ObjectId } from 'mongodb';
-import { attendeeNameFrom } from './ticketLinks';
+import { attendeesOf, ticketAttendeeName } from './ticketLinks';
 
 /**
  * The one set of rules for admitting a ticket at the door, used by every scanner entry point (staff token API and the
@@ -73,7 +73,7 @@ export async function scanTicket(db: Db, request: ScanRequest): Promise<ScanOutc
 
   // Only tickets of confirmed bookings admit anyone (e.g. not one refunded after a late payment).
   if (booking && booking.status !== 'confirmed') return { code: 'not_confirmed' };
-  const attendeeName = attendeeNameFrom(booking?.attendee?.answers);
+  const attendeeName = ticketAttendeeName(attendeesOf(booking ?? {}), ticket.ticket_index ?? 0);
 
   const claimed = await db.collection('tickets').findOneAndUpdate(
     { ticket_code: ticketCode, status: 'active' },

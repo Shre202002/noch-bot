@@ -23,20 +23,16 @@ function getMongoConfig() {
 export async function getClient(): Promise<MongoClient> {
   const { uri } = getMongoConfig();
 
-  if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
-    if (!global._mongoClient || global._mongoClientUri !== uri) {
-      if (global._mongoClient) {
-        await global._mongoClient.close();
-      }
-      global._mongoClient = new MongoClient(uri);
-      await global._mongoClient.connect();
-      global._mongoClientUri = uri;
+  // Cache in every environment: a fresh connect per call costs a TLS handshake and leaks sockets.
+  if (!global._mongoClient || global._mongoClientUri !== uri) {
+    if (global._mongoClient) {
+      await global._mongoClient.close();
     }
-    client = global._mongoClient;
-  } else {
-    client = new MongoClient(uri);
-    await client.connect();
+    global._mongoClient = new MongoClient(uri, { maxPoolSize: 20, serverSelectionTimeoutMS: 8000 });
+    await global._mongoClient.connect();
+    global._mongoClientUri = uri;
   }
+  client = global._mongoClient;
   return client;
 }
 

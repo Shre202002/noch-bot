@@ -652,7 +652,9 @@
     if (field.validation_rule === 'email_format') hint = ' (your tickets will be emailed here)';
     else if (field.field_type === 'date') hint = ' (for example 2026-10-20)';
     else if (field.validation_rule === 'phone_format') hint = ' (digits, optionally starting with +)';
-    var prompt = 'Question ' + index + ' of ' + state.embedFields.length + ': ' + field.label + hint +
+    var guests = state.embedSession.quantity || 1;
+    var who = guests > 1 ? ' for attendee ' + ((state.embedSession.current_attendee_index || 0) + 1) + ' of ' + guests : '';
+    var prompt = 'Question ' + index + ' of ' + state.embedFields.length + ': ' + field.label + who + hint +
       (field.is_required ? '' : '\nOptional: reply "skip" to leave it out.');
 
     var actions = [];
@@ -700,7 +702,7 @@
     if (event.venue) lines.push('Where: ' + event.venue);
     lines.push('Tickets: ' + quantity);
     (session.answers || []).forEach(function (a) {
-      if (a.value !== '' && a.value !== null && a.value !== undefined) lines.push(a.label + ': ' + a.value);
+      if (a.value !== '' && a.value !== null && a.value !== undefined) lines.push(a.label + (a.attendee ? ' (attendee ' + a.attendee + ')' : '') + ': ' + a.value);
     });
     var paid = event.is_paid && event.price;
     lines.push('Total: ' + (paid ? formatMoney(event.price * quantity, event.currency) : 'Free'));

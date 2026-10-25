@@ -19,8 +19,11 @@ export interface BookingSession {
     label: string;
     field_type: string;
     value: any;
+    /** 1-based attendee number; only set when quantity > 1. */
+    attendee?: number;
   }>;
   current_field_index: number;
+  current_attendee_index?: number;
   quantity: number;
   booking_id?: ObjectId;
   checkout_url?: string;

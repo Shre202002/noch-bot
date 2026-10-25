@@ -1,5 +1,5 @@
 import { getDb } from "./db";
-import { Collection, ObjectId } from "mongodb";
+import { Collection, Db, ObjectId } from "mongodb";
 
 // ─────────────────────────────────────────────
 // TYPES
@@ -108,6 +108,7 @@ export interface AnalyticsEvent {
 
 async function getAccountsCollection(): Promise<Collection<Account>> {
   const db = await getDb();
+  await ensureCoreIndexes(db);
   return db.collection<Account>("accounts");
 }
 
@@ -116,16 +117,39 @@ async function getKnowledgeCollection(): Promise<Collection<KnowledgeData>> {
   return db.collection<KnowledgeData>("knowledge");
 }
 
+// Index creation is a round trip each; run once per process per DB, not per request.
+let indexesReady: Promise<void> | null = null;
+let indexesDbKey = "";
+
+async function ensureCoreIndexes(db: Db): Promise<void> {
+  if (indexesDbKey !== db.databaseName) {
+    indexesDbKey = db.databaseName;
+    indexesReady = null;
+  }
+  indexesReady ??= (async () => {
+    const analytics = db.collection("analytics_events");
+    await Promise.all([
+      analytics.createIndex({ userId: 1 }),
+      analytics.createIndex({ event: 1 }),
+      analytics.createIndex({ createdAt: 1 }),
+      analytics.createIndex({ sessionId: 1 }),
+      analytics.createIndex({ visitorId: 1 }),
+      db.collection("accounts").createIndex({ id: 1 }),
+      db.collection("accounts").createIndex({ email: 1 }),
+      db.collection("knowledge").createIndex({ userId: 1 }),
+      db.collection("messages").createIndex({ userId: 1, role: 1, createdAt: -1 }),
+    ]);
+  })().catch((err) => {
+    indexesReady = null; // retry on next call
+    console.error("[storage] ensureCoreIndexes failed", err);
+  });
+  return indexesReady;
+}
+
 async function getAnalyticsCollection(): Promise<Collection<AnalyticsEvent>> {
   const db = await getDb();
-  const coll = db.collection<AnalyticsEvent>("analytics_events");
-  // Ensure indexes
-  await coll.createIndex({ userId: 1 });
-  await coll.createIndex({ event: 1 });
-  await coll.createIndex({ createdAt: 1 });
-  await coll.createIndex({ sessionId: 1 });
-  await coll.createIndex({ visitorId: 1 });
-  return coll;
+  await ensureCoreIndexes(db);
+  return db.collection<AnalyticsEvent>("analytics_events");
 }
 
 // ─────────────────────────────────────────────

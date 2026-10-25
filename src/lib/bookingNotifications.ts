@@ -1,7 +1,7 @@
 import { ObjectId } from 'mongodb';
 import { getDb } from './db';
 import { findAccountById } from './storage';
-import { ticketPageUrl } from './ticketLinks';
+import { attendeesOf, ticketPageUrl } from './ticketLinks';
 
 /**
  * Emails sent around a booking: the attendee's tickets once a booking is confirmed, and an alert to the organizer
@@ -74,17 +74,40 @@ export async function notifyBookingConfirmed(bookingId: ObjectId, deps?: Deps): 
         ? `${base}${ticketPageUrl(bookingId.toString(), booking.org_id, booking.visitor_id)}`
         : null;
 
+    // Each attendee with their own email gets their own ticket; everyone else's tickets go to the booker, who also
+    // gets the link to all tickets (the link opens the whole booking, so it is not passed around).
+    const attendees = attendeesOf(booking);
+    const perRecipient = new Map<string, string[]>([[to, []]]);
+    codes.forEach((code: string, i: number) => {
+      const own = attendees.length > 1 ? attendees[i]?.email : null;
+      const recipient = own ?? to;
+      perRecipient.set(recipient, [...(perRecipient.get(recipient) ?? []), code]);
+    });
+    // The booker always hears about the booking, even if every ticket went to other attendees.
+    if (!perRecipient.get(to)?.length) perRecipient.set(to, []);
+
     const mailer = await loadMailer(deps);
-    await mailer.sendTicketEmail({
-      to,
+    const common = {
       eventName: event?.name ?? booking.event_snapshot?.name ?? 'Your event',
       when: formatWhen(event?.start_at ?? booking.event_snapshot?.start_at),
       venue: event?.venue ?? booking.event_snapshot?.venue ?? null,
-      quantity: booking.quantity ?? codes.length,
       bookingCode: booking.booking_code ?? null,
-      ticketCodes: codes,
-      ticketUrl,
-    });
+    };
+    const results = await Promise.allSettled(
+      [...perRecipient].map(([recipient, mine]) =>
+        mailer.sendTicketEmail({
+          ...common,
+          to: recipient,
+          quantity: mine.length || (booking.quantity ?? codes.length),
+          ticketCodes: mine.length ? mine : codes,
+          ticketUrl: recipient === to ? ticketUrl : null,
+        })
+      )
+    );
+    const failed = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+    if (failed.length === results.length) throw failed[0].reason;
+    // Some sent: keep the marker so a retry does not email the others twice.
+    for (const f of failed) console.error(`[booking-email] one ticket email failed for booking ${bookingId}:`, f.reason);
     return true;
   } catch (err) {
     console.error(`[booking-email] could not email tickets for booking ${bookingId}:`, err);

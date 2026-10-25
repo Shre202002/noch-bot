@@ -115,7 +115,13 @@ export function bookingAnswers(booking: Record<string, any>, labels: Map<string,
 
   for (const a of Array.isArray(booking.attendee?.answers) ? booking.attendee.answers : []) {
     const value = show(a?.value);
-    if (value != null) out.push({ label: String(a?.label ?? humanize(String(a?.field_id ?? 'Answer'))), value });
+    if (value != null) {
+      out.push({
+        label: String(a?.label ?? humanize(String(a?.field_id ?? 'Answer'))),
+        value,
+        ...(typeof a?.attendee === 'number' ? { attendee: a.attendee } : {}),
+      });
+    }
   }
 
   const responses = booking.form_responses;

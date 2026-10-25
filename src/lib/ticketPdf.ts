@@ -12,6 +12,8 @@ export interface TicketPdfInput {
   venue: string | null;
   bookingCode: string | null;
   attendeeName: string | null;
+  /** Name per ticket, in `ticketCodes` order; a ticket without one falls back to `attendeeName`. */
+  attendeeNames?: Array<string | null>;
   ticketCodes: string[];
   /** Hex colour from the event's ticket palette, used for the header band. */
   accentColor?: string | null;
@@ -113,7 +115,8 @@ export async function buildTicketPdf(input: TicketPdfInput): Promise<Uint8Array>
     };
     detail('When', formatWhen(input.startAt));
     if (input.venue) detail('Where', input.venue);
-    if (input.attendeeName) detail('Attendee', input.attendeeName);
+    const name = input.attendeeNames ? input.attendeeNames[index] : input.attendeeName;
+    if (name) detail('Attendee', name);
 
     // QR code + code
     const qrSize = 170;

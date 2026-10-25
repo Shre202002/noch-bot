@@ -177,26 +177,36 @@ describe("processBookingMessage: collecting_fields", () => {
     expect(good.conversation_state).toBe("reviewing");
   });
 
-  it("advances to the next attendee after the last field of an attendee", () => {
+  it("asks the same field for every attendee before moving to the next field", () => {
     const booking = makeBooking({
-      quantity: 2,
+      quantity: 3,
       conversation_state: "collecting_fields",
       session_context: {
-        current_field_index: 1, // email: the last field for attendee 0
+        current_field_index: 0, // name
         current_attendee_index: 0,
         last_updated_at: new Date(),
       },
-      form_responses: [{ full_name: "Alice" }, {}],
+      form_responses: [{}, {}, {}],
     });
 
-    const update = processBookingMessage("a@x.com", booking, makeEvent(), fields);
-    expect(update.conversation_state).toBe("collecting_fields");
-    expect(update.session_context.current_attendee_index).toBe(1);
-    expect(update.session_context.current_field_index).toBe(0);
-    expect(update.bot_reply).toContain("attendee #2");
-    expect(update.form_responses).toEqual([
-      { full_name: "Alice", email: "a@x.com" },
-      {},
+    const second = processBookingMessage("Alice", booking, makeEvent(), fields);
+    expect(second.session_context.current_field_index).toBe(0);
+    expect(second.session_context.current_attendee_index).toBe(1);
+    expect(second.bot_reply).toContain("attendee #2");
+
+    const third = processBookingMessage("Bob", { ...booking, ...second }, makeEvent(), fields);
+    expect(third.session_context.current_attendee_index).toBe(2);
+
+    // After the last name, the email question starts again at attendee #1.
+    const emails = processBookingMessage("Carol", { ...booking, ...third }, makeEvent(), fields);
+    expect(emails.conversation_state).toBe("collecting_fields");
+    expect(emails.session_context.current_field_index).toBe(1);
+    expect(emails.session_context.current_attendee_index).toBe(0);
+    expect(emails.bot_reply).toContain("attendee #1");
+    expect(emails.form_responses).toEqual([
+      { full_name: "Alice" },
+      { full_name: "Bob" },
+      { full_name: "Carol" },
     ]);
   });
 

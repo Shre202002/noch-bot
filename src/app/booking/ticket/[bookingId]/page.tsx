@@ -22,8 +22,10 @@ interface TicketData {
   date: string;
   venue: string | null;
   attendee: {
-    answers: Array<{ label: string; value: any }>;
+    answers: Array<{ label: string; value: any; attendee?: number }>;
   };
+  /** Name per ticket, in `ticket_codes` order; null where that attendee gave none. */
+  attendee_names?: Array<string | null>;
   quantity: number;
   ticket_codes: string[];
   is_test?: boolean;
@@ -179,13 +181,20 @@ function TicketViewContent() {
 
   const displayLogo = resolveTicketLogo(data, palette);
 
-  const attendeeName =
-    data.attendee.answers.find((a) => a.label.toLowerCase().includes('name'))?.value?.toString() || 'Guest';
-  const extraDetails = data.attendee.answers
-    .filter((a) => a.value != null && String(a.value) !== '' && !a.label.toLowerCase().includes('name'))
-    .map((a) => ({ label: a.label, value: String(a.value) }));
+  // In a group booking each ticket shows its own attendee's answers; a single ticket shows them all.
+  const answersFor = (index: number) =>
+    data.attendee.answers.filter((a) => data.quantity <= 1 || (a.attendee ?? 1) === index + 1);
 
   const renderTemplate = (code: string, index: number) => {
+    const mine = answersFor(index);
+    const attendeeName =
+      data.attendee_names?.[index] ||
+      mine.find((a) => a.label.toLowerCase().includes('name'))?.value?.toString() ||
+      'Guest';
+    const extraDetails = mine
+      .filter((a) => a.value != null && String(a.value) !== '' && !a.label.toLowerCase().includes('name'))
+      .map((a) => ({ label: a.label, value: String(a.value) }));
+
     if (isFaceTemplate(data.template_id)) {
       return (
         <TicketFace
@@ -223,7 +232,7 @@ function TicketViewContent() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-[10px] font-bold uppercase text-zinc-400 mb-1">Attendee</p>
-                  <p className="text-sm font-bold truncate">{data.attendee.answers.find(a => a.label.toLowerCase().includes('name'))?.value || "N/A"}</p>
+                  <p className="text-sm font-bold truncate">{attendeeName === 'Guest' ? "N/A" : attendeeName}</p>
                 </div>
                 <div>
                   <p className="text-[10px] font-bold uppercase text-zinc-400 mb-1">Date</p>
@@ -277,7 +286,7 @@ function TicketViewContent() {
                 <div className="flex-1 space-y-4 text-left w-full">
                   <div>
                     <p className="text-[9px] font-bold uppercase text-[#a09488]">Attendee Details</p>
-                    <p className="text-sm font-bold">{data.attendee.answers.slice(0, 2).map(a => a.value).join(" • ")}</p>
+                    <p className="text-sm font-bold">{mine.slice(0, 2).map(a => a.value).join(" • ")}</p>
                   </div>
                   <div>
                     <p className="text-[9px] font-bold uppercase text-[#a09488]">Venue & Date</p>

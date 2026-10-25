@@ -21,6 +21,7 @@ function serializeBookingSession(session: any) {
     status: session.status,
     current_step: session.current_step,
     current_field_index: session.current_field_index || 0,
+    current_attendee_index: session.current_attendee_index || 0,
     quantity: session.quantity || 1,
     answers: session.answers || [],
     expires_at: session.expires_at instanceof Date ? session.expires_at.toISOString() : session.expires_at
@@ -98,6 +99,8 @@ export async function PATCH(
         .toArray();
 
       updates.quantity = q;
+      updates.answers = []; // answers are per attendee, so a new quantity starts them over
+      updates.current_attendee_index = 0;
       if (fields.length === 0) {
         updates.current_step = "summary";
         updates.status = "summary";
@@ -142,15 +145,20 @@ export async function PATCH(
         }
       }
 
+      const quantity = session.quantity || 1;
+      const attendeeIndex = session.current_attendee_index || 0;
       const newAnswers = [...(session.answers || [])];
-      const existingIdx = newAnswers.findIndex(a => a.field_id === fieldId);
+      // Group bookings number each attendee's answers from 1; a single ticket keeps the untagged shape.
+      const attendee = quantity > 1 ? attendeeIndex + 1 : undefined;
+      const existingIdx = newAnswers.findIndex(a => a.field_id === fieldId && a.attendee === attendee);
       const answerObj = {
         field_id: fieldId,
         label: currentField.label,
         field_type: currentField.field_type,
         validation_rule: currentField.validation_rule,
         custom_regex: currentField.custom_regex,
-        value: value
+        value: value,
+        ...(attendee ? { attendee } : {})
       };
 
       if (existingIdx > -1) newAnswers[existingIdx] = answerObj;
@@ -158,7 +166,11 @@ export async function PATCH(
 
       updates.answers = newAnswers;
 
-      if (session.current_field_index < fields.length - 1) {
+      // Field-major: the same field for every attendee (all names, then all emails, ...) before the next field.
+      if (attendeeIndex < quantity - 1) {
+        updates.current_attendee_index = attendeeIndex + 1;
+      } else if (session.current_field_index < fields.length - 1) {
+        updates.current_attendee_index = 0;
         updates.current_field_index = session.current_field_index + 1;
       } else {
         updates.current_step = "summary";

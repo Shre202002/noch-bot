@@ -76,10 +76,16 @@ describe("free event booking through the website widget", () => {
       PATCH(json(`/api/embed/bookings/session/${sessionId}`, "PATCH", { userId: ORG, visitorId: VISITOR, ...body }), params({ sessionId }));
 
     expect((await step({ action: "set_quantity", quantity: 2 })).status).toBe(200);
+    // Two tickets: both names come first, then both emails.
     expect((await step({ action: "answer_field", fieldId: nameFieldId, value: "Asha Rao" })).status).toBe(200);
+    const secondName = await (await step({ action: "answer_field", fieldId: nameFieldId, value: "Ravi Rao" })).json();
+    expect(secondName).toMatchObject({ current_field_index: 1, current_attendee_index: 0 });
     expect((await step({ action: "answer_field", fieldId: emailFieldId, value: "not-an-email" })).status).toBe(400);
-    const done = await step({ action: "answer_field", fieldId: emailFieldId, value: "asha@example.com" });
-    expect((await done.json()).current_step).toBe("summary");
+    expect((await step({ action: "answer_field", fieldId: emailFieldId, value: "asha@example.com" })).status).toBe(200);
+    const done = await step({ action: "answer_field", fieldId: emailFieldId, value: "ravi@example.com" });
+    const session = await done.json();
+    expect(session.current_step).toBe("summary");
+    expect(session.answers.filter((a: any) => a.attendee === 2).map((a: any) => a.value)).toEqual(["Ravi Rao", "ravi@example.com"]);
   });
 
   it("confirms immediately, issues 2 signed tickets, counts the seats and emails the attendee", async () => {
@@ -99,10 +105,12 @@ describe("free event booking through the website widget", () => {
     expect(await db.collection("tickets").countDocuments({ booking_id: booking!._id })).toBe(2);
     expect(await db.collection("events").findOne({ _id: eventId })).toMatchObject({ tickets_sold: 2, tickets_held: 0 });
 
-    expect(sendTicketEmail).toHaveBeenCalledTimes(1);
-    const email = sendTicketEmail.mock.calls[0][0] as Record<string, any>;
-    expect(email).toMatchObject({ to: "asha@example.com", eventName: "Community Meetup", quantity: 2, ticketCodes });
-    expect(email.ticketUrl).toContain(`/booking/ticket/${bookingId}`);
+    // Each attendee is emailed their own ticket; only the booker gets the link to the whole booking.
+    expect(sendTicketEmail).toHaveBeenCalledTimes(2);
+    const [first, second] = sendTicketEmail.mock.calls.map((c) => c[0] as Record<string, any>);
+    expect(first).toMatchObject({ to: "asha@example.com", eventName: "Community Meetup", quantity: 1, ticketCodes: [ticketCodes[0]] });
+    expect(first.ticketUrl).toContain(`/booking/ticket/${bookingId}`);
+    expect(second).toMatchObject({ to: "ravi@example.com", quantity: 1, ticketCodes: [ticketCodes[1]], ticketUrl: null });
   });
 
   it("shows the tickets on the ticket page API", async () => {
@@ -121,8 +129,9 @@ describe("free event booking through the website widget", () => {
     const step = (body: Record<string, unknown>) =>
       PATCH(json(`/api/embed/bookings/session/${s.session_id}`, "PATCH", { userId: ORG, visitorId: other, ...body }), params({ sessionId: s.session_id }));
     await step({ action: "set_quantity", quantity: 2 });
-    await step({ action: "answer_field", fieldId: nameFieldId, value: "Ben Lee" });
-    await step({ action: "answer_field", fieldId: emailFieldId, value: "ben@example.com" });
+    for (const [fieldId, value] of [[nameFieldId, "Ben Lee"], [nameFieldId, "Amy Lee"], [emailFieldId, "ben@example.com"], [emailFieldId, "amy@example.com"]]) {
+      await step({ action: "answer_field", fieldId, value });
+    }
 
     const res = await confirm(json(`/api/embed/bookings/session/${s.session_id}/confirm`, "POST", { userId: ORG, visitorId: other }), params({ sessionId: s.session_id }));
     expect(res.status).toBe(409);

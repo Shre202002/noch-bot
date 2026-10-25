@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { getDb } from "@/lib/db";
 import { formatEventsSource, loadUpcomingEvents } from "@/lib/eventsForChat";
 import { isBookingIntent } from "@/lib/bookingIntent";
@@ -145,26 +145,20 @@ export async function POST(req: NextRequest) {
     let action = null;
 
     // Prompt-injection check: a blocked message never reaches the answering model.
-    const verdict = await checkUserInput(history);
-    if (verdict.blocked) {
-      logBlockedInput("website_chat", verdict, userMessage);
-      text = INJECTION_REPLY;
-    } else {
-      // Intent Detection for Booking
-      // Questions that only mention tickets ("is the price refundable?") are answered, not turned into a booking.
-      if (isBookingIntent(userMessage)) {
-        action = { type: "START_BOOKING" };
-      }
+    // The guard, retrieval, events and identity lookups are independent, so they run together;
+    // a blocked message just discards the retrieval work.
+    const verdictP = checkUserInput(history);
 
-      // Knowledge Search (RAG). Weakly related chunks are dropped so the model
-      // has nothing to improvise from on off-topic questions.
-      let sources: Array<{ label?: string; text: string }> = [];
+    // Knowledge Search (RAG). Weakly related chunks are dropped so the model
+    // has nothing to improvise from on off-topic questions.
+    const sourcesP = (async () => {
+      const found: Array<{ label?: string; text: string }> = [];
       try {
         const queryVector = await embedText(userMessage);
         const searchResult = await searchKnowledgeChunks(userId, queryVector, 5);
-        sources = selectRelevant(searchResult, { minScore: MIN_RELEVANCE_SCORE })
-          .filter((r) => r.text)
-          .map((r) => ({ label: r.title || r.url, text: r.text }));
+        for (const r of selectRelevant(searchResult, { minScore: MIN_RELEVANCE_SCORE })) {
+          if (r.text) found.push({ label: r.title || r.url, text: r.text });
+        }
 
         // Contact requests also get the site's contact details, found with a fixed query whose vector is cached.
         if (CONTACT_INTENT.test(userMessage)) {
@@ -174,27 +168,44 @@ export async function POST(req: NextRequest) {
           });
           const contactResults = await searchKnowledgeChunks(userId, await contactQueryVector, 2);
           for (const r of contactResults) {
-            if (r.text && !sources.some((s) => s.text === r.text)) sources.push({ label: r.title || r.url, text: r.text });
+            if (r.text && !found.some((s) => s.text === r.text)) found.push({ label: r.title || r.url, text: r.text });
           }
         }
       } catch (err) {
         console.warn("[chat_api] knowledge search failed:", (err as Error)?.message);
       }
+      return found;
+    })();
 
-      // The organizer's upcoming events, so questions about dates, prices and seats are answered from real data.
-      let hasEvents = false;
-      try {
-        const events = await loadUpcomingEvents(await getDb(), userId);
-        if (events.length) {
-          hasEvents = true;
-          sources.push({ label: "Upcoming events", text: formatEventsSource(events) });
-        }
-      } catch (err) {
+    // The organizer's upcoming events, so questions about dates, prices and seats are answered from real data.
+    const eventsP = getDb()
+      .then((db) => loadUpcomingEvents(db, userId))
+      .catch((err) => {
         console.warn("[chat_api] events lookup failed:", (err as Error)?.message);
+        return [];
+      });
+    const identityP = loadIdentity(userId);
+
+    const verdict = await verdictP;
+    if (verdict.blocked) {
+      // Settle the speculative lookups so a rejection is never left unhandled.
+      void Promise.allSettled([sourcesP, eventsP, identityP]);
+      logBlockedInput("website_chat", verdict, userMessage);
+      text = INJECTION_REPLY;
+    } else {
+      // Intent Detection for Booking
+      // Questions that only mention tickets ("is the price refundable?") are answered, not turned into a booking.
+      if (isBookingIntent(userMessage)) {
+        action = { type: "START_BOOKING" };
       }
 
+      const sources = await sourcesP;
+      const events = await eventsP;
+      const hasEvents = events.length > 0;
+      if (hasEvents) sources.push({ label: "Upcoming events", text: formatEventsSource(events) });
+
       const sourcesText = wrapSources(sources);
-      const { assistantName, siteName } = await loadIdentity(userId);
+      const { assistantName, siteName } = await identityP;
       const refusal = refusalFor(siteName);
       try {
         const result = await answerWithGuards({
@@ -226,11 +237,19 @@ ${groundedRules(refusal)}`,
       }
     }
 
-    // Save to DB
-    const conversationId = await createOrFindConversation(userId, effectiveSessionId, visitorId, website);
-    await saveMessage({ userId, conversationId, sessionId: effectiveSessionId, role: "user", content: userMessage });
-    await saveMessage({ userId, conversationId, sessionId: effectiveSessionId, role: "assistant", content: text, responseTimeMs: Date.now() - startTime });
-    await updateConversationStats(conversationId);
+    // Persist after the response is sent so the visitor doesn't wait on four DB round trips.
+    const responseTimeMs = Date.now() - startTime;
+    const replyText = text;
+    after(async () => {
+      try {
+        const conversationId = await createOrFindConversation(userId, effectiveSessionId, visitorId, website);
+        await saveMessage({ userId, conversationId, sessionId: effectiveSessionId, role: "user", content: userMessage });
+        await saveMessage({ userId, conversationId, sessionId: effectiveSessionId, role: "assistant", content: replyText, responseTimeMs });
+        await updateConversationStats(conversationId);
+      } catch (err) {
+        console.error("[chat_api] save failed:", err);
+      }
+    });
 
     return NextResponse.json({ text, action, usage: rateCheck }, { headers: corsHeaders });
   } catch (err: any) {

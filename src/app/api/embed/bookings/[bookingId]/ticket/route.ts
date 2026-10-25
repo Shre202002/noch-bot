@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/db";
+import { attendeesOf, ticketAttendeeName } from "@/lib/ticketLinks";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -57,6 +58,7 @@ export async function GET(
       org_id: userId
     });
 
+    const attendees = attendeesOf(booking);
     return NextResponse.json({
       success: true,
       ticket_data: {
@@ -66,6 +68,7 @@ export async function GET(
         date: booking.event_snapshot.start_at,
         venue: booking.event_snapshot.venue,
         attendee: booking.attendee,
+        attendee_names: (booking.ticket_codes ?? []).map((_: string, i: number) => ticketAttendeeName(attendees, i)),
         quantity: booking.quantity,
         ticket_codes: booking.ticket_codes,
         is_test: !!booking.is_test,

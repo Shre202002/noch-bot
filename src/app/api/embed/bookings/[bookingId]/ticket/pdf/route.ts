@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/db";
 import { buildTicketPdf } from "@/lib/ticketPdf";
-import { attendeeNameFrom } from "@/lib/ticketLinks";
+import { attendeeNameFrom, attendeesOf, ticketAttendeeName } from "@/lib/ticketLinks";
 
 export const runtime = "nodejs";
 
@@ -37,12 +37,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ book
       return NextResponse.json({ error: "Tickets are still being issued. Please try again in a moment." }, { status: 409 });
     }
 
+    const attendees = attendeesOf(booking);
     const pdf = await buildTicketPdf({
       eventName: event?.name ?? booking.event_snapshot?.name ?? "Event ticket",
       startAt: event?.start_at ?? booking.event_snapshot?.start_at ?? null,
       venue: event?.venue ?? booking.event_snapshot?.venue ?? null,
       bookingCode: booking.booking_code ?? null,
       attendeeName: attendeeNameFrom(booking.attendee?.answers),
+      attendeeNames: codes.map((_, i) => ticketAttendeeName(attendees, i)),
       ticketCodes: codes,
       accentColor: event?.ticket_color_palette?.accent_color ?? null,
       isTest: !!booking.is_test,

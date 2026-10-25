@@ -139,14 +139,18 @@ function handleFieldInput(
   }
 
   // 3. Logic to advance
-  let nextFieldIndex = current_field_index + 1;
-  let nextAttendeeIndex = current_attendee_index;
+  // Field-major: ask one field for every attendee (all names, then all emails, ...) before the next field.
+  let nextFieldIndex = current_field_index;
+  let nextAttendeeIndex = current_attendee_index + 1;
 
+  if (nextAttendeeIndex >= booking.quantity) {
+    nextAttendeeIndex = 0;
+    nextFieldIndex++;
+  }
+  // Past the last field the cursor stays on the last field/attendee; getNextState moves to reviewing.
   if (nextFieldIndex >= fields.length) {
-    if (nextAttendeeIndex < booking.quantity - 1) {
-      nextFieldIndex = 0;
-      nextAttendeeIndex++;
-    }
+    nextFieldIndex = fields.length - 1;
+    nextAttendeeIndex = booking.quantity - 1;
   }
 
   const nextContext: BookingSessionContext = {

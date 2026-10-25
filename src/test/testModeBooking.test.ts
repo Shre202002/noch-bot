@@ -74,7 +74,9 @@ async function runBooking(eventId: ObjectId, ids: { nameFieldId: string; emailFi
     step(req(`/api/embed/bookings/session/${sessionId}`, "PATCH", { userId: ORG, visitorId: VISITOR, ...body }), params({ sessionId }));
   await patch({ action: "set_quantity", quantity: 2 });
   await patch({ action: "answer_field", fieldId: ids.nameFieldId, value: "Asha Rao" });
+  await patch({ action: "answer_field", fieldId: ids.nameFieldId, value: "Ravi Rao" });
   await patch({ action: "answer_field", fieldId: ids.emailFieldId, value: "asha@example.com" });
+  await patch({ action: "answer_field", fieldId: ids.emailFieldId, value: "ravi@example.com" });
   return { sessionId, session };
 }
 
@@ -191,7 +193,7 @@ describe("a free test booking", () => {
     expect(data.status).toBe("confirmed");
     expect((await db.collection("bookings").findOne({ _id: new ObjectId(data.booking_id) }))?.is_test).toBeUndefined();
     expect(await db.collection("events").findOne({ _id: eventId })).toMatchObject({ tickets_sold: 2 });
-    expect(sendTicketEmail).toHaveBeenCalledTimes(1);
+    expect(sendTicketEmail).toHaveBeenCalledTimes(2); // one ticket email per attendee
   });
 
   it("checks that the seats would exist without taking them", async () => {
