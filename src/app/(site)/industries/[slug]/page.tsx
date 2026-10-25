@@ -1,4 +1,6 @@
 import { notFound } from 'next/navigation';
+import { Pricing } from '@/components/Pricing';
+import { ContactSection } from '@/components/ContactSection';
 import { PageShell } from '@/components/seo/PageShell';
 import { FaqList, H1, H2, HubLink, RelatedLandings } from '@/components/seo/blocks';
 import { InlineCta } from '@/components/seo/InlineCta';
@@ -26,6 +28,10 @@ export default async function IndustryPage({ params }: { params: Promise<{ slug:
 
   return (
     <PageShell
+      after={<>
+        <Pricing />
+        <ContactSection />
+      </>}
       crumbs={[{ name: 'Industries', path: '/industries' }, { name: p.linkLabel }]}
       schema={[breadcrumbLd([{ name: 'Industries', path: '/industries' }, { name: p.linkLabel, path }]), faqLd(p.faqs)]}
     >

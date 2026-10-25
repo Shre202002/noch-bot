@@ -45,7 +45,7 @@ const docs = [
 
 export default function DocsPage() {
   return (
-    <main className="min-h-screen bg-black text-white px-6 py-20">
+    <main className="text-white px-6 pb-20 pt-6">
 
       <div className="mx-auto max-w-6xl">
 

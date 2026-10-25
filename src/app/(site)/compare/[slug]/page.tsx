@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { Pricing } from '@/components/Pricing';
+import { ContactSection } from '@/components/ContactSection';
 import { PageShell } from '@/components/seo/PageShell';
 import { FaqList, H1, H2, HubLink } from '@/components/seo/blocks';
 import { InlineCta } from '@/components/seo/InlineCta';
@@ -40,6 +42,10 @@ export default async function ComparePage({ params }: { params: Promise<{ slug: 
 
   return (
     <PageShell
+      after={<>
+        <Pricing />
+        <ContactSection />
+      </>}
       crumbs={[{ name: 'Compare', path: '/compare' }, { name: compareTitle(c) }]}
       schema={[breadcrumbLd([{ name: 'Compare', path: '/compare' }, { name: compareTitle(c), path: `/compare/${c.slug}` }]), faqLd(faqs)]}
     >

@@ -92,5 +92,5 @@ describe("SEO landing pages", () => {
 });
 
 function r_exists(slug: string): boolean {
-  return existsSync(join(process.cwd(), "src", "app", slug, "page.tsx"));
+  return existsSync(join(process.cwd(), "src", "app", "(site)", slug, "page.tsx"));
 }

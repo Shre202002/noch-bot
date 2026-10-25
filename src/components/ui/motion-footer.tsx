@@ -14,6 +14,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import VideoPlayer from "@/components/ui/video-player";
+import Link from "next/link";
+import { LEGAL_LINKS, PRODUCT_LINKS, RESOURCE_LINKS, USE_CASE_LINKS, type FooterLink } from "@/lib/siteLinks";
 
 // Register ScrollTrigger safely for React
 if (typeof window !== "undefined") {
@@ -213,6 +215,23 @@ const MarqueeItem = () => (
   </div>
 );
 
+function FooterColumn({ title, links, className = "" }: { title: string; links: FooterLink[]; className?: string }) {
+  return (
+    <div className={className}>
+      <h3 className="mb-3 text-[10px] font-bold uppercase tracking-[0.2em] text-foreground/70">{title}</h3>
+      <ul className="space-y-2">
+        {links.map((l) => (
+          <li key={l.href}>
+            <Link href={l.href} className="text-xs leading-tight text-muted-foreground transition-colors hover:text-foreground">
+              {l.label}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export function CinematicFooter() {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const giantTextRef = useRef<HTMLDivElement>(null);
@@ -296,7 +315,7 @@ export function CinematicFooter() {
           <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 mt-20 w-full max-w-5xl mx-auto">
             <h2
               ref={headingRef}
-              className="text-5xl md:text-8xl font-black footer-text-glow tracking-tighter mb-12 text-center"
+              className="text-5xl md:text-8xl font-black footer-text-glow tracking-tighter mb-6 md:mb-12 text-center"
             >
               Ready to begin?
             </h2>
@@ -331,17 +350,12 @@ export function CinematicFooter() {
                 </Dialog>
               </div>
 
-              <div className="flex flex-wrap justify-center gap-3 md:gap-6 w-full mt-2">
-                <MagneticButton as="a" href="/privacy" className="footer-glass-pill px-6 py-3 rounded-full text-muted-foreground font-medium text-xs md:text-sm hover:text-foreground">
-                  Privacy Policy
-                </MagneticButton>
-                <MagneticButton as="a" href="/terms" className="footer-glass-pill px-6 py-3 rounded-full text-muted-foreground font-medium text-xs md:text-sm hover:text-foreground">
-                  Terms of Service
-                </MagneticButton>
-                <MagneticButton as="a" href="/docs" className="footer-glass-pill px-6 py-3 rounded-full text-muted-foreground font-medium text-xs md:text-sm hover:text-foreground">
-                  Documentation
-                </MagneticButton>
-              </div>
+              <nav aria-label="Footer" className="mt-2 grid w-full max-w-4xl grid-cols-3 gap-x-4 gap-y-6 text-left md:grid-cols-4">
+                <FooterColumn title="Product" links={PRODUCT_LINKS} />
+                <FooterColumn title="Resources" links={RESOURCE_LINKS} />
+                <FooterColumn title="Legal" links={LEGAL_LINKS} />
+                <FooterColumn title="Use cases" links={USE_CASE_LINKS} className="hidden md:block" />
+              </nav>
             </div>
           </div>
 

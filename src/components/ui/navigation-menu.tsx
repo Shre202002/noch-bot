@@ -7,10 +7,18 @@ import { cn } from "@/lib/utils";
 import SigninModal from "./signin-modal";
 import SignupModal from "./signup-modal";
 
+// Anchors point at the homepage so they also work from inner pages.
 const navItems = [
-  { name: "Features", href: "#features" },
-  { name: "Process", href: "#process" },
-  { name: "Pricing", href: "#pricing" },
+  { name: "Features", href: "/#features" },
+  { name: "Process", href: "/#process" },
+  { name: "Pricing", href: "/#pricing" },
+];
+
+// Shown beside the anchors from md up; always listed in the phone menu.
+const extraItems = [
+  { name: "Blog", href: "/blog" },
+  { name: "Tools", href: "/tools" },
+  { name: "Docs", href: "/docs" },
 ];
 
 const EXPAND_SCROLL_THRESHOLD = 80;
@@ -145,6 +153,18 @@ export function AnimatedNavFramer() {
               {item.name}
             </motion.a>
           ))}
+
+          {extraItems.map((item) => (
+            <motion.a
+              key={item.name}
+              href={item.href}
+              variants={itemVariants}
+              onClick={(e) => e.stopPropagation()}
+              className="hidden md:inline text-sm font-medium text-muted-foreground hover:text-foreground px-2 py-1 whitespace-nowrap"
+            >
+              {item.name}
+            </motion.a>
+          ))}
           
           <motion.div variants={itemVariants} onClick={(e) => e.stopPropagation()}>
             <SigninModal trigger={
@@ -205,9 +225,11 @@ function MobileNav() {
               {item.name}
             </a>
           ))}
-          <a href="/docs" onClick={close} className="py-3 text-base font-medium text-muted-foreground hover:text-foreground">
-            Docs
-          </a>
+          {extraItems.map((item) => (
+            <a key={item.name} href={item.href} onClick={close} className="py-3 text-base font-medium text-muted-foreground hover:text-foreground">
+              {item.name}
+            </a>
+          ))}
           <div className="flex gap-3 pt-2">
             <SigninModal trigger={
               <button type="button" className="flex-1 py-2.5 text-sm font-medium border rounded-full cursor-pointer">Sign in</button>

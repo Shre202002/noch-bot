@@ -9,8 +9,7 @@ import { EmbedProcess } from '@/components/EmbedProcess';
 import { HowItWorks } from '@/components/HowItWorks';
 import { Pricing } from '@/components/Pricing';
 import { NewsletterPopup } from '@/components/NewsletterPopup';
-import { CinematicFooter } from '@/components/ui/motion-footer';
-import { AnimatedNavFramer } from '@/components/ui/navigation-menu';
+import { SiteChrome } from '@/components/site/SiteChrome';
 import { ContactSection } from '@/components/ContactSection';
 import { UseCaseLinks } from '@/components/seo/UseCaseLinks';
 import { useToast } from '@/hooks/use-toast';
@@ -49,42 +48,37 @@ export function HomePage() {
   const [isNewsletterOpen, setIsNewsletterOpen] = useState(false);
 
   return (
-    <div className="relative w-full selection:bg-white/20 overflow-x-hidden">
+    <SiteChrome pad={false}>
       <Suspense fallback={null}>
         <ResetSuccessToast />
       </Suspense>
 
-      <AnimatedNavFramer />
-      <div className="relative z-10 w-full bg-background border-b border-white/5 rounded-b-[40px] shadow-2xl">
-        <main>
-          <Hero />
-          <Features />
-          <EmbedProcess />
+      <main>
+        <Hero />
+        <Features />
+        <EmbedProcess />
 
-          <AppFlow />
+        <AppFlow />
 
-          <DashboardScrollSection />
+        <DashboardScrollSection />
 
-          <HowItWorks />
+        <HowItWorks />
 
-          <Featured_05 onJoinClick={() => setIsNewsletterOpen(true)} />
+        <Featured_05 onJoinClick={() => setIsNewsletterOpen(true)} />
 
-          <Pricing />
+        <Pricing />
 
-          <GitHubActivity />
+        <GitHubActivity />
 
-          <UseCaseLinks />
+        <UseCaseLinks />
 
-          <ContactSection />
-        </main>
-      </div>
-
-      <CinematicFooter />
+        <ContactSection />
+      </main>
 
       <NewsletterPopup
         isOpen={isNewsletterOpen}
         onClose={() => setIsNewsletterOpen(false)}
       />
-    </div>
+    </SiteChrome>
   );
 }

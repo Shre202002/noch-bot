@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { Pricing } from '@/components/Pricing';
+import { ContactSection } from '@/components/ContactSection';
 import { PageShell } from '@/components/seo/PageShell';
 import { FaqList, H1, H2, HubLink } from '@/components/seo/blocks';
 import { InlineCta } from '@/components/seo/InlineCta';
@@ -41,6 +43,10 @@ export default async function AlternativesPage({ params }: { params: Promise<{ s
 
   return (
     <PageShell
+      after={<>
+        <Pricing />
+        <ContactSection />
+      </>}
       crumbs={[{ name: 'Alternatives', path: '/alternatives' }, { name: alternativesTitle(c) }]}
       schema={[
         breadcrumbLd([{ name: 'Alternatives', path: '/alternatives' }, { name: alternativesTitle(c), path: `/alternatives/${c.slug}` }]),

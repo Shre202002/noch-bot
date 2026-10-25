@@ -11,6 +11,8 @@ import { INDUSTRIES } from "./industries";
 import { CASE_STUDIES } from "./caseStudies";
 import { recommendPlan, supportCostSavings, ticketRevenue } from "./calculators";
 import { rateLimited } from "../ipRateLimit";
+import { SEO_PAGES } from "../seoPages";
+import { USE_CASE_LINKS, PRODUCT_LINKS, RESOURCE_LINKS, LEGAL_LINKS } from "../siteLinks";
 
 const metas = [
   ...COMPETITORS.flatMap((c) => [
@@ -25,7 +27,7 @@ const metas = [
 /** The app route file that serves a path: a folder page or a [slug] page one level down. */
 function routeExists(path: string): boolean {
   const parts = path.split("/").filter(Boolean);
-  const base = join(process.cwd(), "src", "app");
+  const base = join(process.cwd(), "src", "app", "(site)");
   if (existsSync(join(base, ...parts, "page.tsx"))) return true;
   return parts.length > 1 && existsSync(join(base, ...parts.slice(0, -1), "[slug]", "page.tsx"));
 }
@@ -91,6 +93,17 @@ describe("SEO content pages", () => {
     // WhatsApp and live sync may only appear in sentences that say they are not offered.
     for (const sentence of all.split(/(?<=[.!?])\s+/)) {
       if (/live[- ]sync|syncs? live|whatsapp/.test(sentence)) expect(sentence, sentence).toMatch(/\bnot\b|n't|\bno\b/);
+    }
+  });
+});
+
+describe("shared footer links", () => {
+  it("lists every landing page with its label, and every link goes to a page that exists", () => {
+    expect(USE_CASE_LINKS).toEqual(SEO_PAGES.map((p) => ({ href: `/${p.slug}`, label: p.linkLabel })));
+    const paths = new Set(allEntries().map((e) => e.path));
+    for (const l of [...RESOURCE_LINKS, ...LEGAL_LINKS, ...PRODUCT_LINKS]) {
+      const path = l.href.split("#")[0] || "/";
+      expect(paths.has(path) || ["/", "/register", "/docs", "/privacy", "/terms"].includes(path), l.href).toBe(true);
     }
   });
 });

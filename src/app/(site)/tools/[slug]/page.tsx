@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { Pricing } from '@/components/Pricing';
 import { PageShell } from '@/components/seo/PageShell';
 import { H1, HubLink, RelatedLandings } from '@/components/seo/blocks';
 import { InlineCta } from '@/components/seo/InlineCta';
@@ -45,6 +46,9 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
 
   return (
     <PageShell
+      after={<>
+        <Pricing />
+      </>}
       crumbs={[{ name: 'Free tools', path: '/tools' }, { name: t.h1 }]}
       schema={[app, breadcrumbLd([{ name: 'Free tools', path: '/tools' }, { name: t.h1, path }])]}
     >

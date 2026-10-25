@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { PageShell } from '@/components/seo/PageShell';
-import { H1, H2, HubLink, RelatedLandings } from '@/components/seo/blocks';
+import { H1, H2, HubLink, IndexCard, RelatedLandings } from '@/components/seo/blocks';
 import { InlineCta } from '@/components/seo/InlineCta';
 import { LeadForm } from '@/components/seo/LeadForm';
 import { buildMetadata, breadcrumbLd } from '@/lib/seo/meta';
@@ -41,6 +41,18 @@ export default async function BlogPost({ params }: { params: Promise<{ slug: str
 
   return (
     <PageShell
+      after={
+        <section className="border-t border-white/5 px-6 py-16">
+          <div className="mx-auto max-w-[1100px]">
+            <h2 className="text-2xl font-semibold tracking-tight">More guides</h2>
+            <ul className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {POSTS.filter((p) => p.slug !== post.slug).map((p) => (
+                <IndexCard key={p.slug} href={`/blog/${p.slug}`} title={p.h1} body={p.description} />
+              ))}
+            </ul>
+          </div>
+        </section>
+      }
       crumbs={[{ name: 'Blog', path: '/blog' }, { name: post.h1 }]}
       schema={[article, breadcrumbLd([{ name: 'Blog', path: '/blog' }, { name: post.h1, path }])]}
     >
